@@ -36,7 +36,9 @@ function owningBoardTasks(attempt) {
   let board, sawCard = false;
   for (const dir of dirs) {
     let file;
-    try { file = fs.realpathSync(path.join(dir, ".entomatical", "tasks.json")); }
+    // native: on Windows the JS realpath keeps the caller's drive-letter case (VS Code's "c:\") while git worktree list says "C:/",
+    // so one board read twice would look like two claims.
+    try { file = fs.realpathSync.native(path.join(dir, ".entomatical", "tasks.json")); }
     catch (e) { if (e.code === "ENOENT" && attempt.boardRoot === undefined) continue; throw e; }
     if (seen.has(file)) continue;
     seen.add(file);

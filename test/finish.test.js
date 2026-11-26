@@ -1969,7 +1969,7 @@ test("BUG-14: this repository's full-suite checks give Finish room for the slowe
   // Slowest healthy full run measured on a supported host: Windows, 521.3 s (docs/evidence/bug-14-2026-11-23/README.md).
   // The suite lock queues full runs, and the deadline counts that wait (Linux: 79 s of a 186 s Finish check).
   const slowestMs = 521_300, catalogue = readCatalogue(path.join(__dirname, ".."));
-  for (const name of ["test", "parent-test"]) {
+  for (const name of ["test"]) { // the public workflows/checks.json omits the private parent-test
     const [limit] = checkLimitsMs([catalogue[name].run], catalogue);
     assert.ok(limit >= 3 * slowestMs, `${name}: ${limit} ms cannot hold a run behind two others`);
     assert.ok(limit <= 60 * 60_000, `${name}: ${limit} ms no longer stops a stalled suite within the hour`);

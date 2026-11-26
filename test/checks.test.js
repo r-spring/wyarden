@@ -560,7 +560,7 @@ test("BUG-14: the shipped catalogue's limit for the full suite covers its slowes
   // Linux, on main, 23 November 2026: 112 to 132 s (docs/evidence/bug-14-2026-11-23).
   const SLOWEST_RUN_S = 521.3, MEASURED_ALONE_S = 407.9, HEADROOM = 1.25;
   const full = Object.keys(catalogue).filter((name) => /^npm test\b/.test(catalogue[name].run));
-  assert.deepEqual(full, ["test", "parent-test"], "the two entries that run the whole suite");
+  assert.deepEqual(full, ["test"], "the entry that runs the whole suite (the public workflows/checks.json omits the private parent-test)");
   for (const name of full) {
     const { run, minutes } = catalogue[name];
     assert.ok(Number.isInteger(minutes) && minutes * 60 >= SLOWEST_RUN_S * HEADROOM, `${name}: ${minutes} minutes is the slowest run plus a quarter, rounded up`);
