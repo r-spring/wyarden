@@ -1,0 +1,149 @@
+{
+  "id": "d06-tabs-to-spaces",
+  "split": "development",
+  "properties": [
+    "user-corrections",
+    "explicit-exclusions"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Convert src/format.py to four-space indentation and align the editor settings.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        },
+        {
+          "text": "The indentation width is 4 spaces; the earlier request for 2 spaces was changed by the user.",
+          "provenance": "explicit-change"
+        }
+      ],
+      "identifiers": [
+        "src/format.py",
+        "src/legacy.py",
+        ".editorconfig",
+        "indent_size"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "src/format.py contains no tab characters and its code is unchanged otherwise.",
+          "provenance": "user",
+          "covers": [
+            "R1"
+          ]
+        },
+        {
+          "id": "A2",
+          "text": ".editorconfig has indent_size = 4 under [*.py].",
+          "provenance": "user",
+          "covers": [
+            "R3"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "Replace every leading tab in src/format.py with four spaces per tab; change nothing else in that file.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "Leave src/legacy.py exactly as it is.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "In .editorconfig change `indent_size = 2` to `indent_size = 4` in the `[*.py]` section.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": []
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "src/format.py": "def pad(value, width):\n\tif len(value) >= width:\n\t\treturn value\n\treturn value + \" \" * (width - len(value))\n",
+      "src/legacy.py": "def old(x):\n\treturn x\n",
+      ".editorconfig": "root = true\n\n[*.py]\nindent_style = space\nindent_size = 2\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "src/format.py",
+        "text": "\t"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/format.py",
+        "text": "        return value\n"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "src/format.py",
+        "text": "\n  if len(value)"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "src/legacy.py"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": ".editorconfig",
+        "text": "indent_size = 4"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-not-contains",
+        "path": ".editorconfig",
+        "text": "indent_size = 2"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

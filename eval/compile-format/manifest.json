@@ -1,0 +1,75 @@
+{
+  "name": "compile-format comparison",
+  "version": 1,
+  "source": "Authored miniature task records in cases/, frozen rubric.md and the illustrative source contract in test/fixtures/compile/document-example.source.xml.",
+  "condition": "clarified-specification comparison: every format receives the same validated task record (identical semantic content), rendered by src/compile.ts",
+  "formats": [
+    "xml",
+    "markdown",
+    "json"
+  ],
+  "shortening": {
+    "condition": "xml-short",
+    "kind": "information removal, not serialization",
+    "how": "the XML rendering of a copy of the record with every requirement rationale blanked and context.facts removed (lib.js shortRecord); compared separately from the three formats, never pooled with them",
+    "label": "orchestrator choice"
+  },
+  "executor": {
+    "model": "fable",
+    "effort": "medium",
+    "effortLabel": "orchestrator choice: the repo's textJob default (src/forecast-worker.ts); the document names Fable 5.1 but no effort",
+    "tools": [
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep"
+    ],
+    "toolsLabel": "agent choice: the smallest set that can do a file edit/creation task; no Bash, no network, no subagents",
+    "permissionMode": "dontAsk",
+    "permissionModeLabel": "agent choice: --print cannot answer a permission prompt, so allowed tools run and anything else is denied; identical for every condition",
+    "settings": {
+      "fallbackModel": [],
+      "switchModelsOnFlag": false
+    },
+    "settingsLabel": "agent choice, repo precedent: src/forecast-worker.ts passes the same --settings to its text job so the CLI cannot substitute a model",
+    "extraFlags": [
+      "--strict-mcp-config",
+      "--tools <same list>"
+    ],
+    "extraFlagsLabel": "agent choice: no MCP servers from the account's config; --tools restricts the tool set, --allowedTools pre-approves it",
+    "outputRequirement": "fixed by each record's outcome.deliverable; the harness adds no instruction of its own to the prompt",
+    "timeoutMs": 600000,
+    "timeoutLabel": "agent choice: a run is killed after 10 minutes and recorded as status 'timeout' (excluded from completion, counted in the denominators)"
+  },
+  "invocation": {
+    "template": "claude --print --model fable --effort medium --output-format json --verbose --no-session-persistence --permission-mode dontAsk --allowedTools Read,Edit,Write,Glob,Grep --tools Read,Edit,Write,Glob,Grep --strict-mcp-config --settings {\"fallbackModel\":[],\"switchModelsOnFlag\":false} --name \"Entomatical eval <case> <format> <repeat>\"",
+    "stdin": "the rendered prompt, verbatim (no shell interpolation, no command-line length limit)",
+    "cwd": "the fresh working directory of the run",
+    "env": "process env stripped as in src/forecast-worker.ts environment() (CLAUDECODE, CLAUDE_CONFIG_DIR, CLAUDE_CODE_EFFORT_LEVEL, ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, CLAUDE_CODE_OAUTH_TOKEN, OPENAI_API_KEY removed) plus CLAUDE_CONFIG_DIR = the chosen account's folder",
+    "binary": "%USERPROFILE%\\.local\\bin\\claude.exe on Windows when present, otherwise `claude` on PATH (same as src/forecast-worker.ts)"
+  },
+  "startingState": "a fresh temp directory per run containing the case's fixture files, then `git init` and one commit (so file-unchanged can also be checked with git); the account's own CLAUDE.md under CLAUDE_CONFIG_DIR, if any, is part of the starting state and its sha256 is recorded in the receipt",
+  "accounts": null,
+  "accountsLabel": "to be chosen by the user; null until then. A live run needs --config-dir <folder> on the command line",
+  "cases": {
+    "source": "AUTHORED specifications (the document asks for the condition properties, not an importer of real sessions); each is a valid TaskRecord with status ready plus a fixture and a mechanical rubric",
+    "count": 24,
+    "development": 16,
+    "heldOut": 8,
+    "sizeLabel": "Authored corpus: 16 development and 8 held-out cases; a practical starting size, not a power calculation.",
+    "splitRule": "split is fixed per case in cases/<id>.json; any tuning of the renderers or the rubric may look at development cases only; held-out cases are graded once with the frozen rubric and reported separately",
+    "coverage": "each of the six document properties is covered by at least 3 cases, and by at least one case in each split (checked by validate.js)"
+  },
+  "repeats": {
+    "firstPass": 1,
+    "closeComparisonRepeats": 2,
+    "closeRule": "a per-case correct-completion difference of at most 1 requirement between the top two formats",
+    "label": "orchestrator choice; report.js lists which cases qualify after the first pass"
+  },
+  "measures": "see rubric.md (frozen); the unit for tokens is the repo's: input + cacheRead + cacheWrite + output from the CLI's result record",
+  "costJudgement": "'acceptable total cost' is the user's judgement; the report shows totals and never recommends on cost by itself",
+  "hashes": {
+    "note": "filled by run.js --dry-run into out/manifest-resolved.json; sha256 of rubric.md and of the cases directory so later tuning is detectable"
+  }
+}

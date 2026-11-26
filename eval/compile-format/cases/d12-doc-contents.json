@@ -1,0 +1,149 @@
+{
+  "id": "d12-doc-contents",
+  "split": "development",
+  "properties": [
+    "explicit-exclusions",
+    "awkward-identifiers"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Add a contents list to docs/guide.md.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        }
+      ],
+      "identifiers": [
+        "## Use `--dry-run`",
+        "## FAQ & Tips",
+        "docs/guide.md"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "docs/guide.md has a Contents section with three links and the three original headings are byte-identical.",
+          "provenance": "user",
+          "covers": [
+            "R1",
+            "R2"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "Insert a \"## Contents\" section directly after the title line of docs/guide.md, containing a Markdown list with one link per existing `##` heading.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "Do not change any existing heading text, including `--dry-run` and the ampersand in `FAQ & Tips`.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "Use GitHub-style heading anchors for the links.",
+        "provenance": "user",
+        "strength": "preference",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": [
+        {
+          "text": "Editing docs/api.md.",
+          "provenance": "user"
+        }
+      ]
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "docs/guide.md": "# Guide\n\n## Install\n\nRun the installer.\n\n## Use `--dry-run`\n\nPass `--dry-run` to preview.\n\n## FAQ & Tips\n\nNone yet.\n",
+      "docs/api.md": "# API\n\nNothing here.\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/guide.md",
+        "text": "## Contents"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "manual",
+        "path": "docs/guide.md",
+        "note": "Contents list has three links, one per heading, placed after the title"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/guide.md",
+        "text": "## Use `--dry-run`"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/guide.md",
+        "text": "## FAQ & Tips"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/guide.md",
+        "text": "## Install"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "manual",
+        "path": "docs/guide.md",
+        "note": "anchors are GitHub-style (lower-case, hyphens, punctuation dropped)"
+      }
+    },
+    {
+      "requirement": "prohibited[0]",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "docs/api.md"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

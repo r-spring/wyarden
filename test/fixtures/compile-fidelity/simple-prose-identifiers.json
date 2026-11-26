@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "status": "ready",
+  "outcome": {
+    "goal": "Cap the draft at 24,000 characters.",
+    "deliverable": "The cap and a test.",
+    "beneficiary": "the compile stage"
+  },
+  "context": {
+    "facts": [
+      {
+        "text": "Refinement already enforces 24,000 characters for drafts and 8,000 for answers.",
+        "provenance": "user"
+      }
+    ],
+    "identifiers": [
+      "--safe-mode",
+      "docs/refinement-prompt.md",
+      "MAX_TEXT"
+    ],
+    "sources": [],
+    "dependencies": []
+  },
+  "success": {
+    "criteria": []
+  },
+  "requirements": [
+    {
+      "id": "R1",
+      "text": "Fail within 120 s.",
+      "provenance": "user",
+      "strength": "mandatory",
+      "rationale": "The host times out at 120 s."
+    },
+    {
+      "id": "R2",
+      "text": "Accept a 5% size overhead for escaping.",
+      "provenance": "user",
+      "strength": "tradeoff",
+      "rationale": ""
+    }
+  ],
+  "permissions": {
+    "authorized": [],
+    "confirm": [
+      {
+        "text": "changing the 8,000 character answers limit",
+        "provenance": "user"
+      }
+    ],
+    "prohibited": []
+  },
+  "unresolved": [],
+  "conflicts": []
+}

@@ -1,0 +1,6 @@
+# The retrospective library's digest (QUICKREF.md) holds a checksum of the YAML files beside it,
+# so those files must have the same bytes on every checkout, Windows included.
+.claude/retrospective/** text eol=lf
+
+# Linux launches this wrapper directly through its shebang.
+wrapper/entomatical-claude.js text eol=lf

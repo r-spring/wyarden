@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://entomatical.local/schemas/orchestrator.schema.json",
+  "title": "Entomatical orchestrator files",
+  "description": "Shapes for board.js and the board: a request body per op (written by tools/board.js to <repo>/.entomatical/inbox/<nonce>.json and checked by validateRequest in src/orchestrator.ts), the caps file (board.js plan --caps-file), the policy file (board.js plan --policy-file) and <repo>/.entomatical/capabilities.json (written by publishCapabilities in src/board.ts). Agents run board.js; they do not write inbox files by hand. test/agent-schemas.test.js fails when this file and the code drift. Rules the board checks against live state (rights, caps, accounts, models, checks) are listed in docs/agents/README.md.",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/capsFile" },
+    { "$ref": "#/$defs/policyFile" },
+    { "$ref": "#/$defs/capabilities" }
+  ],
+  "$defs": {
+    "cardId": {
+      "description": "A board card id: six lowercase hex digits, for example 0db6d1.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{6}$"
+    },
+    "plainText": {
+      "description": "Text with no control characters except tab, new line and carriage return.",
+      "type": "string",
+      "pattern": "^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$"
+    },
+    "common": {
+      "description": "Fields every request carries. board.js fills them in: by from ENTOMATICAL_TASK, session from the runtime's session id (CLAUDE_CODE_SESSION_ID, CODEX_THREAD_ID or ENTOMATICAL_SESSION), at the time. Unknown fields for an op are refused: Unknown field \"k\" for op.",
+      "type": "object",
+      "required": ["v", "op", "by"],
+      "properties": {
+        "v": { "description": "Request version. Must be 1.", "const": 1 },
+        "op": { "description": "The verb.", "enum": ["add", "send", "receive", "stop", "resume", "done", "cancel", "adopt", "rebind", "ready", "note", "plan", "discard", "switch", "finish", "screen", "type", "claim", "claim-tree", "request-takeover", "handoff", "turn-done", "submit", "integrate", "readiness", "council"] },
+        "by": { "$ref": "#/$defs/cardId", "description": "The calling card (ENTOMATICAL_TASK). Missing: \"Missing by: run this from a task session\"." },
+        "session": { "description": "The caller's session id. Must equal the card's bound controller, else \"Not bound\". null or missing is refused by the rights check.", "type": ["string", "null"] },
+        "at": { "description": "When the request was written (ISO 8601). Not text: the board uses its own clock.", "type": "string" },
+        "nonce": { "description": "Ignored in the body: the board takes the nonce from the file name.", "type": "string" },
+        "protocol": { "description": "Phase 3: the client's board.js protocol (3 carries governed fields). board.js sends it when capabilities.json says protocolVersion 3. A card of a governed run is refused add, submit, switch and resume below protocol 3.", "type": "integer", "minimum": 1 }
+      }
+    },
+    "request": {
+      "description": "One inbox request, by op.",
+      "oneOf": [
+        { "$ref": "#/$defs/add" }, { "$ref": "#/$defs/submit" }, { "$ref": "#/$defs/send" }, { "$ref": "#/$defs/receive" }, { "$ref": "#/$defs/stop" }, { "$ref": "#/$defs/resume" },
+        { "$ref": "#/$defs/done" }, { "$ref": "#/$defs/cancel" }, { "$ref": "#/$defs/adopt" }, { "$ref": "#/$defs/rebind" }, { "$ref": "#/$defs/ready" },
+        { "$ref": "#/$defs/note" }, { "$ref": "#/$defs/plan" }, { "$ref": "#/$defs/discard" }, { "$ref": "#/$defs/switch" }, { "$ref": "#/$defs/finish" }, { "$ref": "#/$defs/screen" }, { "$ref": "#/$defs/type" },
+        { "$ref": "#/$defs/claim" }, { "$ref": "#/$defs/claim-tree" }, { "$ref": "#/$defs/request-takeover" }, { "$ref": "#/$defs/handoff" }, { "$ref": "#/$defs/turn-done" }, { "$ref": "#/$defs/integrate" }, { "$ref": "#/$defs/readiness" }, { "$ref": "#/$defs/council" }
+      ]
+    },
+    "reason": {
+      "description": "Why (--reason): not blank, at most 500 characters, trimmed. Kept in the card's transfer record and .entomatical/transfers.jsonl.",
+      "allOf": [{ "$ref": "#/$defs/plainText" }], "minLength": 1, "maxLength": 500
+    },
+    "claim": {
+      "description": "board.js claim <id> --reason R (F95): take control of a card another run left behind. Without asking only when every holder (its opener chain and its watcher) is Done, cancelled, gone or idle with no live session for entomatical.orchestrator.claimAfterMinutes (default 30; no wait for an earlier run of the same plan file), the card and its subtree have no live session, the user did not take it over, and nobody claimed it in the last hour. The caller is the run's root, or a coordinator whose caps carry mayClaim 1. Allowed in a plan-file run.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "required": ["op", "id", "reason"],
+      "properties": { "op": { "const": "claim", "description": "claim" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "id": { "$ref": "#/$defs/cardId", "description": "The card to claim." },
+        "reason": { "$ref": "#/$defs/reason", "description": "Why you take it." } }
+    },
+    "claim-tree": {
+      "description": "board.js claim-tree <root> --reason R (F95): claim every open card of a finished or idle run (same rules as claim, for the root). Live cards, the cards above and under them and their watched cards stay and are listed; the root itself stays with the user.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "required": ["op", "id", "reason"],
+      "properties": { "op": { "const": "claim-tree", "description": "claim-tree" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "id": { "$ref": "#/$defs/cardId", "description": "The other run's root orchestrator card." },
+        "reason": { "$ref": "#/$defs/reason", "description": "Why you take them." } }
+    },
+    "request-takeover": {
+      "description": "board.js request-takeover <id> --reason R (F95): when claim is refused, ask the user. A notification with Approve (the card moves to you, live or not) and Deny; a live owner is told and may hand it over first. The answer comes as a message to you.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "required": ["op", "id", "reason"],
+      "properties": { "op": { "const": "request-takeover", "description": "request-takeover" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "id": { "$ref": "#/$defs/cardId", "description": "The card you want." },
+        "reason": { "$ref": "#/$defs/reason", "description": "Why, for the user." } }
+    },
+    "handoff": {
+      "description": "board.js handoff <id|self> --to <card> [--reason R] (F95): give a card you control, with its subtree, or (self) every open card you opened, to another orchestrator card that is not Done or cancelled. No approval needed.",
+      "allOf": [{ "$ref": "#/$defs/common" }, { "description": "A card id or self, not both.", "oneOf": [{ "required": ["id"] }, { "required": ["self"] }] }], "unevaluatedProperties": false, "required": ["op", "to"],
+      "properties": { "op": { "const": "handoff", "description": "handoff" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "id": { "$ref": "#/$defs/cardId", "description": "The card to give." },
+        "self": { "description": "true: every open card you opened.", "const": true },
+        "to": { "$ref": "#/$defs/cardId", "description": "The receiving orchestrator card." },
+        "reason": { "description": "Why (--reason), at most 500 characters; optional.", "allOf": [{ "$ref": "#/$defs/plainText" }], "maxLength": 500 } }
+    },
+    "add": {
+      "description": "board.js add: open a child card in its own worktree, headless, under the caller. Needs an approved, unpaused run; refused in a plan-file run.",
+      "unevaluatedProperties": false,
+      "required": ["op", "title", "prompt"],
+      "properties": {
+        "op": { "description": "add", "const": "add" },
+        "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "title": { "description": "The card's title. Required, not blank, at most 200 characters (TITLE_CAP), trimmed.", "allOf": [{ "$ref": "#/$defs/plainText" }], "minLength": 1, "maxLength": 200 },
+        "prompt": { "description": "The child's first prompt (from --prompt-file or --prompt). Required, at most 24000 characters (PROMPT_CAP). The board prefixes: Opened by orchestrator \"<title>\" (<id>) on <date>.", "allOf": [{ "$ref": "#/$defs/plainText" }], "minLength": 1, "maxLength": 24000 },
+        "parent": { "description": "The parent card: only the caller's own card (board.js defaults it to ENTOMATICAL_TASK).", "anyOf": [{ "$ref": "#/$defs/cardId" }, { "type": "null" }] },
+        "account": { "description": "A signed-in account label (board.js accounts), at most 200 characters. null: the caller's account, else the runtime's default.", "anyOf": [{ "allOf": [{ "$ref": "#/$defs/plainText" }], "maxLength": 200 }, { "type": "null" }] },
+        "model": { "description": "A model the account offers, at most 40 characters: Claude aliases opus, sonnet, haiku, fable (full claude-opus-… ids are shortened to the alias); Codex and Grok/Antigravity ids from board.js models. Never invent a name.", "anyOf": [{ "allOf": [{ "$ref": "#/$defs/plainText" }], "maxLength": 40 }, { "type": "null" }] },
+        "effort": { "description": "An effort the account offers, at most 20 characters. Claude: low, medium, high, xhigh, max. Codex: the union of its models' efforts. Grok/Antigravity: advertised thought levels.", "anyOf": [{ "allOf": [{ "$ref": "#/$defs/plainText" }], "maxLength": 20 }, { "type": "null" }] },
+        "permission": { "description": "Claude: ask, edits, auto, bypass. Codex: ask, auto, bypass. Grok/Antigravity: ask, bypass. null: the caller's permission (bypass by default); a Grok/Antigravity child given a mode it lacks gets ask, never wider.", "anyOf": [{ "enum": ["ask", "edits", "auto", "bypass"] }, { "type": "null" }] },
+        "completion": {
+          "description": "Acceptance checks (--rule-file F.json). Every command must be in workflows/checks.json, by name or exact run text. null: none.",
+          "anyOf": [
+            {
+              "type": "object",
+              "required": ["commands"],
+              "properties": {
+                "commands": { "description": "Up to ten check names or commands, each at most 400 characters.", "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 400 } },
+                "doneWhen": { "description": "What done means, in words. Cut at 1000 characters.", "type": "string" },
+                "goal": { "description": "The card's goal, in words. Cut at 1000 characters.", "type": "string" }
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "autoRule": { "description": "true (--autoRule): a helper writes the completion rule from the prompt. Anything but true is false.", "type": "boolean" },
+        "after": { "description": "Cards this one starts after (--after a,b): up to 20 existing card ids.", "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/cardId" } },
+        "start": { "description": "auto (default): start when allowed. manual: wait for Start.", "enum": ["auto", "manual"] },
+        "mayOpen": { "description": "true (--may-open or --orchestrator): the child is a coordinator that may open cards within the root's caps. Not with role; not at the depth cap.", "type": "boolean" },
+        "runtime": { "description": "Which provider runs the card (--runtime). Picks that provider's account when account is null.", "enum": ["claude", "codex", "grok", "antigravity"] },
+        "role": { "description": "A fixed standing role (--role): judge (read-only verdicts), scribe (updates named documents), research (answers from evidence, read-only). One judge and one scribe per run. Not with mayOpen or judge.", "enum": ["judge", "scribe", "research"] },
+        "judge": { "description": "true (--judge): the run's standing judge must pass this card before Done. Needs an open judge and acceptance checks (completion or autoRule).", "type": "boolean" },
+        "watch": { "description": "Cards this coordinator supervises (--watch id,id): 1 to 20 distinct ids of available direct children of the root, at most caps.perWatcher. Needs mayOpen, no role; only the root may assign.", "type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/$defs/cardId" } },
+        "profile": {"description": "Phase 3, governed run: the child's capability profile, an exact ref (<scoped id>@<revision>, or provider-defaults) from your delegation allowance (board.js capabilities). Omitted: the allowance's default child profile; no default is refused (choice required).", "allOf": [{"$ref": "#/$defs/plainText"}], "minLength": 1, "maxLength": 300},
+        "assignment": {"description": "Phase 3, governed run (required there): the bounded assignment (--assignment-file). key is idempotent per opener: the same key and payload return the same card, another payload is refused.", "type": "object", "additionalProperties": false, "required": ["key", "outcome"], "properties": {"key": {"description": "1 to 64 letters, digits, dot, dash or underscore.", "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$"}, "outcome": {"description": "What the child delivers, at most 1000 characters.", "type": "string", "minLength": 1, "maxLength": 1000}, "owns": {"description": "Files or components it owns (up to 20, each at most 200 characters); overlap with another open assignment is reported, not refused.", "type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1, "maxLength": 200}}, "acceptance": {"description": "Requirement or acceptance ids it covers (up to 20, each at most 40 characters).", "type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1, "maxLength": 40}}, "evidence": {"description": "Evidence it must return (up to 10, each at most 200 characters).", "type": "array", "maxItems": 10, "items": {"type": "string", "minLength": 1, "maxLength": 200}}, "returns": {"description": "The return format, at most 500 characters.", "type": "string", "maxLength": 500}}},
+        "delegate": {"description": "Phase 3, governed run, with mayOpen only: narrow what the coordinator may delegate (--delegate-file). Every ref must be in your own allowance and depth below yours; omitted parts inherit yours, one level shallower.", "type": "object", "additionalProperties": false, "properties": {"allowed": {"description": "Profile refs, a subset of your allowance.", "type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 300}}, "defaultChild": {"description": "One of allowed.", "type": "string"}, "depth": {"description": "Edges of delegation below the coordinator, 1 to yours minus 1.", "type": "integer"}}}
+      },
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        { "description": "delegate needs --may-open: a worker opens no cards.", "if": { "required": ["delegate"] }, "then": { "properties": { "mayOpen": { "const": true } }, "required": ["mayOpen"] } },
+        { "description": "watch needs --may-open and cannot be a fixed role.", "if": { "required": ["watch"] }, "then": { "properties": { "mayOpen": { "const": true } }, "required": ["mayOpen"], "not": { "required": ["role"] } } },
+        { "description": "A fixed role cannot open cards.", "if": { "required": ["role"] }, "then": { "not": { "properties": { "mayOpen": { "const": true } }, "required": ["mayOpen"] } } },
+        { "description": "A fixed role cannot itself request judgment.", "if": { "required": ["role"] }, "then": { "not": { "properties": { "judge": { "const": true } }, "required": ["judge"] } } }
+      ]
+    },
+    "idOnly": {
+      "description": "A verb on one card: id required, nothing else.",
+      "required": ["op", "id"],
+      "properties": { "id": { "$ref": "#/$defs/cardId", "description": "The target card (board.js accepts self for ENTOMATICAL_TASK)." } }
+    },
+    "send": {
+      "description": "board.js send <id>: a message to any card, delivered at its next safe turn boundary.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "required": ["op", "id", "text"],
+      "properties": { "op": { "const": "send", "description": "send" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "id": { "$ref": "#/$defs/cardId", "description": "The card to message." },
+        "text": { "description": "The message (--text-file or --text): not blank, at most 24000 characters.", "allOf": [{ "$ref": "#/$defs/plainText" }], "minLength": 1, "maxLength": 24000 } }
+    },
+    "receive": { "description": "board.js receive: consume queued messages for this card.", "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "properties": { "op": { "const": "receive", "description": "receive" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "inferredEditor": { "const": true, "description": "The CLI resolved the card from its editor thread. The owner rechecks that binding before collecting mail." } } },
+    "stop": { "description": "board.js stop <id>: stop a running card of your run; worktree and branch stay.", "allOf": [{ "$ref": "#/$defs/common" }, { "$ref": "#/$defs/idOnly" }], "unevaluatedProperties": false, "properties": { "op": { "const": "stop", "description": "stop" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "id": true } },
+    "integrate": { "description": "board.js integrate <child> accepts a direct child's clean reviewed revision into the controller's branch. Required checks and any judgment must match the commit. Governed runs additionally verify the submitted handoff and journal the operation. A conflict leaves the card open.", "allOf": [{ "$ref": "#/$defs/common" }, { "$ref": "#/$defs/idOnly" }], "unevaluatedProperties": false, "properties": { "op": { "const": "integrate", "description": "integrate" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "id": true } },
+    "council": {"description": "board.js council (phase 5, the governed root only): convene a checkpoint of the council the user saved and pinned at approval (a fixed package, one read-only judge card per member on exactly the saved account, model and effort; an unavailable member is recorded, never substituted; members take run leases), reconcile the round's material findings (confirmed, disproved with evidence, outside scope with a rationale, unresolved), retry an invalid or late member within the saved attempts, or show the full record. Refused when the round limit is reached: the user's decision then.", "allOf": [{"$ref": "#/$defs/common"}], "unevaluatedProperties": false, "required": ["op", "action"], "properties": {"op": {"const": "council", "description": "council"}, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "action": {"description": "convene, reconcile, retry or show.", "enum": ["convene", "reconcile", "retry", "show"]}, "checkpoint": {"description": "plan, milestone or final; required except for show.", "enum": ["plan", "milestone", "final"]}, "member": {"description": "retry: the member's key.", "type": "string", "minLength": 1, "maxLength": 40}, "dispositions": {"description": "reconcile: 1 to 100 of {finding: \"<member>/<finding id>\", disposition, evidence?, rationale?}.", "type": "array", "minItems": 1, "maxItems": 100, "items": {"type": "object"}}}},
+    "readiness": { "description": "board.js readiness [<id>|self] (phase 4): the board's readiness check now, read-only. A governed child: whether it can be integrated into its opener's branch; a governed root: whether the user's Finish could take the run to the target (it always lists the missing authorization, which only the user's Finish gives). Structured reasons, notes, exact candidate and target revisions.", "allOf": [{ "$ref": "#/$defs/common" }, { "$ref": "#/$defs/idOnly" }], "unevaluatedProperties": false, "properties": { "op": { "const": "readiness", "description": "readiness" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "id": true } },
+    "resume": { "description": "board.js resume <id>: continue a stopped or interrupted card of your run.", "allOf": [{ "$ref": "#/$defs/common" }, { "$ref": "#/$defs/idOnly" }], "unevaluatedProperties": false, "properties": { "op": { "const": "resume", "description": "resume" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "id": true } },
+    "done": { "description": "board.js done <id>: accept a card that started, settled in Review and passed its checks (and judge, and ready for a coordinator).", "allOf": [{ "$ref": "#/$defs/common" }, { "$ref": "#/$defs/idOnly" }], "unevaluatedProperties": false, "properties": { "op": { "const": "done", "description": "done" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "id": true } },
+    "cancel": { "description": "board.js cancel <id>: close a stopped, unstarted or failed card without counting it as delivered.", "allOf": [{ "$ref": "#/$defs/common" }, { "$ref": "#/$defs/idOnly" }], "unevaluatedProperties": false, "properties": { "op": { "const": "cancel", "description": "cancel" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "id": true } },
+    "adopt": { "description": "board.js adopt <id>: bring an existing card (and its subtree) under your oversight. Refused in a plan-file run (use claim, claim-tree or request-takeover there) and for a Grok/Antigravity card open in its own terminal.", "allOf": [{ "$ref": "#/$defs/common" }, { "$ref": "#/$defs/idOnly" }], "unevaluatedProperties": false, "properties": { "op": { "const": "adopt", "description": "adopt" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "id": true } },
+    "discard": { "description": "board.js discard <id>: always refused to agents (\"Automatic discard is unavailable\"); ask the user.", "allOf": [{ "$ref": "#/$defs/common" }, { "$ref": "#/$defs/idOnly" }], "unevaluatedProperties": false, "properties": { "op": { "const": "discard", "description": "discard" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "id": true } },
+    "rebind": {
+      "description": "board.js rebind --session S: bind this card to the current session after a takeover or a new session.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "required": ["op", "session"],
+      "properties": { "op": { "const": "rebind", "description": "rebind" }, "v": true, "by": true, "at": true, "nonce": true, "protocol": true,
+        "session": { "description": "The current session id; required and not blank.", "type": "string", "pattern": "\\S" } }
+    },
+    "ready": { "description": "board.js ready: declare this coordinator's delivery ready; needs every descendant and watched card finished.", "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "properties": { "op": { "const": "ready", "description": "ready" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true } },
+    "submit": {"description": "board.js submit --head <commit> --summary-file F [...] (phase 3): a governed child hands off a clean committed revision. The board checks the worktree is clean, head is its HEAD and base its ancestor, records the files git says changed, and tells the opener. Checks named here are claims; the board reports its own check status beside them.", "allOf": [{"$ref": "#/$defs/common"}], "unevaluatedProperties": false, "required": ["op", "head", "summary"], "properties": {"op": {"const": "submit", "description": "submit"}, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true, "head": {"type": "string", "pattern": "^[0-9a-f]{7,64}$", "description": "The submitted commit: the worktree's HEAD."}, "base": {"type": "string", "pattern": "^[0-9a-f]{7,64}$", "description": "The commit the work started from; default: the merge base with the opener's branch."}, "summary": {"description": "What was delivered, at most 4000 characters.", "allOf": [{"$ref": "#/$defs/plainText"}], "minLength": 1, "maxLength": 4000}, "files": {"description": "Files the child says changed (up to 200); a changed file not listed is reported to the opener.", "type": "array", "maxItems": 200, "items": {"type": "string", "minLength": 1, "maxLength": 400}}, "claimedChecks": {"description": "Checks the child says it ran (--check, up to 20): claims, not receipts.", "type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1, "maxLength": 400}}, "limitations": {"description": "Known limits, at most 2000 characters.", "type": "string", "maxLength": 2000}, "decisions": {"description": "Decisions needed (--decision, up to 10).", "type": "array", "maxItems": 10, "items": {"type": "string", "minLength": 1, "maxLength": 500}}, "covers": {"description": "Requirement or acceptance ids covered (--covers, up to 40).", "type": "array", "maxItems": 40, "items": {"type": "string", "minLength": 1, "maxLength": 40}}}},
+    "turn-done": { "description": "board.js turn-done (F87): the agent in a Grok or Antigravity card terminal ends its turn; its own card moves from Running to Review, not Interrupted, so Finish takes it. Refused for any other card or state; works with the orchestrator off.", "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "properties": { "op": { "const": "turn-done", "description": "turn-done" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true } },
+    "note": {
+      "description": "board.js note \"<text>\": a notification for the user, with Open.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "required": ["op", "text"],
+      "properties": { "op": { "const": "note", "description": "note" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "text": { "description": "Not blank, at most 1000 characters, trimmed.", "allOf": [{ "$ref": "#/$defs/plainText" }], "minLength": 1, "maxLength": 1000 } }
+    },
+    "plan": {
+      "description": "board.js plan [--caps-file F] [--policy-file F]: propose ORCHESTRATION.md (in the caller's worktree) for the user's approval. Only the root may propose caps or policy; refused on a plan-file card.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false,
+      "properties": { "op": { "const": "plan", "description": "plan" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "caps": { "$ref": "#/$defs/capsFile", "description": "The caps file's content." },
+        "policy": { "$ref": "#/$defs/policyFile", "description": "The policy file's content." } }
+    },
+    "switch": {
+      "description": "board.js switch <id> --account A: move a stopped card of your run to another signed-in account (under 95 % of its 5-hour window), then resume it.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "required": ["op", "id", "account"],
+      "properties": { "op": { "const": "switch", "description": "switch" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "id": { "$ref": "#/$defs/cardId", "description": "The card to move." },
+        "account": { "description": "The target account label: not blank, at most 200 characters.", "allOf": [{ "$ref": "#/$defs/plainText" }], "minLength": 1, "maxLength": 200 } }
+    },
+    "finish": {
+      "description": "board.js finish self: the master asks the board to review its run when the turn ends; on Done the board finishes the run by itself (F97). board.js finish <id> (F120): the root of an approved run asks the board to close another card whose work is in the target already; only that card's worktree and branch are removed, and nothing is merged or pushed.",
+      "allOf": [{ "$ref": "#/$defs/common" }, { "description": "self or a card id, not both.", "oneOf": [{ "required": ["id"] }, { "required": ["self"] }] }], "unevaluatedProperties": false, "required": ["op"],
+      "properties": { "op": { "const": "finish", "description": "finish" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "self": { "description": "true: your own card's run.", "const": true },
+        "id": { "$ref": "#/$defs/cardId", "description": "The card to close: one of your run or one of the user's own, in Review with its session ended, its worktree clean and every commit of its branch in the target already." } }
+    },
+    "screen": {
+      "description": "board.js screen <id>: what a descendant card's terminal shows (F89). Any ancestor may ask, orchestrator or not.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "required": ["op", "id"],
+      "properties": { "op": { "const": "screen", "description": "screen" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "id": { "$ref": "#/$defs/cardId", "description": "The card whose terminal to read." },
+        "lines": { "description": "How many lines to return (--lines), 1 to 500.", "type": "integer", "minimum": 1, "maximum": 500 } }
+    },
+    "type": {
+      "description": "board.js type <id>: type into a descendant card's terminal (F89): keys first, then text, then Enter. Needs text, keys or enter. Refused if the user typed there since your last screen, unless override.",
+      "allOf": [{ "$ref": "#/$defs/common" }], "unevaluatedProperties": false, "required": ["op", "id"],
+      "properties": { "op": { "const": "type", "description": "type" }, "v": true, "by": true, "session": true, "at": true, "nonce": true, "protocol": true,
+        "id": { "$ref": "#/$defs/cardId", "description": "The card whose terminal to type into." },
+        "text": { "description": "Text (--text or --text-file), at most 8000 characters; tabs and newlines allowed.", "type": "string", "maxLength": 8000 },
+        "keys": { "description": "Named keys (--key), up to 20.", "type": "array", "maxItems": 20, "items": { "enum": ["enter", "escape", "tab", "shift-tab", "backspace", "up", "down", "right", "left", "ctrl-c", "ctrl-d", "ctrl-l", "ctrl-u", "ctrl-o", "ctrl-r", "ctrl-t"] } },
+        "enter": { "description": "Press Enter after the text (--enter).", "type": "boolean" },
+        "override": { "description": "Type even though the user typed there since your last screen (--override).", "type": "boolean" } }
+    },
+    "capsFile": {
+      "description": "Run caps for board.js plan --caps-file (and entomatical.orchestrator.caps). Every value a whole number ≥ 0; unknown keys refused (\"Invalid cap k\"). Omitted keys keep the run's current value. Approval fixes one budget for the whole tree.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "open": { "description": "Cards of the run open at once (not Done, not cancelled). Default 4.", "type": "integer", "minimum": 0 },
+        "total": { "description": "Cards the run may ever open. Default 600. Also the most cards a plan file may make.", "type": "integer", "minimum": 0 },
+        "depth": { "description": "Levels below the root. Default 4, at most 8.", "type": "integer", "minimum": 0, "maximum": 8 },
+        "followUps": { "description": "Automatic follow-ups per card. Default 3.", "type": "integer", "minimum": 0 },
+        "pending": { "description": "Queued notices per card. Default 3.", "type": "integer", "minimum": 0 },
+        "watchers": { "description": "Open coordinators (--may-open cards) at once. Default 3.", "type": "integer", "minimum": 0 },
+        "perWatcher": { "description": "Cards one watcher may supervise (--watch). Default 4.", "type": "integer", "minimum": 0 },
+        "pointsFiveHour": { "description": "Refuse add when the account has used this many points of its 5-hour window. Unset or 0: no cap.", "type": "integer", "minimum": 0 },
+        "points": { "description": "The run's budget in points of the 5-hour window across its cards: the master is told at 80 %, the run pauses at 100 %. Unset or 0: none.", "type": "integer", "minimum": 0 },
+        "mayClaim": { "description": "1: the run's coordinators may claim and claim-tree too (F95); 0 or unset: only the root.", "type": "integer", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "policyFile": {
+      "description": "Run instructions for board.js plan --policy-file. Passed to every card of the run and shown in its first prompt (\"Run instructions: allowed: …; denied: …\"). It states the task's boundaries; it does not change tool permissions.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allow", "deny", "noSync"],
+      "properties": {
+        "allow": { "description": "What the run's cards may do, in words: up to 30 items of at most 200 characters.", "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 200 } },
+        "deny": { "description": "What they must not do: up to 30 items of at most 200 characters.", "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 200 } },
+        "noSync": { "description": "true: children run with ENTOMATICAL_NO_SYNC=1, which hooks that opt in read to skip external sync. false: ENTOMATICAL_NO_SYNC=0.", "type": "boolean" }
+      }
+    },
+    "capabilities": {
+      "description": "<repo>/.entomatical/capabilities.json, written by the owning window (board.js models, accounts and capabilities read it; capabilities --json adds cliProtocolVersion). Ids and labels only; nothing secret.",
+      "type": "object",
+      "required": ["protocolVersion", "at", "live", "capabilities", "models", "accounts"],
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": { "description": "The board's protocol version (3: governed fields and submit).", "type": "integer" },
+        "cliProtocolVersion": { "description": "Added by board.js capabilities to its output only: the CLI's protocol version.", "type": "integer" },
+        "at": { "description": "When the snapshot was written (ISO 8601, rounded down to 10 s). list --live refuses a snapshot older than 30 s.", "type": "string" },
+        "hostTimezone": { "description": "The owning host's IANA time zone, for times board.js prints.", "type": "string" },
+        "hostTimeOffsets": {
+          "description": "Optional host transitions in ascending order. Each pair is the first UTC epoch millisecond under the new offset and its seconds east of UTC. Before the first pair or after a null offset, use hostTimezone.",
+          "type": "array", "items": { "type": "array", "minItems": 2, "maxItems": 2, "prefixItems": [{ "type": "integer" }, { "type": ["integer", "null"] }] }
+        },
+        "live": { "description": "Ids of cards with a live session in the owning window.", "type": "array", "items": { "$ref": "#/$defs/cardId" } },
+        "capabilities": {
+          "description": "What this build implements.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "headless": { "description": "Runtimes that can run unattended cards.", "type": "array", "items": { "enum": ["claude", "codex", "grok", "antigravity"] } },
+            "nestedCards": { "description": "Coordinators may open cards (--may-open).", "type": "boolean" },
+            "nativeSubagents": { "description": "The provider's own subagents are available inside a card (they are not board cards).", "type": "boolean" },
+            "pressureWatchers": { "description": "add --watch is implemented.", "type": "boolean" },
+            "standingRoles": { "description": "Roles add --role accepts.", "type": "array", "items": { "enum": ["judge", "scribe", "research"] } },
+            "controls": { "description": "Extra controls agents may request.", "type": "array", "items": { "type": "string" } },
+            "runBudget": { "description": "caps.points is enforced.", "type": "boolean" },
+            "governedRuns": { "description": "Phase 3 to 5: governed runs are implemented: protocol, ops (submit, integrate, readiness, council), how target effects happen (only the user's Finish on the root after the readiness check; push separately) and what stays unsupported.", "type": "object" }
+          }
+        },
+        "models": {
+          "description": "Valid models: Claude aliases, Codex short names and ids with their efforts, and each Grok/Antigravity account's short names and last advertised ids. A short name always means the newest version.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["runtime", "id"],
+            "additionalProperties": false,
+            "properties": {
+              "runtime": { "description": "The provider.", "enum": ["claude", "codex", "grok", "antigravity"] },
+              "id": { "description": "The value to pass as model. A short name (sol, grok) or an older full id runs the newest version of its family.", "type": "string" },
+              "newest": { "description": "The id this name runs now, when it is not the id itself (a short name, or an older version of a family).", "type": "string" },
+              "efforts": { "description": "Efforts (Codex) or thought levels (Grok/Antigravity) this model offers.", "type": "array", "items": { "type": "string" } },
+              "name": { "description": "Grok/Antigravity: the agent's display name for the model.", "type": "string" },
+              "account": { "description": "Grok/Antigravity: the account that advertised it.", "type": "string" },
+              "lastSeen": { "description": "Grok/Antigravity: when it was last advertised (ISO 8601).", "type": "string" }
+            }
+          }
+        },
+        "accounts": {
+          "description": "Signed-in accounts.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "runtime"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "description": "The account label to pass as account.", "type": "string" },
+              "runtime": { "description": "The provider.", "enum": ["claude", "codex", "grok", "antigravity"] },
+              "aliases": { "description": "Other names the board accepts (Codex: Codex).", "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

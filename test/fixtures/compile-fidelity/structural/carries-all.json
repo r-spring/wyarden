@@ -1,0 +1,48 @@
+{
+  "draft": "Add the compile stage. It depends on src/board.ts and can only start after PR #42 merges. Run the CLI with --safe-mode and pass `CLAUDE_CONFIG_DIR` through. Drafts stay under 24,000 characters. Document it in docs/refinement-prompt.md.",
+  "answers": "Q: Which flag? A: --safe-mode, confirmed.\nQ: Limit? A: 24,000 characters, same as refine.",
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Add the compile stage.",
+      "deliverable": "The stage, documented in docs/refinement-prompt.md.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [],
+      "identifiers": [
+        "--safe-mode",
+        "CLAUDE_CONFIG_DIR",
+        "src/board.ts"
+      ],
+      "sources": [],
+      "dependencies": [
+        {
+          "text": "PR #42 must merge first.",
+          "provenance": "user"
+        }
+      ]
+    },
+    "success": {
+      "criteria": []
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "Drafts stay under 24,000 characters.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [],
+      "confirm": [],
+      "prohibited": []
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "expectDropped": []
+}

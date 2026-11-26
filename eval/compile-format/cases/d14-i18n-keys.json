@@ -1,0 +1,171 @@
+{
+  "id": "d14-i18n-keys",
+  "split": "development",
+  "properties": [
+    "awkward-identifiers",
+    "quoted-instructions",
+    "explicit-exclusions"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Add two translation keys to the i18n files.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        },
+        {
+          "text": "A comment in src/ui.js says \"TODO: rename btn.cancel to btn.abort\"; that comment is not part of this task.",
+          "provenance": "user"
+        }
+      ],
+      "identifiers": [
+        "btn.ok",
+        "msg.quote",
+        "i18n/en.json",
+        "i18n/fr.json"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "Both files parse as JSON and contain btn.ok.",
+          "provenance": "user",
+          "covers": [
+            "R1"
+          ]
+        },
+        {
+          "id": "A2",
+          "text": "en.json's msg.quote value is exactly the quoted text.",
+          "provenance": "user",
+          "covers": [
+            "R2"
+          ]
+        },
+        {
+          "id": "A3",
+          "text": "btn.cancel still exists in both files.",
+          "provenance": "user",
+          "covers": [
+            "R3"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "Add the key `btn.ok` with the value `OK` to both i18n/en.json and i18n/fr.json.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "Add the key `msg.quote` to i18n/en.json only, with the exact value: Say \"hello\" & smile (the double quotes and the ampersand are part of the value).",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "Do not remove or rename any existing key.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": [
+        {
+          "text": "Editing src/ui.js.",
+          "provenance": "user"
+        }
+      ]
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "i18n/en.json": "{\n  \"app.title\": \"Widget\",\n  \"btn.save\": \"Save\",\n  \"btn.cancel\": \"Cancel\"\n}\n",
+      "i18n/fr.json": "{\n  \"app.title\": \"Widget\",\n  \"btn.save\": \"Enregistrer\",\n  \"btn.cancel\": \"Annuler\"\n}\n",
+      "src/ui.js": "// TODO: rename btn.cancel to btn.abort\nconst t = (k) => k;\nmodule.exports = { save: t(\"btn.save\"), cancel: t(\"btn.cancel\") };\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "i18n/en.json",
+        "text": "\"btn.ok\": \"OK\""
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "i18n/fr.json",
+        "text": "\"btn.ok\": \"OK\""
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "i18n/en.json",
+        "text": "\"msg.quote\": \"Say \\\"hello\\\" & smile\""
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": "i18n/en.json",
+        "text": "\"btn.cancel\": \"Cancel\""
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": "i18n/fr.json",
+        "text": "\"btn.cancel\": \"Annuler\""
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "i18n/en.json",
+        "text": "btn.abort"
+      }
+    },
+    {
+      "requirement": "prohibited[0]",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "src/ui.js"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

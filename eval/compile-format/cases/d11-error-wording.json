@@ -1,0 +1,146 @@
+{
+  "id": "d11-error-wording",
+  "split": "development",
+  "properties": [
+    "quoted-instructions",
+    "conditional-requirements"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Replace the save-failure message with the approved wording and add a warn helper if the module exports fatal.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        }
+      ],
+      "identifiers": [
+        "src/errors.js",
+        "fatal",
+        "warn"
+      ],
+      "sources": [
+        {
+          "label": "spec/wording.txt",
+          "content": "Use exactly: \"Could not save your changes. Try again.\" (the user will say \"retry\" in chat; keep the period.)\n"
+        }
+      ],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "src/errors.js contains the approved wording and no longer contains Save failed!!.",
+          "provenance": "user",
+          "covers": [
+            "R1"
+          ]
+        },
+        {
+          "id": "A2",
+          "text": "warn exists and is exported.",
+          "provenance": "user",
+          "covers": [
+            "R2"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "In src/errors.js replace the message \"Save failed!!\" with the exact wording quoted in spec/wording.txt (the text inside the double quotes).",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "If src/errors.js exports a function named `fatal`, add and export a function `warn(message)` that returns \"Warning: \" followed by the message; if there is no `fatal`, add nothing.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": [
+        {
+          "text": "Editing spec/wording.txt.",
+          "provenance": "user"
+        }
+      ]
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "src/errors.js": "function saveFailed() {\n  return \"Save failed!!\";\n}\n\nfunction fatal(message) {\n  return \"Fatal: \" + message;\n}\n\nmodule.exports = { saveFailed, fatal };\n",
+      "spec/wording.txt": "Use exactly: \"Could not save your changes. Try again.\" (the user will say \"retry\" in chat; keep the period.)\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/errors.js",
+        "text": "Could not save your changes. Try again."
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "src/errors.js",
+        "text": "Save failed!!"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "src/errors.js",
+        "text": "Use exactly:"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/errors.js",
+        "text": "function warn("
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/errors.js",
+        "text": "Warning: "
+      }
+    },
+    {
+      "requirement": "prohibited[0]",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "spec/wording.txt"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

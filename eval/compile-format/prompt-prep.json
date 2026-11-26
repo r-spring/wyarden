@@ -1,0 +1,36 @@
+{
+  "about": "Authored public regression cases for Refine draft and Improve prompt. No stored private helper runs or historical benchmark coverage are included. Held-out cases are not used to tune prompts.",
+  "roots": {},
+  "cases": [
+    {
+      "id": "clear-draft",
+      "kind": "refine",
+      "split": "regression",
+      "draft": "Run npm test and fix the failing assertion in test/limits.test.js. Do not change src/limits.ts.",
+      "watch": "Already actionable: expect unchanged, or a revision no longer than the draft."
+    },
+    {
+      "id": "read-only-boundary",
+      "kind": "improve",
+      "split": "regression",
+      "draft": "Read-only: explain why the helper tab shows no thinking for Haiku at low effort. Do not edit any file, do not run anything that writes.",
+      "watch": "The read-only boundary must survive as a prohibition, not as an assumed permission."
+    },
+    {
+      "id": "clarification-change",
+      "kind": "improve",
+      "split": "held-out",
+      "draft": "Rename the Refine draft button to Polish draft and update FEATURES.md.",
+      "answers": "Should FEATURES.md change too?\nNo: leave FEATURES.md alone, only the button label changes.",
+      "watch": "The answer explicitly changes an earlier instruction: explicit-change provenance, FEATURES.md excluded."
+    },
+    {
+      "id": "stale-answers",
+      "kind": "improve",
+      "split": "held-out",
+      "draft": "Add a Copy button to the helper tab's result.",
+      "answers": "Which tab?\nThe board's new-task box.",
+      "watch": "The answer does not fit the draft (it answers a different question): must not become a requirement."
+    }
+  ]
+}

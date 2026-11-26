@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "status": "ready",
+  "outcome": {
+    "goal": "Add a retry to the forecast worker.",
+    "deliverable": "The retry with a test.",
+    "beneficiary": ""
+  },
+  "context": {
+    "facts": [],
+    "identifiers": [],
+    "sources": [],
+    "dependencies": []
+  },
+  "success": {
+    "criteria": []
+  },
+  "requirements": [
+    {
+      "id": "R1",
+      "text": "Retry at most twice.",
+      "provenance": "user",
+      "strength": "mandatory",
+      "rationale": ""
+    },
+    {
+      "id": "R2",
+      "text": "Wait 120 s between attempts.",
+      "provenance": "user",
+      "strength": "preference",
+      "rationale": ""
+    }
+  ],
+  "permissions": {
+    "authorized": [],
+    "confirm": [],
+    "prohibited": []
+  },
+  "unresolved": [
+    {
+      "text": "The maximum total wait was not given.",
+      "provenance": "user",
+      "state": "not-provided"
+    },
+    {
+      "text": "Rate-limit handling; the worker never sees 429s.",
+      "provenance": "user",
+      "state": "not-applicable"
+    },
+    {
+      "text": "Choose the backoff curve.",
+      "provenance": "user",
+      "state": "user-delegated"
+    },
+    {
+      "text": "Whether retries count against the usage forecast.",
+      "provenance": "assumption",
+      "state": "must-ask"
+    }
+  ],
+  "conflicts": []
+}

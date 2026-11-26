@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "status": "ready",
+  "outcome": {
+    "goal": "Delete stale worktrees older than 30 days.",
+    "deliverable": "A dry-run list and the deletion command.",
+    "beneficiary": ""
+  },
+  "context": {
+    "facts": [],
+    "identifiers": [],
+    "sources": [],
+    "dependencies": []
+  },
+  "success": {
+    "criteria": []
+  },
+  "requirements": [],
+  "permissions": {
+    "authorized": [],
+    "confirm": [
+      {
+        "text": "deleting any worktree",
+        "provenance": "user"
+      },
+      {
+        "text": "running git prune",
+        "provenance": "user"
+      }
+    ],
+    "prohibited": []
+  },
+  "unresolved": [
+    {
+      "text": "Which worktrees are still referenced by open tasks.",
+      "provenance": "user",
+      "state": "must-ask"
+    }
+  ],
+  "conflicts": []
+}

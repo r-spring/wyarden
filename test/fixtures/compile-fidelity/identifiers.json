@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "status": "ready",
+  "outcome": {
+    "goal": "Rename the configuration directory variable everywhere it is read.",
+    "deliverable": "A pull request with the rename and passing tests.",
+    "beneficiary": ""
+  },
+  "context": {
+    "facts": [
+      {
+        "text": "The variable is read in three modules.",
+        "provenance": "user"
+      }
+    ],
+    "identifiers": [
+      "CLAUDE_CONFIG_DIR",
+      "media/board.js",
+      "run`it",
+      "snake_case_name",
+      "a&b<c>",
+      "--safe-mode",
+      "sessions.ts:42"
+    ],
+    "sources": [],
+    "dependencies": [
+      {
+        "text": "PR #42 must merge first.",
+        "provenance": "user"
+      }
+    ]
+  },
+  "success": {
+    "criteria": []
+  },
+  "requirements": [
+    {
+      "id": "R1",
+      "text": "Keep the old name as a deprecated alias for one release.",
+      "provenance": "user",
+      "strength": "mandatory",
+      "rationale": ""
+    }
+  ],
+  "permissions": {
+    "authorized": [],
+    "confirm": [],
+    "prohibited": []
+  },
+  "unresolved": [],
+  "conflicts": []
+}

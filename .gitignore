@@ -1,0 +1,25 @@
+node_modules/
+out/
+dist/
+*.vsix
+.vscode-test/
+.entomatical/
+wrapper/*.exe
+.superpowers/
+.impeccable/review/
+.claude/worktrees/
+
+.entomatical-speech/
+
+# A card's own scratch files (test logs, notes), in its worktree; see CLAUDE.md rule 11.
+.scratch/
+_recovered-from-temp/
+docs/evidence/**/ctl-port
+docs/evidence/**/driver-pid
+docs/evidence/**/console-capture-pid
+
+# Stray ACP probe homes written with a mangled Windows temp path (removed 6 November 2026)
+C;*entomatical-acp-*/
+# Isolated Grok probe profiles must stay out of the repository.
+*entomatical-acp-auth-*/
+*entomatical-acp-probe-*/

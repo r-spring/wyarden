@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "status": "ready",
+  "outcome": {
+    "goal": "Add a nightly cleanup job for expired sessions.",
+    "deliverable": "The scheduled job and a note on what it removed in a dry run.",
+    "beneficiary": ""
+  },
+  "context": {
+    "facts": [
+      { "text": "Sessions expire 30 days after their last activity.", "provenance": "user" },
+      { "text": "The scheduler already runs other nightly jobs at 02:00.", "provenance": "assumption" }
+    ],
+    "identifiers": ["sessions.last_active_at"],
+    "sources": [],
+    "dependencies": []
+  },
+  "success": { "criteria": [] },
+  "requirements": [
+    { "id": "R1", "text": "Remove only sessions older than 30 days.", "provenance": "user", "strength": "mandatory", "rationale": "" },
+    { "id": "R2", "text": "Log the number of removed sessions each run.", "provenance": "assumption", "strength": "mandatory", "rationale": "" }
+  ],
+  "permissions": {
+    "authorized": [
+      { "text": "adding the job to the existing scheduler.", "provenance": "user" },
+      { "text": "running a dry run against the development database.", "provenance": "assumption" }
+    ],
+    "confirm": [],
+    "prohibited": []
+  },
+  "unresolved": [
+    { "text": "The retention period for archived accounts.", "provenance": "user", "state": "not-provided" },
+    { "text": "Notification of users whose sessions are removed.", "provenance": "user", "state": "not-applicable" },
+    { "text": "Whether to run the job in batches or in one statement.", "provenance": "user", "state": "user-delegated" },
+    { "text": "Whether the job may run against the production database.", "provenance": "assumption", "state": "must-ask" }
+  ],
+  "conflicts": []
+}

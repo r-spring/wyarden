@@ -1,0 +1,123 @@
+{
+  "id": "h04-identifier-table",
+  "split": "held-out",
+  "properties": [
+    "awkward-identifiers",
+    "explicit-exclusions"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Document three constants in the identifier table.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        }
+      ],
+      "identifiers": [
+        "$state",
+        "__meta__",
+        "MAX_RETRY__COUNT",
+        "docs/ids.md",
+        "src/consts.ts"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "docs/ids.md has four data rows; src/consts.ts is unchanged.",
+          "provenance": "user",
+          "covers": [
+            "R1",
+            "R2"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "Add one table row each for `$state`, `__meta__` and `MAX_RETRY__COUNT` to the table in docs/ids.md, in that order, with the value each constant has in src/consts.ts, using the same column layout as the existing row.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "Do not edit src/consts.ts.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": []
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "src/consts.ts": "export const VERSION = \"2.0.0-rc.1\";\nexport const $state = \"idle\";\nexport const __meta__ = \"internal\";\nexport const MAX_RETRY__COUNT = 5;\n",
+      "docs/ids.md": "# Identifiers\n\n| Name | Value |\n|---|---|\n| `VERSION` | `2.0.0-rc.1` |\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/ids.md",
+        "text": "| `$state` | `idle` |"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/ids.md",
+        "text": "| `__meta__` | `internal` |"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/ids.md",
+        "text": "| `MAX_RETRY__COUNT` | `5` |"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/ids.md",
+        "text": "| `VERSION` | `2.0.0-rc.1` |"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "src/consts.ts"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

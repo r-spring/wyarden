@@ -1,0 +1,26 @@
+{
+  "project": "Synthetic archive workflow",
+  "steps": [
+    { "key": "baseline", "title": "Evidence baseline and source map", "prompt": "Reconcile the evidence into a fixed, hashed snapshot for the other steps.", "workflow": { "resources": ["local"], "priority": 10, "checks": ["snapshot hashed", "source map complete"] } },
+    { "key": "scope", "title": "Durable scope decisions", "prompt": "Review scope and policy; record durable decisions. Overlaps the evidence baseline.", "workflow": { "resources": ["local"], "priority": 10 } },
+    { "key": "store", "title": "Current metadata and dedupe check", "prompt": "Store reconciliation under the authorized store scope.", "dependsOn": ["baseline"], "workflow": { "resources": ["local", "catalog-writer"], "admission": ["catalog"], "priority": 20,
+      "scope": { "operations": ["read catalog", "dedupe check"], "sources": ["catalog"], "destinations": [], "toolVersion": "catalog-tools 1.0", "bounds": "read only, metadata only" } } },
+    { "key": "small-prep", "title": "Small-reader preparation", "prompt": "Source preparation for the small readers. Does not wait for SSH or Drive.", "dependsOn": ["baseline"], "workflow": { "resources": ["local"], "priority": 20 } },
+    { "key": "small-qual", "title": "Small-reader qualification", "prompt": "Resource-consuming qualification on external worker.", "dependsOn": ["small-prep"], "workflow": { "resources": ["external-worker", "auth-prompt"], "admission": ["ssh"], "priority": 20,
+      "scope": { "operations": ["qualify small reader"], "sources": ["usb-image-small"], "destinations": ["/mnt/staging/qual-small"], "toolVersion": "small-reader 0.1", "bounds": "one bounded run" } } },
+    { "key": "small-tranche", "title": "Small-file tranche", "prompt": "Inspect, migrate, verify, clean up one small tranche.", "dependsOn": ["small-qual", "store"], "workflow": { "resources": ["external-worker", "auth-prompt", "selection:usb-small:tranche-1"], "admission": ["ssh", "rclone"], "priority": 20,
+      "blocker": "USB-rules payload prohibition (EXAMPLE-POLICY.md)",
+      "scope": { "operations": ["upload", "readback", "decrypt", "compare", "preserve", "cleanup"], "sources": ["usb-small:tranche-1"], "destinations": ["drive:example-archive/small"], "toolVersion": "small-reader 0.1", "bounds": "one tranche, one touch" } } },
+    { "key": "small-closure", "title": "Small tranche closure", "prompt": "Preserve the result and publish reconciled coverage.", "dependsOn": ["small-tranche"], "workflow": { "resources": ["local", "catalog-writer"], "closure": true, "priority": 20 } },
+    { "key": "large-prep", "title": "Large-pipeline preparation", "prompt": "Source preparation for the large pipeline. Independent of the small branch.", "dependsOn": ["baseline"], "workflow": { "resources": ["local"], "priority": 20 } },
+    { "key": "large-qual", "title": "Large-pipeline qualification", "prompt": "Qualification on external worker.", "dependsOn": ["large-prep"], "workflow": { "resources": ["external-worker", "auth-prompt"], "admission": ["ssh"], "priority": 20,
+      "scope": { "operations": ["qualify large pipeline"], "sources": ["usb-image-large"], "destinations": ["/mnt/staging/qual-large"], "toolVersion": "large-pipeline 0.1", "bounds": "one bounded run" } } },
+    { "key": "large-tranche", "title": "Large-file tranche", "prompt": "Inspect, migrate, verify, clean up one large tranche.", "dependsOn": ["large-qual", "store"], "workflow": { "resources": ["external-worker", "auth-prompt", "selection:usb-large:tranche-1"], "admission": ["ssh", "rclone"], "priority": 20,
+      "blocker": "USB-rules payload prohibition (EXAMPLE-POLICY.md)",
+      "scope": { "operations": ["upload", "readback", "decrypt", "compare", "preserve", "cleanup"], "sources": ["usb-large:tranche-1"], "destinations": ["drive:example-archive/large"], "toolVersion": "large-pipeline 0.1", "bounds": "one tranche, one touch" } } },
+    { "key": "large-closure", "title": "Large tranche closure", "prompt": "Preserve the result and publish reconciled coverage.", "dependsOn": ["large-tranche"], "workflow": { "resources": ["local", "catalog-writer"], "closure": true, "priority": 20 } },
+    { "key": "retention", "title": "Retention custody investigation (read only)", "prompt": "Read-only investigation of retention custody. Repair or pruning is a separate, held step.", "dependsOn": ["baseline"], "workflow": { "resources": ["local"], "priority": 50 } },
+    { "key": "repair", "title": "Retention repair or pruning", "prompt": "Held until separately authorized.", "dependsOn": ["retention"], "workflow": { "resources": ["repair"], "priority": 60, "blocker": "separate repair authorization",
+      "scope": { "operations": ["repair"], "sources": ["retention"], "destinations": [], "toolVersion": "n/a", "bounds": "none yet" } } }
+  ]
+}

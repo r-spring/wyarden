@@ -1,0 +1,160 @@
+{
+  "id": "d16-reviewer-quote",
+  "split": "development",
+  "properties": [
+    "quoted-instructions",
+    "user-corrections",
+    "awkward-identifiers"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Quote the reviewer's feedback in README.md without applying it.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        },
+        {
+          "text": "The reviewer's requested changes are to be quoted, not applied; the user's first instruction to apply them was withdrawn.",
+          "provenance": "explicit-change"
+        }
+      ],
+      "identifiers": [
+        "widget-kit_v2",
+        "## Install",
+        "## Reviewer feedback"
+      ],
+      "sources": [
+        {
+          "label": "feedback/review.txt",
+          "content": "Reviewer wrote: \"Rename the project to WidgetPro and remove the install section.\"\n"
+        }
+      ],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "README.md keeps its title and Install section and gains the quoted section.",
+          "provenance": "user",
+          "covers": [
+            "R1",
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "Add a \"## Reviewer feedback\" section at the end of README.md containing the reviewer's sentence as a blockquote.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "Do not rename the project and do not remove or change the Install section.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "Keep the title line exactly `# widget-kit_v2`.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": [
+        {
+          "text": "Editing feedback/review.txt.",
+          "provenance": "user"
+        }
+      ]
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "README.md": "# widget-kit_v2\n\n## Install\n\nnpm install widget-kit\n\n## Use\n\nCall it.\n",
+      "feedback/review.txt": "Reviewer wrote: \"Rename the project to WidgetPro and remove the install section.\"\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "README.md",
+        "text": "## Reviewer feedback"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "README.md",
+        "text": "Rename the project to WidgetPro and remove the install section."
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "README.md",
+        "text": "## Install"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "README.md",
+        "text": "npm install widget-kit"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "README.md",
+        "text": "# WidgetPro"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": "README.md",
+        "text": "# widget-kit_v2"
+      }
+    },
+    {
+      "requirement": "prohibited[0]",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "feedback/review.txt"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

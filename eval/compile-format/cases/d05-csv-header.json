@@ -1,0 +1,167 @@
+{
+  "id": "d05-csv-header",
+  "split": "development",
+  "properties": [
+    "conditional-requirements",
+    "awkward-identifiers",
+    "explicit-exclusions"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Normalise two column names in data/export.csv and produce a small sample file when the data is large enough.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        }
+      ],
+      "identifiers": [
+        "e-mail",
+        "email",
+        "Zip/Postal",
+        "postal_code",
+        "first name"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "The header reads id,first name,email,postal_code and all five rows are still present.",
+          "provenance": "user",
+          "covers": [
+            "R1",
+            "R3"
+          ]
+        },
+        {
+          "id": "A2",
+          "text": "data/export.sample.csv has the header and rows 1-3 only.",
+          "provenance": "user",
+          "covers": [
+            "R2"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "In the header row of data/export.csv rename the column `e-mail` to `email` and `Zip/Postal` to `postal_code`; keep `first name` exactly as it is (with the space).",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "If data/export.csv has more than 3 data rows, create data/export.sample.csv containing the renamed header plus the first 3 data rows; if it has 3 or fewer, create nothing.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "Do not reorder, edit or remove any data row.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": [
+        {
+          "text": "Editing scripts/columns.txt.",
+          "provenance": "user"
+        }
+      ]
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "data/export.csv": "id,first name,e-mail,Zip/Postal\n1,Ann,ann@example.com,10001\n2,Bob,bob@example.com,10002\n3,Cy,cy@example.com,10003\n4,Dee,dee@example.com,10004\n5,Eve,eve@example.com,10005\n",
+      "scripts/columns.txt": "id\nfirst name\ne-mail\nZip/Postal\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "data/export.csv",
+        "text": "id,first name,email,postal_code"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-exists",
+        "path": "data/export.sample.csv"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "data/export.sample.csv",
+        "text": "id,first name,email,postal_code"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "data/export.sample.csv",
+        "text": "3,Cy,cy@example.com,10003"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "data/export.sample.csv",
+        "text": "4,Dee"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": "data/export.csv",
+        "text": "5,Eve,eve@example.com,10005"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": "data/export.csv",
+        "text": "1,Ann,ann@example.com,10001"
+      }
+    },
+    {
+      "requirement": "prohibited[0]",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "scripts/columns.txt"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

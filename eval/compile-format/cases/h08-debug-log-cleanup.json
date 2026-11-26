@@ -1,0 +1,151 @@
+{
+  "id": "h08-debug-log-cleanup",
+  "split": "held-out",
+  "properties": [
+    "explicit-exclusions",
+    "conditional-requirements"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Remove debug logging from src/app.js.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        }
+      ],
+      "identifiers": [
+        "src/app.js",
+        "src/vendor/lib.js",
+        "console.log",
+        "console.error"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "src/app.js has no debug: logs, keeps console.error and console.log(\"ready\"), and starts with the review comment.",
+          "provenance": "user",
+          "covers": [
+            "R1",
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "Remove every `console.log` statement in src/app.js whose message starts with \"debug:\".",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "Keep all `console.error` statements and leave everything under src/vendor/ unchanged.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "If src/app.js still contains any `console.log` after the removal, add the comment line `// remaining logs reviewed` as the first line of the file; if none remain, add nothing.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": [
+        {
+          "text": "Editing test/app.test.js.",
+          "provenance": "user"
+        }
+      ]
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "src/app.js": "console.log(\"debug: start\");\nfunction run() {\n  console.log(\"ready\");\n  console.error(\"fatal\");\n}\nconsole.log(\"debug: end\");\nmodule.exports = run;\n",
+      "src/vendor/lib.js": "console.log(\"debug: vendor\");\nmodule.exports = {};\n",
+      "test/app.test.js": "require(\"../src/app\")();\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "src/app.js",
+        "text": "debug: start"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "src/app.js",
+        "text": "debug: end"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/app.js",
+        "text": "console.error(\"fatal\")"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "src/vendor/lib.js"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/app.js",
+        "text": "// remaining logs reviewed"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/app.js",
+        "text": "console.log(\"ready\")"
+      }
+    },
+    {
+      "requirement": "prohibited[0]",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "test/app.test.js"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

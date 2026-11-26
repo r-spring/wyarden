@@ -1,0 +1,29 @@
+{
+  "v": 1,
+  "name": "Example: two small steps",
+  "about": "Shows the shape of a plan file. Safe to run: it only writes docs/plan-example/notes.md, on Haiku at low effort.",
+  "review": "checks",
+  "model": "haiku",
+  "effort": "low",
+  "steps": [
+    {
+      "id": "write",
+      "title": "Write the example note",
+      "goal": "Create docs/plan-example/notes.md with the heading '# Plan example' and one sentence saying that the step 'write' made it.",
+      "files": ["docs/plan-example/notes.md"],
+      "avoid": ["src/", "media/", "docs/parity/"],
+      "checks": ["example-note"],
+      "reply": "the commit id"
+    },
+    {
+      "id": "extend",
+      "title": "Add a second sentence",
+      "goal": "Add one sentence to docs/plan-example/notes.md saying that the step 'extend' ran after 'write' and could already see its sentence.",
+      "files": ["docs/plan-example/notes.md"],
+      "avoid": ["src/", "media/", "docs/parity/"],
+      "checks": ["example-note"],
+      "after": ["write"],
+      "reply": "the commit id and the file's two sentences"
+    }
+  ]
+}

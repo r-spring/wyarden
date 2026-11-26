@@ -1,0 +1,169 @@
+{
+  "id": "h05-assets-path",
+  "split": "held-out",
+  "properties": [
+    "user-corrections",
+    "conditional-requirements",
+    "explicit-exclusions"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Point the assets path at the public folder and list what would need moving.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        },
+        {
+          "text": "The new assets path is `./public`; the user's first choice `./assets` was changed.",
+          "provenance": "explicit-change"
+        }
+      ],
+      "identifiers": [
+        "./public",
+        "./static",
+        "config/paths.json",
+        "public/MOVED.txt"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "config/paths.json has assets ./public and cache ./tmp.",
+          "provenance": "user",
+          "covers": [
+            "R1"
+          ]
+        },
+        {
+          "id": "A2",
+          "text": "public/MOVED.txt names logo.txt and static/logo.txt still exists.",
+          "provenance": "user",
+          "covers": [
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "In config/paths.json change the `assets` value from `./static` to `./public`; leave `cache` unchanged.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "If the static/ folder contains any files, create public/MOVED.txt listing those file names one per line; if static/ is empty or missing, create nothing.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "Do not move, rename or delete anything in static/.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": [
+        {
+          "text": "Editing README.md.",
+          "provenance": "user"
+        }
+      ]
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "config/paths.json": "{\n  \"assets\": \"./static\",\n  \"cache\": \"./tmp\"\n}\n",
+      "static/logo.txt": "LOGO\n",
+      "README.md": "# Paths demo\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "config/paths.json",
+        "text": "\"assets\": \"./public\""
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "config/paths.json",
+        "text": "\"./assets\""
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "config/paths.json",
+        "text": "\"cache\": \"./tmp\""
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-exists",
+        "path": "public/MOVED.txt"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "public/MOVED.txt",
+        "text": "logo.txt"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-exists",
+        "path": "static/logo.txt"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "static/logo.txt"
+      }
+    },
+    {
+      "requirement": "prohibited[0]",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "README.md"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

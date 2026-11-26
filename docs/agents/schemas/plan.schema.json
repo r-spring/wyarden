@@ -1,0 +1,756 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://entomatical.local/schemas/plan.schema.json",
+  "title": "Entomatical workflow plan file",
+  "description": "A plan file (<repo>/workflows/<name>.plan.json, shared through git, or <repo>/.entomatical/workflows/<name>.plan.json, private). The board checks it with validatePlanFile in src/plan.ts, writes every step's prompt from one fixed template (stepPrompt) and makes the cards. This schema mirrors src/plan.ts; test/agent-schemas.test.js fails when the two drift. Rules JSON Schema cannot express (the account's own model, effort and permission lists, check names in workflows/checks.json, step ids named in after, circular waits, {{placeholders}}, the card cap) are in each description and in docs/agents/README.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "v",
+    "name",
+    "review",
+    "steps"
+  ],
+  "properties": {
+    "v": {
+      "enum": [
+        1,
+        2
+      ],
+      "description": "v1 preserves legacy execution. v2 uses governed assignments, operator gates, evidence receipts and explicit scope."
+    },
+    "name": {
+      "description": "The plan's name, shown in Run a plan… and on the plan card. Required, not blank, one line, at most 60 characters.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60,
+      "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000a-\\u001f\\u007f]*$"
+    },
+    "about": {
+      "description": "One line saying what the plan does, shown in the picker, the preview and the plan card. At most 300 characters.",
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^[^\\u0000-\\u0008\\u000a-\\u001f\\u007f]*$"
+    },
+    "deliveryChecks": {
+      "$ref": "#/$defs/nameList",
+      "minItems": 1,
+      "description": "Catalogue checks the board must run successfully on the clean integrated commit before the model reviewer can declare ready."
+    },
+    "review": {
+      "description": "v1: checks auto-merge passing steps, or a model reviews them. v2: both modes require an owner-recorded accepted evidence receipt before governed integration; model mode additionally uses the reviewer.",
+      "enum": [
+        "checks",
+        "model"
+      ]
+    },
+    "mayOpen": {
+      "type": "boolean",
+      "description": "Allow the v1 model reviewer to open additional worker cards within the run limits. Defaults to false. Approving the plan grants this permission."
+    },
+    "reviewer": {
+      "description": "Only with \"review\": \"model\". The reviewer card's account, model and effort. Each must be valid for that account (see account, model, effort below); unset values use the plan's account and the account's defaults.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "$ref": "#/$defs/account",
+          "description": "The reviewer's signed-in account. Default: the plan's account, else the board's default account."
+        },
+        "model": {
+          "$ref": "#/$defs/model",
+          "description": "The reviewer's model: a model the reviewer's account offers."
+        },
+        "effort": {
+          "$ref": "#/$defs/effort",
+          "description": "The reviewer's effort: one the selected model offers."
+        },
+        "permission": {
+          "$ref": "#/$defs/permission",
+          "description": "Explicit reviewer permission. v1 defaults to bypass; v2 requires a selection."
+        }
+      }
+    },
+    "account": {
+      "$ref": "#/$defs/account",
+      "description": "The default account for every step, the judge and the scribe. Default: the board's first signed-in Claude account, else its first account."
+    },
+    "model": {
+      "$ref": "#/$defs/model",
+      "description": "The default model for steps that name none. Must be offered by each step's account."
+    },
+    "effort": {
+      "$ref": "#/$defs/effort",
+      "description": "The default effort for steps that name none. Must be offered by each step's model."
+    },
+    "permission": {
+      "$ref": "#/$defs/permission",
+      "description": "The default permission for steps that name none. Unset: bypass for every step (the preview says so)."
+    },
+    "judge": {
+      "$ref": "#/$defs/model",
+      "description": "The model of this plan's standing judge: a read-only card on the plan's account that gives a verdict on steps marked \"judge\": true before they are accepted. Counts as one card against the card cap."
+    },
+    "scribe": {
+      "description": "A standing scribe: one card on the plan's account that updates the named documents after the named milestone steps. Counts as one card against the card cap.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documents",
+        "after"
+      ],
+      "properties": {
+        "model": {
+          "$ref": "#/$defs/model",
+          "description": "The scribe's model, offered by the plan's account. Default: the account's default model."
+        },
+        "documents": {
+          "description": "The documents the scribe may update: 1 to 20 safe repository-relative paths with forward slashes (no absolute path, drive letter, backslash, empty part, ., .., .git or .entomatical).",
+          "allOf": [
+            {
+              "$ref": "#/$defs/nameList"
+            }
+          ],
+          "minItems": 1,
+          "items": {
+            "not": {
+              "pattern": "(^/|^[A-Za-z]:|\\\\|//|/$|(^|/)\\.\\.?(/|$)|(^|/)\\.git(/|$)|(^|/)\\.entomatical(/|$))"
+            }
+          }
+        },
+        "after": {
+          "description": "The milestone steps (ids of this plan's steps) after which the scribe runs. 1 to 20.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/nameList"
+            }
+          ],
+          "minItems": 1
+        }
+      }
+    },
+    "vars": {
+      "description": "Texts the steps use as {{name}} in title, goal, source, reply, files and avoid. the user may change each one in the preview before Run. A step's \"each\" names one of these to make one card per item.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,39}$"
+      },
+      "additionalProperties": {
+        "description": "A variable's text: at most 2000 characters (VAR_CAP); tab, new line and carriage return allowed, no other control characters.",
+        "type": "string",
+        "maxLength": 2000,
+        "pattern": "^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$"
+      }
+    },
+    "steps": {
+      "description": "The steps, at least one. Each makes one card (or one per item of its each list). Cards of all steps plus the judge and scribe may not exceed entomatical.orchestrator.caps total (default 600).",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "reusable": {
+      "type": "boolean",
+      "description": "v2: explicitly permit another run of this plan. A non-reusable plan can create only one active run."
+    },
+    "inputs": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,39}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/input"
+      },
+      "description": "v2 typed inputs. Text preserves text; list uses an array so item spaces and commas are not separators."
+    },
+    "execution": {
+      "$ref": "#/$defs/execution",
+      "description": "v2 governed execution limits and pinned allowed child profiles."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["deliveryChecks"] },
+      "then": { "properties": { "review": { "const": "model" }, "v": { "const": 1 } } }
+    },
+    {
+      "if": { "required": ["mayOpen"], "properties": { "mayOpen": { "const": true } } },
+      "then": { "properties": { "review": { "const": "model" }, "v": { "const": 1 } } }
+    },
+    {
+      "description": "\"reviewer\" is only for \"review\": \"model\".",
+      "if": {
+        "required": [
+          "reviewer"
+        ]
+      },
+      "then": {
+        "properties": {
+          "review": {
+            "const": "model"
+          }
+        }
+      }
+    },
+    {
+      "description": "With \"review\": \"checks\" every step names at least one check.",
+      "if": {
+        "properties": {
+          "review": {
+            "const": "checks"
+          }
+        },
+        "required": [
+          "review"
+        ]
+      },
+      "then": {
+        "properties": {
+          "steps": {
+            "items": {
+              "required": [
+                "checks"
+              ],
+              "properties": {
+                "checks": {
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "A step with \"judge\": true needs the plan's \"judge\" model.",
+      "if": {
+        "properties": {
+          "steps": {
+            "contains": {
+              "properties": {
+                "judge": {
+                  "const": true
+                }
+              },
+              "required": [
+                "judge"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "judge"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "v": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "inputs": false,
+          "execution": false,
+          "reusable": false,
+          "steps": {
+            "items": {
+              "properties": {
+                "contract": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "v": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "execution",
+          "reusable",
+          "permission"
+        ],
+        "properties": {
+          "vars": false,
+          "judge": false,
+          "scribe": false,
+          "steps": {
+            "items": {
+              "required": [
+                "contract"
+              ]
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "review": {
+                  "const": "model"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "reviewer"
+              ],
+              "properties": {
+                "reviewer": {
+                  "required": [
+                    "permission"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "nameList": {
+      "description": "Up to 20 names or paths, each one nonblank line of at most 200 characters.",
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000a-\\u001f\\u007f]*$"
+      }
+    },
+    "account": {
+      "description": "A signed-in account's exact label (see board.js accounts), for example \"team@example.com\", \"Grok · Work\" or \"Antigravity · Shared\". Also accepted: Codex's label without \"Codex · \", or a provider's name (\"codex\", \"grok\", \"antigravity\") when that provider has exactly one account. One nonblank line, at most 200 characters.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000a-\\u001f\\u007f]*$"
+    },
+    "model": {
+      "description": "A model the card's account offers. Claude: opus, sonnet, haiku or fable. Codex: an id from board.js models (for example gpt-6.1-sol). Grok and Antigravity: an id the account last advertised (board.js models, labelled last seen); before it advertised any, the value is kept and checked when the step's session opens. Never invent a name.",
+      "type": "string",
+      "minLength": 1
+    },
+    "effort": {
+      "description": "An effort the selected model offers. Claude: low, medium, high, xhigh or max. Codex: the model's efforts from board.js models --json; naming a Codex effort needs a Codex model. Grok and Antigravity: a thought level the account last advertised.",
+      "type": "string",
+      "minLength": 1
+    },
+    "permission": {
+      "description": "What the card may do without asking. Claude: ask, edits, auto or bypass. Codex: ask, auto or bypass. Grok and Antigravity: ask or bypass. Headless steps have nobody to answer a prompt, so ask stops a step at its first tool request.",
+      "enum": [
+        "ask",
+        "edits",
+        "auto",
+        "bypass"
+      ]
+    },
+    "step": {
+      "description": "One step of the plan.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "goal"
+      ],
+      "dependentRequired": {
+        "as": [
+          "each"
+        ]
+      },
+      "properties": {
+        "id": {
+          "description": "The step's id, unique in the plan: lowercase letters, digits and -, starting with a letter or digit, up to 30 characters. Six hex digits look like a board card id, so avoid them.",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,29}$"
+        },
+        "title": {
+          "description": "The card's title. Required, one line, at most 80 characters; at most 120 once {{variables}} are filled in.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000a-\\u001f\\u007f]*$"
+        },
+        "goal": {
+          "description": "What the step must achieve, written for a worker that cannot ask questions. Required, at most 4000 characters, new lines allowed.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$"
+        },
+        "source": {
+          "description": "A file the worker reads before it starts (the full task written down), for example docs/plans/x.md. One line, at most 300 characters.",
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^[^\\u0000-\\u0008\\u000a-\\u001f\\u007f]*$"
+        },
+        "files": {
+          "$ref": "#/$defs/nameList",
+          "description": "Where to work: up to 20 paths or folders, put in the prompt's \"Work in:\" line. Unset: \"the files the goal needs\"."
+        },
+        "avoid": {
+          "$ref": "#/$defs/nameList",
+          "description": "Paths the worker must not touch, put in the prompt's \"Do not touch:\" line. The prompt always adds: never push, merge into main, or change settings or CLAUDE.md."
+        },
+        "checks": {
+          "$ref": "#/$defs/nameList",
+          "description": "Names of entries in workflows/checks.json (not commands). The board runs them in the step's worktree when it finishes. Required (at least one) with \"review\": \"checks\" and with \"judge\": true. A plan that names checks needs workflows/checks.json."
+        },
+        "reply": {
+          "description": "What the worker's last reply must contain. Default: \"the commit id, what changed, and anything left undone\". At most 500 characters.",
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$"
+        },
+        "after": {
+          "description": "What this step waits for: ids of other steps of this plan, or six-hex-digit ids of cards already on the board. A step waiting for an each step waits for all of its cards. No step may wait for itself or in a circle. The step's branch starts from the plan's branch, which then holds those steps' work.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "judge": {
+          "description": "true: the plan's standing judge must pass this step before it is accepted. Needs the plan's \"judge\" and at least one check.",
+          "type": "boolean"
+        },
+        "mayOpen": {
+          "description": "true: this step may open its own cards with board.js add, as a coordinator added with --may-open may (F119). Its cards count against the run's caps; one waits in Queued while the run's open slots are full. The step merges and marks Done each card it accepts, then runs board.js ready; the board accepts the step only when every card it opened is Done or cancelled. Leave it out for a step one session can do.",
+          "type": "boolean"
+        },
+        "each": {
+          "description": "The name of one of the plan's vars: one card per item. Items are split on ; or new lines when the text has either, else on spaces and commas. 1 to 20 items (MAX_EACH).",
+          "type": "string"
+        },
+        "as": {
+          "description": "The item's name in {{…}}. Default: the list's name without its plural s (features → feature), else item. {{item}} also always works. Needs \"each\".",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,39}$"
+        },
+        "account": {
+          "$ref": "#/$defs/account",
+          "description": "This step's account; overrides the plan's."
+        },
+        "model": {
+          "$ref": "#/$defs/model",
+          "description": "This step's model; overrides the plan's. Must be offered by this step's account."
+        },
+        "effort": {
+          "$ref": "#/$defs/effort",
+          "description": "This step's effort; overrides the plan's. Must be offered by this step's model."
+        },
+        "permission": {
+          "$ref": "#/$defs/permission",
+          "description": "This step's permission; overrides the plan's. Must be one this step's account offers."
+        },
+        "contract": {
+          "$ref": "#/$defs/contract",
+          "description": "v2 step boundaries, required artifacts, acceptance criteria, locks and optional operator gate."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "judge"
+            ],
+            "properties": {
+              "judge": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "checks"
+            ],
+            "properties": {
+              "checks": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reads",
+        "writes",
+        "artifacts",
+        "acceptance",
+        "resources"
+      ],
+      "properties": {
+        "reads": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?!/)(?!.*[:\\\\\\u0000-\\u001f\\u007f*?\\[\\]{}])(?!(?:.*\\/)?(?:\\.{1,2}|\\.git|\\.entomatical)(?:\\/|$))(?!.*//)(?!.*\\/$).+$"
+          },
+          "description": "Existing repository files hashed into the approved manifest; additional reads are not sandboxed."
+        },
+        "writes": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?!/)(?!.*[:\\\\\\u0000-\\u001f\\u007f*?\\[\\]{}])(?!(?:.*\\/)?(?:\\.{1,2}|\\.git|\\.entomatical)(?:\\/|$))(?!.*//)(?!.*\\/$).+$"
+          },
+          "description": "Repository files or directory prefixes allowed in every commit of this step; no glob patterns."
+        },
+        "artifacts": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?!/)(?!.*[:\\\\\\u0000-\\u001f\\u007f*?\\[\\]{}])(?!(?:.*\\/)?(?:\\.{1,2}|\\.git|\\.entomatical)(?:\\/|$))(?!.*//)(?!.*\\/$).+$"
+          },
+          "minItems": 1,
+          "description": "Files required in the submitted commit before the owner can record accepted."
+        },
+        "acceptance": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u001f\\u007f]*$"
+          },
+          "minItems": 1,
+          "description": "Criteria the owner must confirm when recording an accepted result."
+        },
+        "resources": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^named:[a-z0-9][a-z0-9-]{0,79}$"
+          },
+          "description": "Exclusive named resources shared across plans in this repository; uncertain attempts keep their locks."
+        },
+        "gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "action",
+            "target",
+            "candidate",
+            "evidence"
+          ],
+          "properties": {
+            "action": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u001f\\u007f]*$",
+              "description": "Exact proposed action."
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u001f\\u007f]*$",
+              "description": "Stable target identity."
+            },
+            "candidate": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u001f\\u007f]*$",
+              "description": "Exact candidate or tool revision to authorize."
+            },
+            "evidence": {
+              "type": "array",
+              "maxItems": 20,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "^(?!/)(?!.*[:\\\\\\u0000-\\u001f\\u007f*?\\[\\]{}])(?!(?:.*\\/)?(?:\\.{1,2}|\\.git|\\.entomatical)(?:\\/|$))(?!.*//)(?!.*\\/$).+$"
+              },
+              "minItems": 1,
+              "description": "Existing evidence files whose hashes are bound to the operator approval."
+            }
+          },
+          "description": "Optional one-use operator authorization before dispatch; device authentication remains separate."
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limits",
+        "allowed",
+        "defaultChild"
+      ],
+      "properties": {
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "active",
+            "directChildren",
+            "depth"
+          ],
+          "properties": {
+            "active": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32,
+              "description": "Active execution limit, including reviewer, workers and coordinators."
+            },
+            "directChildren": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32,
+              "description": "Direct child limit, at most the active execution limit."
+            },
+            "depth": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8,
+              "description": "Maximum delegation depth."
+            }
+          },
+          "description": "Explicit limits for the existing governed execution scheduler."
+        },
+        "allowed": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u001f\\u007f]*$"
+          },
+          "minItems": 1,
+          "description": "Explicit allowed profile references; provider-defaults must be chosen to allow it."
+        },
+        "defaultChild": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u001f\\u007f]*$",
+          "description": "An explicitly allowed profile used by plan workers."
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "required"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "text",
+            "list"
+          ],
+          "description": "Text or an array of text items."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether an empty effective input is refused."
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 2000,
+              "pattern": "^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$"
+            },
+            {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "string",
+                "maxLength": 2000,
+                "pattern": "^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$",
+                "minLength": 1
+              }
+            }
+          ],
+          "description": "Initial value shown before Run; may be changed for this run."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "text"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": "string",
+                "maxLength": 2000,
+                "pattern": "^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "list"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "string",
+                  "maxLength": 2000,
+                  "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

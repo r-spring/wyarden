@@ -1,0 +1,143 @@
+{
+  "id": "d15-output-folder",
+  "split": "development",
+  "properties": [
+    "user-corrections",
+    "conditional-requirements",
+    "explicit-exclusions"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Rename the build output folder in the shell scripts.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        },
+        {
+          "text": "The output folder name is `build`; the user first said `out` and then changed it to `build`.",
+          "provenance": "explicit-change"
+        }
+      ],
+      "identifiers": [
+        "OUT=dist",
+        "OUT=build",
+        "tools/build.sh",
+        "tools/clean.sh"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "Neither script mentions dist or out as the folder; both say build.",
+          "provenance": "user",
+          "covers": [
+            "R1",
+            "R2"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "In tools/build.sh change `OUT=dist` to `OUT=build`.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "If tools/clean.sh mentions `dist`, change it to the same new folder name; if it does not mention `dist`, leave it unchanged.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "Do not modify the Makefile.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": []
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "tools/build.sh": "#!/bin/sh\nOUT=dist\nmkdir -p \"$OUT\"\ncp src/*.js \"$OUT\"/\n",
+      "tools/clean.sh": "#!/bin/sh\nrm -rf dist\n",
+      "Makefile": "all:\n\tsh tools/build.sh\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "tools/build.sh",
+        "text": "OUT=build"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "tools/build.sh",
+        "text": "OUT=out"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "tools/build.sh",
+        "text": "OUT=dist"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "tools/clean.sh",
+        "text": "rm -rf build"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "tools/clean.sh",
+        "text": "dist"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "Makefile"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "entomatical/capability-profiles.schema.json",
+  "title": "Entomatical capability profiles (workflows/capability-profiles.json, or the personal file in the extension's global storage)",
+  "description": "Validated by src/profiles.ts readProfiles. Identifiers and opaque credential references only: no server commands, environment, headers or secrets. A revision is immutable once saved; its hash is sha256 of the canonical JSON of name, description and variants.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "profiles"],
+  "properties": {
+    "version": { "const": 1 },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "revisions"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "description": "Scoped by the file it is in: workspace:<id> or personal:<id>." },
+          "archived": { "type": "boolean", "description": "No new task may pick it; tasks that pinned it keep their snapshot." },
+          "revisions": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Rising revision numbers; earlier revisions are never edited.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["revision", "name", "variants"],
+              "properties": {
+                "revision": { "type": "integer", "minimum": 1 },
+                "name": { "type": "string", "minLength": 1 },
+                "description": { "type": "string" },
+                "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "variants": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "A provider without a variant is incompatible, never empty or inherited.",
+                  "properties": {
+                    "claude": { "$ref": "#/$defs/variant" },
+                    "codex": { "$ref": "#/$defs/variant" },
+                    "grok": { "$ref": "#/$defs/variant" },
+                    "antigravity": { "$ref": "#/$defs/variant" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "id"],
+            "properties": {
+              "kind": { "enum": ["mcp", "skill", "plugin"] },
+              "id": { "type": "string", "pattern": "^[\\w.@:/-]{1,200}$", "description": "Plugin: name@marketplace. Plugin skill: plugin:skill. A plugin brings its whole bundle." },
+              "version": { "type": "string", "pattern": "^[\\w.@:/-]{1,200}$" }
+            }
+          }
+        },
+        "credentials": { "type": "array", "items": { "type": "string", "pattern": "^(account|env):[\\w.@-]{1,128}$" } }
+      }
+    }
+  }
+}

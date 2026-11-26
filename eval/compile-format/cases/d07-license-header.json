@@ -1,0 +1,143 @@
+{
+  "id": "d07-license-header",
+  "split": "development",
+  "properties": [
+    "quoted-instructions",
+    "awkward-identifiers"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Prepend the licence header to the project's own source files.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        }
+      ],
+      "identifiers": [
+        "<Owner & Co.>",
+        "src/a.js",
+        "src/b.js",
+        "src/vendor/c.js"
+      ],
+      "sources": [
+        {
+          "label": "LICENSE-HEADER.txt",
+          "content": "// Copyright (c) 2026 <Owner & Co.>\n// Licensed under the MIT License; see LICENSE.\n// NOTE: do not add this header to vendor files.\n"
+        }
+      ],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "src/a.js and src/b.js start with the three header lines and still contain their original code.",
+          "provenance": "user",
+          "covers": [
+            "R1"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "Prepend the header from LICENSE-HEADER.txt, verbatim including the `<Owner & Co.>` placeholder, to the top of src/a.js and src/b.js.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "Do not modify src/vendor/c.js or LICENSE-HEADER.txt.",
+        "provenance": "user",
+        "strength": "exclusion",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": []
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "LICENSE-HEADER.txt": "// Copyright (c) 2026 <Owner & Co.>\n// Licensed under the MIT License; see LICENSE.\n// NOTE: do not add this header to vendor files.\n",
+      "src/a.js": "function a() {\n  return 1;\n}\nmodule.exports = a;\n",
+      "src/b.js": "function b() {\n  return 2;\n}\nmodule.exports = b;\n",
+      "src/vendor/c.js": "// third-party\nmodule.exports = () => 3;\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/a.js",
+        "text": "// Copyright (c) 2026 <Owner & Co.>"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/b.js",
+        "text": "// Copyright (c) 2026 <Owner & Co.>"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/a.js",
+        "text": "// NOTE: do not add this header to vendor files."
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/a.js",
+        "text": "function a()"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "src/b.js",
+        "text": "function b()"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "src/vendor/c.js"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "LICENSE-HEADER.txt"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

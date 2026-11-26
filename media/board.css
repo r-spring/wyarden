@@ -1,0 +1,348 @@
+/* Stage 1 of the shared UI style contract: tokens, a status palette, stripes, button weights, hierarchy by colour.
+   Everything builds on VS Code's theme variables, so the board follows the user's theme; the few own colours have a
+   light-theme variant and step aside in high contrast. */
+
+/* Tokens: one spacing scale, three type sizes. */
+:root {
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+  --fs-small: 11px; --fs-base: var(--vscode-font-size); --fs-title: 13px;
+  --text: var(--vscode-foreground);
+  --text-muted: var(--vscode-descriptionForeground);
+  --line: var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+  --surface: var(--vscode-editorWidget-background);
+  --radius: 4px;
+}
+/* Status palette: --vscode-charts-* exist in every theme and are made for exactly this. */
+body {
+  --status-queued: var(--vscode-descriptionForeground);
+  --status-running: var(--vscode-charts-blue, #3794ff);
+  --status-needs-input: var(--vscode-charts-orange, #d18616);
+  --status-review: var(--vscode-charts-green, #89d185);
+  --status-done: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
+  --claude-color: #d97757; --codex-color: #4fa8ff; --grok-color: #3fa95a; --antigravity-color: #b392f0;
+  /* Battle Royale cards (F105, the user, 14 November 2026: "brightly coloured versions of the default colours … more neon"). Codex's neon
+     is blue, as the user said, and so is its ordinary colour (25 November 2026). The face is a system font, condensed and heavy: no font file, no network. */
+  --claude-neon: #ff6a00; --codex-neon: #00b3ff; --grok-neon: #39ff14; --antigravity-neon: #ff2bd6;
+  --battle-font: Impact, Haettenschweiler, "Arial Narrow Bold", "DejaVu Sans Condensed", sans-serif;
+}
+/* Provider colours (25 November 2026): Claude orange, Codex blue, Grok dark green, Antigravity purple; darker on light themes so each stays readable (about 5:1 or better). */
+body.vscode-light { --claude-color: #b5512a; --codex-color: #0069a8; --grok-color: #1a7f37; --antigravity-color: #7e4fc9; }
+/* The neons on light themes: darker shades, each 4.9:1 or better on #f3f3f3 and on white. */
+body.vscode-light { --claude-neon: #b34700; --codex-neon: #0069a8; --grok-neon: #1f7a00; --antigravity-neon: #b0008f; }
+/* High contrast themes keep their own text colour; the name itself still says which provider it is, and stripes become borders. */
+body.vscode-high-contrast .provider, body.vscode-high-contrast-light .provider { color: inherit; }
+
+/* overflow-wrap is inherited: a path or an identifier with no spaces breaks where it must, in every card line, chip, button and summary,
+   instead of being cut at the card's edge or widening the panel (13 November 2026, measured from 180 px to 1400 px). */
+body { padding: var(--s2); font-family: var(--vscode-font-family); font-size: var(--fs-base); color: var(--text); overflow-wrap: anywhere; }
+input, textarea, select { width: 100%; box-sizing: border-box; margin-bottom: var(--s1); padding: var(--s1);
+  color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); font: inherit; }
+/* max-width caps a flex item's content-sized minimum, so a long account name truncates in the select instead of widening the panel (F03). */
+select { width: auto; flex: 1; max-width: 100%; text-overflow: ellipsis; }
+textarea { resize: vertical; overflow-y: auto; min-height: 3em; max-height: 40vh; caret-color: var(--vscode-input-foreground); }
+input:focus-visible, textarea:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+::selection { background: var(--vscode-editor-selectionBackground); }
+
+/* Buttons by weight. The default is secondary; .primary is the one thing to do next; .danger ends something. */
+button { color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground)); background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  border: 1px solid transparent; border-radius: 2px; padding: 2px var(--s2); cursor: pointer; font: inherit; }
+/* Every button and toggle is one size, 2 px under the text around it (the user, 14 November 2026). */
+button, .toggle { font-size: calc(var(--fs-base) - 2px); }
+button:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground)); }
+button.primary { color: var(--vscode-button-foreground); background: var(--vscode-button-background); }
+button.primary:hover { background: var(--vscode-button-hoverBackground); }
+button.danger { color: var(--vscode-errorForeground); background: transparent; border-color: var(--vscode-errorForeground); }
+button.danger:hover { background: var(--vscode-inputValidation-errorBackground, transparent); }
+button:disabled { opacity: 0.6; cursor: default; }
+/* 24 px is the smallest target WCAG 2.2 accepts (2.5.8); buttons and toggles were 22 px. Text links stay in their line. */
+button:not(.link), .toggle { min-height: 24px; box-sizing: border-box; }
+button.link { background: none; border: none; color: var(--vscode-textLink-foreground); padding: 0; }
+button.link:hover { background: none; text-decoration: underline; }
+button:focus-visible, summary:focus-visible, select:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+body.vscode-high-contrast button, body.vscode-high-contrast-light button { border-color: var(--vscode-contrastBorder, currentColor); }
+
+.row { display: flex; flex-wrap: wrap; gap: var(--s1); align-items: center; }
+.form { margin-bottom: var(--s3); }
+.muted { color: var(--text-muted); font-size: 0.9em; margin-bottom: var(--s1); }
+
+/* Accounts */
+.accounts { margin-bottom: var(--s2); }
+.accounts summary { cursor: pointer; font-weight: 600; margin-bottom: var(--s1); }
+.account { padding: 6px 0; border-top: 1px solid var(--line); } /* the user, 6 November 2026: less space between accounts */
+.account.active .account-who { color: var(--vscode-textLink-foreground); }
+.account-who { font-weight: 600; overflow-wrap: break-word; }
+.account .muted { margin: 1px 0 2px; }
+.provider.claude { color: var(--claude-color); }
+.provider.codex { color: var(--codex-color); }
+.provider.grok { color: var(--grok-color); }
+.provider.antigravity { color: var(--antigravity-color); }
+.model-table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; overflow-wrap: normal; } /* numbers stay whole; .model-scroll scrolls */
+.model-table th, .model-table td { text-align: right; padding: 2px 3px; }
+.model-table th[colspan] { text-align: left; overflow-wrap: anywhere; border-top: 1px solid var(--line); }
+.model-table thead th { font-weight: 600; font-size: var(--fs-small); color: var(--text-muted); vertical-align: bottom; }
+.model-scroll { overflow-x: auto; } /* a sidebar narrower than the table scrolls the table, not the board */
+.model-table tbody th { font-weight: normal; }
+.model-table .model-outcome td { text-align: left; overflow-wrap: anywhere; font-size: var(--fs-small); } /* F106: one line across the five columns; wraps, never widens the table */
+.model-table .model-few { opacity: 0.6; } /* under 5 measured cards: too few to compare */
+.quota { margin: var(--s1) 0; font-variant-numeric: tabular-nums; }
+.quota-label { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--s1) var(--s3); }
+.quota meter { display: block; width: 100%; height: 12px; }
+.quota.warning .quota-label { color: var(--vscode-editorWarning-foreground); }
+.quota.limited .quota-label { color: var(--vscode-errorForeground); }
+.quota .muted, .usage-age { color: var(--text-muted); }
+.usage { font-size: 0.9em; color: var(--text-muted); margin: 2px 0; }
+/* inline-block: a chip moves to the next line whole, and one wider than the panel (a long address) wraps inside itself. */
+.usage-chip { display: inline-block; max-width: 100%; font-weight: normal; font-size: var(--fs-small); color: var(--text-muted); margin-left: 10px; }
+.account-login { margin-left: auto; }
+.account-login summary { font-weight: normal; }
+.account-status { display: flex; align-items: baseline; gap: var(--s2); }
+.account-status > span { min-width: 0; overflow-wrap: anywhere; }
+.account-status .account-login { flex-shrink: 0; text-align: right; }
+.account-status .account-login[open] { flex-shrink: 1; }
+.account-login .row { justify-content: flex-end; }
+.accounts select[aria-label="Add account"] { min-width: 0; flex-basis: 140px; }
+
+/* Dictation */
+.dictate { position: relative; }
+.dictate textarea { padding-right: 36px; }
+.dictate button { position: absolute; right: var(--s1); bottom: 10px; padding: 2px 6px; }
+.no-dictation .dictate button { display: none; }
+
+/* Columns */
+.columns { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s2); }
+.column { flex: 1 1 220px; min-width: 0; }
+.column.empty { flex: 0 0 auto; }
+.column.empty h3 { color: var(--text-muted); }
+/* Stacks (board.js STACKS): Queued + Running, Needs input + Review, Done. With room for five columns a stack draws nothing and the
+   columns sit side by side as before. Below that each stack is one column of the page and its columns sit under each other, so
+   Review follows Needs input instead of dropping below the tallest column of the row above (13 November 2026: at 900 px it began
+   1500 px down, under Running). 1180 px: five 220 px columns, their gaps, the body padding and a scroll bar. */
+.stack { display: contents; }
+@media (max-width: 1180px) {
+  .stack { display: flex; flex-direction: column; gap: var(--s2); flex: 1 1 220px; min-width: 0; }
+  .stack > .column { flex: none; }
+  .stack:not(:has(> .column:not(.empty))) { flex: 0 0 auto; } /* nothing but headers: as wide as they are */
+}
+@media (max-width: 360px) { .stack:has(> .column:not(.empty)) { flex-basis: 100%; } }
+h3 { font-size: var(--fs-small); text-transform: uppercase; letter-spacing: 0.04em; margin: var(--s2) 0 var(--s1); color: var(--text-muted); font-weight: 600; }
+h3[data-status="needs-input"]:not([data-count="0"]) { color: var(--status-needs-input); }
+details.column > summary { list-style: none; cursor: pointer; }
+details.column > summary h3 { display: inline-block; }
+
+/* Cards: a 3 px stripe in the status colour on the left, a 2 px edge in the provider colour on top. */
+.card { position: relative; padding: var(--s2); margin-bottom: var(--s2); border-radius: var(--radius); background: var(--surface);
+  border: 1px solid var(--line); border-left: 3px solid var(--status-queued); overflow: hidden; }
+.card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--claude-color); }
+.card[data-provider="codex"]::before { background: var(--codex-color); }
+.card[data-provider="grok"]::before { background: var(--grok-color); }
+.card[data-provider="antigravity"]::before { background: var(--antigravity-color); }
+.card[data-status="running"] { border-left-color: var(--status-running); }
+.card[data-status="needs-input"] { border-left-color: var(--status-needs-input); background: color-mix(in srgb, var(--status-needs-input) 8%, var(--surface)); }
+.card[data-status="needs-input"] .title { color: var(--status-needs-input); }
+.card[data-status="review"] { border-left-color: var(--status-review); }
+.card[data-status="done"] { border-left-color: var(--status-done); }
+.card[data-status="done"] .title { color: var(--text-muted); font-weight: 500; }
+.card.child { margin-left: var(--s3); }
+body.vscode-high-contrast .card, body.vscode-high-contrast-light .card { border-color: var(--vscode-contrastBorder, currentColor); border-left-width: 3px; background: transparent; }
+body.vscode-high-contrast .card::before, body.vscode-high-contrast-light .card::before { display: none; }
+
+.title { font-weight: 600; font-size: var(--fs-title); margin: 2px 0; overflow-wrap: anywhere; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; border: 1px solid var(--text-muted); vertical-align: 1px; }
+.dot.live { background: var(--status-running); border-color: transparent; animation: breathe 2s ease-in-out infinite; }
+.card[data-status="needs-input"] .dot.live { background: var(--status-needs-input); animation: none; }
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .dot.live { animation: none; } }
+
+.card > details > summary { cursor: pointer; margin-block: var(--s1); color: var(--text-muted); }
+.card > details[open] > summary { color: var(--text); }
+.meta, .refinement .muted, .measurement .muted { color: var(--text-muted); }
+.measurement { font-variant-numeric: tabular-nums; }
+.measurement p, .refinement p { margin: 6px 0; overflow-wrap: anywhere; }
+.cost { font-size: 0.9em; }
+/* Whether a card's work is in the main folder: one line in the 284 px sidebar; the whole reason is in the mouse-over. */
+.delivery { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.delivery.refused { color: var(--vscode-editorWarning-foreground); }
+.completion { margin: 2px 0 6px; padding-left: 6px; border-left: 2px solid var(--vscode-textLink-foreground); overflow-wrap: anywhere; }
+.completion .muted, .completion .error { margin: 2px 0; }
+.completion button { margin-top: 2px; }
+.check-failure pre { max-height: 14em; overflow: auto; margin: 2px 0; padding: 4px; white-space: pre-wrap; font-size: 0.9em; background: var(--vscode-textCodeBlock-background); }
+.completion .rules textarea { width: 100%; box-sizing: border-box; margin-top: 4px; }
+/* Toggle buttons (the user, 11 November 2026): every on/off choice (Title: Haiku, Done When: Fable, Plan first, Card terminal, Orchestrator,
+   Watchers) is a button, outlined with a hollow dot when off and filled with a solid dot when on. The checkbox
+   inside keeps keyboard focus and state; it is just not drawn. The explanation is the label's title (mouse-over). */
+.toggle { position: relative; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; padding: 2px var(--s2);
+  border: 1px solid var(--vscode-checkbox-border, var(--vscode-input-border, var(--text-muted))); border-radius: 2px; color: var(--text-muted); background: transparent; }
+.toggle::before { content: ""; width: 7px; height: 7px; border-radius: 50%; border: 1px solid currentColor; flex: none; }
+.toggle:hover { color: var(--text); background: var(--vscode-toolbar-hoverBackground, transparent); }
+.toggle input[type="checkbox"] { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; padding: 0; pointer-events: none; }
+/* On uses VS Code's own toggle colours (Match Case in Find), so an on toggle does not look like the Add task button. */
+.toggle:has(input:checked) { color: var(--vscode-inputOption-activeForeground, var(--vscode-button-foreground));
+  background: var(--vscode-inputOption-activeBackground, var(--vscode-button-background)); border-color: var(--vscode-inputOption-activeBorder, var(--vscode-focusBorder)); }
+.toggle:has(input:checked)::before { background: currentColor; }
+.toggle:has(input:disabled) { opacity: 0.5; cursor: not-allowed; }
+.toggle:has(input:focus-visible) { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+body.vscode-high-contrast .toggle:has(input:checked), body.vscode-high-contrast-light .toggle:has(input:checked) { border-color: var(--vscode-contrastActiveBorder, currentColor); }
+/* Title and Done When are split buttons (the user, 13 November 2026): the toggle, a 1 px line, then ▾ with the same border and
+   on/off colours, so the two read as one control. ▾ opens .split-menu under it (board.js splitToggle shifts it left at a narrow panel). */
+.split { position: relative; display: inline-flex; align-items: stretch; }
+.split > .toggle { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split > .split-arrow { padding: 0 var(--s1); border-radius: 0 2px 2px 0; color: var(--text-muted); background: transparent;
+  border: 1px solid var(--vscode-checkbox-border, var(--vscode-input-border, var(--text-muted))); border-left: 1px solid currentColor; }
+/* Refine draft and Improve prompt: a button, not a toggle, so ▾ takes the button's colours. */
+.split > button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split > button:first-child + .split-arrow { color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+  background: var(--vscode-button-secondaryBackground, var(--vscode-button-background)); border-color: transparent; border-left-color: currentColor; }
+.split > button:first-child + .split-arrow:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground)); }
+.split > .split-arrow:hover { color: var(--text); background: var(--vscode-toolbar-hoverBackground, transparent); }
+.split:has(input:checked) > .split-arrow { color: var(--vscode-inputOption-activeForeground, var(--vscode-button-foreground));
+  background: var(--vscode-inputOption-activeBackground, var(--vscode-button-background)); border-color: var(--vscode-inputOption-activeBorder, var(--vscode-focusBorder)); border-left-color: currentColor; }
+.split-menu { position: absolute; top: calc(100% + 2px); left: 0; z-index: 20; display: flex; flex-direction: column; gap: 2px; padding: var(--s1);
+  width: max-content; max-width: calc(100vw - 2 * var(--s2)); box-sizing: border-box; color: var(--vscode-menu-foreground, var(--text));
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background, var(--vscode-editor-background, Canvas))); /* never see-through */
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border, var(--text-muted))); border-radius: 3px; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36)); }
+.split-menu[hidden] { display: none; }
+/* F102: the one right-click menu of the helper buttons (board.js openActionMenu), placed at the pointer inside the panel. */
+.split-menu.action-menu { position: fixed; z-index: 30; max-height: calc(100vh - 2 * var(--s2)); overflow-y: auto; }
+.split-note { flex-basis: 100%; font-size: var(--fs-small); color: var(--text-muted); white-space: normal; }
+.split-menu button[disabled] { opacity: 0.5; }
+.split-group { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.split-group > span { min-width: 3.2em; font-size: var(--fs-small); color: var(--text-muted); }
+.split-menu button { padding: 0 6px; color: inherit; background: transparent; }
+.split-menu button:hover { background: var(--vscode-menu-selectionBackground, var(--vscode-toolbar-hoverBackground, transparent)); color: var(--vscode-menu-selectionForeground, inherit); }
+.split-menu button[aria-checked="true"] { color: var(--vscode-inputOption-activeForeground, var(--vscode-button-foreground));
+  background: var(--vscode-inputOption-activeBackground, var(--vscode-button-background)); border-color: var(--vscode-inputOption-activeBorder, var(--vscode-focusBorder)); }
+
+.prompts { margin-bottom: 6px; }
+.prompts summary { cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }
+.prompt-list { max-height: 320px; overflow-y: auto; }
+.prompt-n { color: var(--text-muted); }
+.prompt { white-space: pre-wrap; overflow-wrap: anywhere; margin: var(--s1) 0; padding-left: 6px; border-left: 2px solid var(--vscode-textLink-foreground); }
+.reply { margin: 2px 0 6px; overflow-wrap: anywhere; border-left: 2px solid var(--text-muted); padding-left: 6px; }
+.card-terminal { margin: var(--s2) 0; min-width: 0; border: 1px solid var(--vscode-panel-border); background: var(--vscode-terminal-background, var(--vscode-editor-background)); }
+.card-terminal-header { display: flex; justify-content: space-between; gap: var(--s1); padding: 3px 6px; font-size: 0.9em; }
+.card-terminal-screen { height: 400px; min-height: 120px; max-height: 70vh; resize: vertical; padding: 4px; box-sizing: border-box; overflow: hidden; }
+.card-terminal-screen .xterm { height: 100%; }
+.card-terminal:focus-within { outline: 1px solid var(--vscode-focusBorder); }
+.readout { margin-top: 3px; color: var(--text-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.waiting { margin: 2px 0 6px; font-size: 0.9em; color: var(--vscode-editorWarning-foreground); overflow-wrap: anywhere; }
+
+.agents { margin-bottom: 6px; }
+.agents summary { cursor: pointer; color: var(--text-muted); }
+.agent { margin: var(--s1) 0; padding-left: 6px; border-left: 2px solid var(--text-muted); }
+.agent.working { border-left-color: var(--status-running); }
+.agent.done { color: var(--text-muted); }
+.agent-head { overflow-wrap: anywhere; }
+
+/* Refinement and compilation */
+.refinement { margin: 6px 0 var(--s3); }
+.refinement input[type="checkbox"] { width: auto; margin: 0; }
+.refinement label { cursor: pointer; }
+.refinement textarea { overflow-y: auto; }
+.compilation { margin-top: 6px; }
+.compilation .conflicts { padding-inline-start: 18px; margin: var(--s1) 0; overflow-wrap: anywhere; }
+.error, summary.error { color: var(--vscode-errorForeground); }
+
+.speech-controls { margin: var(--s2) 0 var(--s3); }
+.speech-controls > summary { cursor: pointer; font-weight: 600; padding-block: var(--s1); }
+.speech-controls[open] > summary { margin-bottom: var(--s1); }
+.speech-controls label { display: flex; align-items: center; gap: var(--s1); }
+.speech-controls .muted { overflow-wrap: anywhere; margin-top: var(--s1); }
+
+.speech-controls [hidden] { display: none; }
+.step { margin: 2px 0 6px; padding-left: 6px; border-left: 2px solid var(--vscode-textLink-foreground); overflow-wrap: anywhere; }
+.readiness { font-size: 0.9em; }
+.readiness.dependency, .readiness.resource { color: var(--vscode-editorWarning-foreground); }
+.readiness.blocked, .readiness.attempt { color: var(--vscode-editorError-foreground); }
+.readiness.closed { color: var(--text-muted); }
+
+/* The helper tab (media/helper-tab.js): live model output, activity log, the sent packet and the result, wrapped and scrollable. */
+.helper-tab pre { white-space: pre-wrap; word-break: break-word; font-family: var(--vscode-editor-font-family); font-size: var(--fs-small);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--s2); }
+.helper-tab .helper-log { max-height: 30vh; overflow-y: auto; }
+.helper-tab .helper-stream { max-height: 45vh; overflow-y: auto; }
+.helper-tab .helper-stream.thinking { color: var(--text-muted); font-style: italic; }
+.helper-tab .helper-text { font-size: var(--fs-base); }
+.helper-tab .helper-source { border-left: 2px solid var(--line); padding-left: var(--s2); margin-bottom: var(--s3); }
+
+/* The live line (F70) and the drawer timeline. */
+.doing { margin: 2px 0 4px; font-size: 0.9em; color: var(--text-muted); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.timeline { margin-top: var(--s1); }
+.timeline div { font-family: var(--vscode-editor-font-family); font-size: var(--fs-small); white-space: pre-wrap; margin: 1px 0; }
+
+/* A run on the board (F69, F71, F75, F76): chips, the run row and its collapsed children, the plan row. */
+.chips { display: flex; flex-wrap: wrap; gap: var(--s1); margin: 2px 0 4px; }
+/* A chip stays on one line while it fits its card; one wider than the card wraps (9 px keeps one line a pill and two lines rounded). */
+.chip { font-size: var(--fs-small); color: var(--text-muted); border: 1px solid var(--line); border-radius: 9px; padding: 0 7px; line-height: 16px; max-width: 100%; box-sizing: border-box; }
+/* F78 to F80: Asked you something and Repeating speak up; Quiet turns orange from 20 minutes. Hints only: no column changes. */
+.chip.asks, .chip.repeating, .chip.quiet.late { color: var(--status-needs-input); border-color: var(--status-needs-input); }
+.chip.verdict-done { color: var(--status-review); border-color: var(--status-review); }
+.chip.verdict-not-done, .chip.verdict-unsure { color: var(--status-needs-input); border-color: var(--status-needs-input); }
+/* High contrast: the theme's orange chart colour is about 4.2:1 on black (F110 finding F4); the text takes the theme's own colour and the
+   border its active-border colour, so the chip still stands out. */
+body.vscode-high-contrast .chip:is(.asks, .repeating, .quiet.late, .verdict-done, .verdict-not-done, .verdict-unsure),
+body.vscode-high-contrast-light .chip:is(.asks, .repeating, .quiet.late, .verdict-done, .verdict-not-done, .verdict-unsure) { color: var(--text); border-color: var(--vscode-contrastActiveBorder, currentColor); }
+/* A blocked profile's chip opens its reason (F110 finding F5); open, it takes the card's width. */
+.profile-chip > summary { cursor: pointer; }
+.profile-chip[open] { flex-basis: 100%; border-radius: 4px; padding: 2px 7px; }
+.profile-chip[open] > span { display: block; color: var(--text); margin-top: 2px; }
+.profile-lists > summary { cursor: pointer; font-size: var(--fs-small); }
+.plan { margin: 2px 0 6px; }
+/* A fieldset is min-content wide by default, so the Governed run section was cut off in a narrow side bar (F111, W1). */
+.plan fieldset { min-inline-size: 0; }
+.run-row { display: block; width: 100%; text-align: left; margin-top: var(--s2); }
+.run-children { margin-top: var(--s2); padding-left: var(--s2); border-left: 2px solid var(--line); }
+.report .readout { margin-bottom: var(--s1); }
+
+
+/* Battle Royale (F105, the user, 14 November 2026): the button's text grows while its popup is open; the popup sits over the board. */
+button.battle-armed { font-size: 1.6em; font-weight: 700; }
+.battle-note { color: var(--vscode-errorForeground); margin: var(--s1) 0; }
+.battle-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: var(--s2);
+  box-sizing: border-box; background: rgba(0, 0, 0, 0.6); }
+.battle-overlay[hidden] { display: none; }
+.battle-dialog { box-sizing: border-box; width: 100%; max-width: 480px; max-height: 100%; overflow-y: auto; padding: var(--s3);
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background)); color: var(--text);
+  border: 2px solid var(--vscode-errorForeground, #f14c4c); border-radius: var(--radius); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
+.battle-dialog p { margin: 0 0 var(--s2); }
+.battle-water { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* The loud look (F105, the user, 14 November 2026: "the font choices should be aggressive too"): the aggressive face, uppercase, italic and
+   heavy, on the battle cards' title, provider name and tag, on the button and in the popup. Nothing here moves. */
+.card[data-battle] .title, .battle-head, button.battle-button, .battle-dialog {
+  font-family: var(--battle-font); text-transform: uppercase; font-style: italic; font-weight: 900; letter-spacing: 0.04em; }
+/* A battle card: its provider's neon as a 4 px top edge, a border on the other three sides (the left stays the status stripe) and a glow,
+   and the colour of the provider name and the tag. The card's other text and its terminal keep their own look. */
+.card[data-battle] { --neon: var(--claude-neon); border-top-color: var(--neon); border-right-color: var(--neon); border-bottom-color: var(--neon);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--neon) 55%, transparent); }
+.card[data-battle][data-provider="codex"] { --neon: var(--codex-neon); }
+.card[data-battle][data-provider="grok"] { --neon: var(--grok-neon); }
+.card[data-battle][data-provider="antigravity"] { --neon: var(--antigravity-neon); }
+.card[data-battle]::before { height: 4px; background: var(--neon); }
+.battle-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--s2); margin: 4px 0 2px; color: var(--neon); }
+.battle-provider { font-size: var(--fs-title); }
+.battle-tag { font-size: var(--fs-small); line-height: 14px; padding: 0 4px; border: 1px solid currentColor; border-radius: 2px; }
+/* The button: neon orange text with an electric-blue glow, on near-black with an orange-to-blue edge. */
+button.battle-button { color: #ff6a00; border: 2px solid transparent; border-radius: 3px;
+  background: linear-gradient(#0b0b14, #0b0b14) padding-box, linear-gradient(90deg, #ff6a00, #00b3ff) border-box;
+  text-shadow: 0 0 6px rgba(0, 179, 255, 0.8); box-shadow: 0 0 6px rgba(255, 106, 0, 0.45), 0 0 6px rgba(0, 179, 255, 0.45); }
+button.battle-button:hover { box-shadow: 0 0 10px rgba(255, 106, 0, 0.7), 0 0 10px rgba(0, 179, 255, 0.7); }
+/* The popup: near-black in every theme but high contrast, neon orange text and an electric-blue count, ticker and No. */
+.battle-dialog { background: #0b0b14; color: #ff6a00; border: 3px solid #ff6a00;
+  box-shadow: 0 0 14px rgba(255, 106, 0, 0.6), 0 0 28px rgba(0, 179, 255, 0.35); }
+.battle-dialog #battle-text { font-size: 1.35em; line-height: 1.2; }
+.battle-dialog .muted, .battle-dialog .battle-water { color: #00b3ff; font-size: 1.1em; font-weight: 900; }
+.battle-dialog button { font: inherit; text-transform: inherit; letter-spacing: inherit; font-size: 1.1em; padding: 2px var(--s3); border-radius: 3px; }
+.battle-dialog button.danger { color: #0b0b14; background: #ff6a00; border-color: #ff6a00; }
+.battle-dialog button.danger:hover { background: #ff8a33; }
+.battle-dialog button:not(.danger) { color: #00b3ff; background: transparent; border: 2px solid #00b3ff; }
+.battle-dialog button:not(.danger):hover { background: rgba(0, 179, 255, 0.15); }
+/* High contrast: the face stays, the neon and the glow go; the theme's own colours and borders (as .provider and .card do). */
+body.vscode-high-contrast .card[data-battle], body.vscode-high-contrast-light .card[data-battle] { box-shadow: none; }
+body.vscode-high-contrast .battle-head, body.vscode-high-contrast-light .battle-head { color: inherit; }
+body.vscode-high-contrast button.battle-button, body.vscode-high-contrast-light button.battle-button,
+body.vscode-high-contrast .battle-dialog button, body.vscode-high-contrast-light .battle-dialog button {
+  color: var(--text); background: transparent; border: 1px solid var(--vscode-contrastBorder, currentColor); text-shadow: none; box-shadow: none; }
+body.vscode-high-contrast .battle-dialog, body.vscode-high-contrast-light .battle-dialog { color: var(--text); background: var(--vscode-editor-background, Canvas);
+  border: 2px solid var(--vscode-contrastBorder, currentColor); box-shadow: none; }
+body.vscode-high-contrast .battle-dialog .muted, body.vscode-high-contrast-light .battle-dialog .muted,
+body.vscode-high-contrast .battle-dialog .battle-water, body.vscode-high-contrast-light .battle-dialog .battle-water { color: inherit; }

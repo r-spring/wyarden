@@ -1,0 +1,30 @@
+{
+  "v": 1,
+  "name": "Parity sweep",
+  "about": "Check named features of docs/parity/FEATURES.md on this machine, one card per feature, then a handoff. Nothing is pushed, merged into main or installed.",
+  "review": "model",
+  "reviewer": { "model": "sonnet", "effort": "medium" },
+  "vars": { "features": "F14 F23" },
+  "steps": [
+    {
+      "id": "check",
+      "title": "Check {{feature}} on this machine",
+      "each": "features",
+      "goal": "Check feature {{feature}} of docs/parity/FEATURES.md on this machine.\n\n1. Run `npm run build:wrapper` on Windows first (the checks need it). The packages are already installed: never run `npm ci`.\n2. Read the feature's section: its `what:` line and this machine's status line, including any `check:` text. If this machine's status is not `todo`, change nothing and say so.\n3. Check it with the tests named there and, where the section asks for it, by the steps it describes. Do not start a live model session unless the section requires one.\n4. If it works, change only this machine's status line of {{feature}} to `done <commit>` with a one-line note of how it was checked. If it does not, leave the status as it is and say what failed.\n5. Fix a bug you find only when the fix stays inside {{feature}}; commit it with the status change.\n\nNever change the other machine's status line or any other feature's section, and never run `npm run install-global` or `npm run install-linux`.",
+      "files": ["docs/parity/FEATURES.md", "docs/evidence/"],
+      "checks": ["build", "parity"],
+      "model": "opus",
+      "effort": "high",
+      "reply": "{{feature}}: this machine's status line now, how it was checked, and the commit id (or what failed)"
+    },
+    {
+      "id": "notes",
+      "title": "Handoff for the user: {{features}}",
+      "after": ["check"],
+      "goal": "Every check card of this plan is merged into your branch. Read docs/parity/FEATURES.md for {{features}} and `git log` of this branch.\n\nChange no file. Reply in under 150 words: which features are now `done` on this machine and how each was checked, which failed and why, and what the user has to do next.",
+      "model": "sonnet",
+      "effort": "medium",
+      "reply": "the handoff, under 150 words"
+    }
+  ]
+}

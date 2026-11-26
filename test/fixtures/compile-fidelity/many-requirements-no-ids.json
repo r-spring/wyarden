@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "status": "ready",
+  "outcome": {
+    "goal": "Validate every string in the record.",
+    "deliverable": "The validator.",
+    "beneficiary": ""
+  },
+  "context": {
+    "facts": [],
+    "identifiers": [],
+    "sources": [],
+    "dependencies": []
+  },
+  "success": {
+    "criteria": []
+  },
+  "requirements": [
+    {
+      "id": "R1",
+      "text": "Keep every string under 24,000 characters.",
+      "provenance": "user",
+      "strength": "mandatory",
+      "rationale": ""
+    },
+    {
+      "id": "R2",
+      "text": "Prefer one error per field.",
+      "provenance": "user",
+      "strength": "preference",
+      "rationale": "Easier to read in the webview."
+    },
+    {
+      "id": "R3",
+      "text": "Do not accept control characters.",
+      "provenance": "user",
+      "strength": "exclusion",
+      "rationale": ""
+    },
+    {
+      "id": "R4",
+      "text": "Accept tab and newline.",
+      "provenance": "user",
+      "strength": "tradeoff",
+      "rationale": "Source content needs them."
+    },
+    {
+      "id": "R5",
+      "text": "Report the field path in the message.",
+      "provenance": "assumption",
+      "strength": "mandatory",
+      "rationale": ""
+    }
+  ],
+  "permissions": {
+    "authorized": [
+      {
+        "text": "editing src/task-record.ts",
+        "provenance": "user"
+      }
+    ],
+    "confirm": [],
+    "prohibited": []
+  },
+  "unresolved": [],
+  "conflicts": []
+}

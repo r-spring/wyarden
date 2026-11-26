@@ -1,0 +1,138 @@
+{
+  "id": "h01-feature-flag",
+  "split": "held-out",
+  "properties": [
+    "conditional-requirements",
+    "awkward-identifiers"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Register a new feature flag and document the flag defaults.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        }
+      ],
+      "identifiers": [
+        "exp.fast-path_v2",
+        "beta-search",
+        "config/flags.json",
+        "docs/flags.md"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "config/flags.json parses and has three flags.",
+          "provenance": "user",
+          "covers": [
+            "R1"
+          ]
+        },
+        {
+          "id": "A2",
+          "text": "docs/flags.md has both new lines.",
+          "provenance": "user",
+          "covers": [
+            "R2",
+            "R3"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "Add the flag `exp.fast-path_v2` with the value false to config/flags.json, keeping the existing flags.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R2",
+        "text": "If `beta-search` is true in config/flags.json, add the line \"- `beta-search`: enabled by default\" to docs/flags.md; if it is false, add \"- `beta-search`: disabled by default\" instead.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "Add the line \"- `exp.fast-path_v2`: disabled by default\" to docs/flags.md.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": []
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "config/flags.json": "{\n  \"newCheckout\": false,\n  \"beta-search\": true\n}\n",
+      "docs/flags.md": "# Flags\n\n- `newCheckout`: disabled by default\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "config/flags.json",
+        "text": "\"exp.fast-path_v2\": false"
+      }
+    },
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "config/flags.json",
+        "text": "\"beta-search\": true"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/flags.md",
+        "text": "- `beta-search`: enabled by default"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-not-contains",
+        "path": "docs/flags.md",
+        "text": "`beta-search`: disabled"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/flags.md",
+        "text": "- `exp.fast-path_v2`: disabled by default"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

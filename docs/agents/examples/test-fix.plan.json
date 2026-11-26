@@ -1,0 +1,29 @@
+{
+  "v": 1,
+  "name": "Test fix",
+  "about": "One card per failing area fixes its tests, then one card makes the whole suite pass. Nothing is pushed, merged into main or installed.",
+  "review": "checks",
+  "vars": { "areas": "all" },
+  "steps": [
+    {
+      "id": "fix",
+      "title": "Fix failing tests: {{area}}",
+      "each": "areas",
+      "goal": "Fix the failing tests of this area: {{area}} (`all` means the whole suite).\n\nRun `npm run build:wrapper` on Windows first. The packages are already installed: never run `npm ci`.Run the area's tests (`npm test` for all), find the cause of each failure, fix the code (or the test, when the test is wrong and you can say why), and run them again until they pass. Keep the change inside {{area}}.\n\nNever run `npm run install-global` or `npm run install-linux`.",
+      "checks": ["build"],
+      "model": "opus",
+      "effort": "high",
+      "reply": "the commit id, and the tests that failed before and pass now"
+    },
+    {
+      "id": "verify",
+      "title": "The whole suite passes",
+      "after": ["fix"],
+      "goal": "The fixes of this plan are merged into your branch. Run `npm run build:wrapper` on Windows, then `npm test`. If anything fails, fix the cause and run it again until the whole suite passes.",
+      "checks": ["test"],
+      "model": "sonnet",
+      "effort": "medium",
+      "reply": "the pass count, and each fix you made"
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "id": "d01-timeout-floor",
+  "split": "development",
+  "properties": [
+    "conditional-requirements",
+    "awkward-identifiers"
+  ],
+  "record": {
+    "version": 1,
+    "status": "ready",
+    "outcome": {
+      "goal": "Raise the request timeout floor in config.json and document the new retry back-off setting.",
+      "deliverable": "The edited files in the working directory, plus a brief note of what changed.",
+      "beneficiary": ""
+    },
+    "context": {
+      "facts": [
+        {
+          "text": "All files are in the current working directory; edit them in place.",
+          "provenance": "user"
+        },
+        {
+          "text": "The environment variable `$AB_TIMEOUT_MS` overrides `timeoutMs` at runtime; its name must not change.",
+          "provenance": "user"
+        }
+      ],
+      "identifiers": [
+        "timeoutMs",
+        "retryBackoffMs",
+        "$AB_TIMEOUT_MS"
+      ],
+      "sources": [],
+      "dependencies": []
+    },
+    "success": {
+      "criteria": [
+        {
+          "id": "A1",
+          "text": "config.json parses as JSON and contains timeoutMs 1000 and retryBackoffMs 250.",
+          "provenance": "user",
+          "covers": [
+            "R1",
+            "R2"
+          ]
+        },
+        {
+          "id": "A2",
+          "text": "docs/settings.md lists retryBackoffMs.",
+          "provenance": "user",
+          "covers": [
+            "R3"
+          ]
+        }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "R1",
+        "text": "If `timeoutMs` in config.json is below 1000, set it to 1000; if it is already 1000 or more, leave it unchanged.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": "Requests under one second time out on the test network."
+      },
+      {
+        "id": "R2",
+        "text": "Add the key `retryBackoffMs` with the value 250 directly after `retries` in config.json, keeping the two-space indentation and the existing keys.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      },
+      {
+        "id": "R3",
+        "text": "Add the line \"- `retryBackoffMs`: delay between retries, in milliseconds (default 250)\" to the list in docs/settings.md.",
+        "provenance": "user",
+        "strength": "mandatory",
+        "rationale": ""
+      }
+    ],
+    "permissions": {
+      "authorized": [
+        {
+          "text": "Reading, creating and editing files in the working directory.",
+          "provenance": "user"
+        }
+      ],
+      "confirm": [],
+      "prohibited": [
+        {
+          "text": "Editing README.md.",
+          "provenance": "user"
+        }
+      ]
+    },
+    "unresolved": [],
+    "conflicts": []
+  },
+  "fixture": {
+    "files": {
+      "config.json": "{\n  \"timeoutMs\": 500,\n  \"retries\": 1\n}\n",
+      "docs/settings.md": "# Settings\n\n- `timeoutMs`: request timeout in milliseconds (default 500)\n- `retries`: retry count (default 1)\n",
+      "README.md": "# Timeout demo\n\nSee docs/settings.md.\n"
+    }
+  },
+  "rubric": [
+    {
+      "requirement": "R1",
+      "check": {
+        "kind": "file-contains",
+        "path": "config.json",
+        "text": "\"timeoutMs\": 1000"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "config.json",
+        "text": "\"retryBackoffMs\": 250"
+      }
+    },
+    {
+      "requirement": "R2",
+      "check": {
+        "kind": "file-contains",
+        "path": "config.json",
+        "text": "\"retries\": 1"
+      }
+    },
+    {
+      "requirement": "R3",
+      "check": {
+        "kind": "file-contains",
+        "path": "docs/settings.md",
+        "text": "`retryBackoffMs`: delay between retries, in milliseconds (default 250)"
+      }
+    },
+    {
+      "requirement": "prohibited[0]",
+      "check": {
+        "kind": "file-unchanged",
+        "path": "README.md"
+      }
+    }
+  ],
+  "expectedQuestions": 0
+}

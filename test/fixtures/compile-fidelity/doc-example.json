@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "status": "ready",
+  "outcome": {
+    "goal": "Add CSV export for the currently filtered results table.",
+    "deliverable": "Working local change and a brief account of verification and remaining limits.",
+    "beneficiary": ""
+  },
+  "context": {
+    "facts": [
+      {
+        "text": "The table already supports filtering and column selection.",
+        "provenance": "user"
+      }
+    ],
+    "identifiers": [],
+    "sources": [],
+    "dependencies": []
+  },
+  "success": {
+    "criteria": [
+      {
+        "id": "A1",
+        "text": "Compare exported rows with the filtered table; they match.",
+        "provenance": "user",
+        "covers": [
+          "R1"
+        ]
+      },
+      {
+        "id": "A2",
+        "text": "Compare CSV headers with visible columns; order matches.",
+        "provenance": "user",
+        "covers": [
+          "R2"
+        ]
+      },
+      {
+        "id": "A3",
+        "text": "Verify existing filtering and sorting still work.",
+        "provenance": "user",
+        "covers": [
+          "R3"
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "id": "R1",
+      "text": "Export only rows matching the active filters.",
+      "provenance": "user",
+      "strength": "mandatory",
+      "rationale": ""
+    },
+    {
+      "id": "R2",
+      "text": "Preserve the visible column order.",
+      "provenance": "user",
+      "strength": "mandatory",
+      "rationale": ""
+    },
+    {
+      "id": "R3",
+      "text": "Preserve existing filtering and sorting behavior.",
+      "provenance": "user",
+      "strength": "mandatory",
+      "rationale": ""
+    }
+  ],
+  "permissions": {
+    "authorized": [
+      {
+        "text": "local implementation and focused verification.",
+        "provenance": "user"
+      }
+    ],
+    "confirm": [],
+    "prohibited": [
+      {
+        "text": "deployment or unrelated changes.",
+        "provenance": "user"
+      }
+    ]
+  },
+  "unresolved": [],
+  "conflicts": []
+}
