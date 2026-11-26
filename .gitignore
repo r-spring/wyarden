@@ -23,3 +23,7 @@ C;*entomatical-acp-*/
 # Isolated Grok probe profiles must stay out of the repository.
 *entomatical-acp-auth-*/
 *entomatical-acp-probe-*/
+
+# The landing page (public/, deployed by deploy.py to Firebase Hosting)
+firebase-debug.log
+.firebase/
