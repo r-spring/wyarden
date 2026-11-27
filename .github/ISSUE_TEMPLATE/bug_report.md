@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a problem with Entomatical
+about: Report a problem with Wyarden
 ---
 
 <!-- Keep credentials, prompts, private paths and transcript contents out of this public report. Report suspected vulnerabilities privately at https://github.com/r-spring/wyarden/security/advisories/new. -->
@@ -15,9 +15,9 @@ about: Report a problem with Entomatical
 
 ## Environment
 
-- Entomatical version:
+- Wyarden version:
 - Editor and version:
 - Operating system and architecture:
-- Provider, CLI version and session mode, if relevant:
+- Claude Code version and transcript or collector mode:
 
 ## Sanitized logs or screenshots, if useful

@@ -11,7 +11,7 @@ If the private form is unavailable, use a private security contact listed by the
 ## What to send privately
 
 - A short description of the suspected issue and its impact.
-- The affected Entomatical version or source revision, operating system, editor and relevant provider/CLI version.
+- The affected Wyarden version or source revision, operating system, editor, Claude Code version, and transcript or collector mode.
 - Minimal reproduction steps using a disposable repository and synthetic data; include expected and actual behavior.
 - Sanitized evidence sufficient to reproduce the issue. Remove credentials, personal data, private source and unrelated prompts or transcripts.
 

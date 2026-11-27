@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an improvement to Entomatical
+about: Suggest an improvement to Wyarden
 ---
 
 ## What are you trying to do?
