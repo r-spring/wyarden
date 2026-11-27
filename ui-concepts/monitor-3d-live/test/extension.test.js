@@ -1,5 +1,6 @@
 // The whole extension, activated against a stand-in for `vscode`, with a real hub on a loopback port:
 // a hook payload posted to the hub must reach the tab as a record, a double-click must open the file,
+// a double-click on a session with no session file must run nothing,
 // and "Set Up Collectors" and "Remove Collectors" must leave a settings file as it was.
 // The home folder is a temporary one, so no real Claude folder and no real session is read. Every name is invented.
 'use strict';
@@ -70,6 +71,7 @@ function fakeVscode(folders, answer, workspaceFile) {
         v.panels.push(panel);
         return panel;
       },
+      terminals: [],
       showTextDocument: async u => { v.calls.push(['showTextDocument', u.path]); },
       showQuickPick: async items => items[0],
       showInformationMessage: async text => { v.calls.push(['info', text]); },
@@ -81,7 +83,9 @@ function fakeVscode(folders, answer, workspaceFile) {
     },
     commands: {
       registerCommand: (name, fn) => { v.commands_.set(name, fn); return { dispose() {} }; },
-      executeCommand: async (name, ...args) => { v.calls.push(['command', name, ...args.filter(a => typeof a === 'string')]); }
+      executeCommand: async (name, ...args) => { v.calls.push(['command', name, ...args.filter(a => typeof a === 'string')]); },
+      // Claude Code's own command is listed, so nothing but the checks before it keeps it from running.
+      getCommands: async () => [...v.commands_.keys(), 'claude-vscode.editor.open']
     }
   };
   return v;
@@ -192,6 +196,41 @@ test('activated in a window: a hook payload reaches the tab, a double-click open
   panel.handlers.message({ v: 1, type: 'act', action: 'open', target: { class: 'resource', id: 'r:claude:' + session + ':file:src/' } });
   const opened = await until('the editor to open', () => vscode.calls.find(c => c[0] === 'showTextDocument'));
   assert.equal(C.relativeIn(project, opened[1]), 'src/a.js');
+
+  // A double-click on the session. The hub knows it from the hook, but no session file in this home names it,
+  // so no process is known: the owner is told, nothing runs, and the process list is never read.
+  const procs = require('../lib/procs.js'), realAncestors = procs.ancestors;
+  let listed = 0;
+  procs.ancestors = async () => { listed++; return { chain: [], known: false }; };
+  t.after(() => { procs.ancestors = realAncestors; });
+  const noProcess = '3D Monitor: no running process is known for this session, so its terminal or chat panel cannot be found.';
+  let before = vscode.calls.length;
+  panel.handlers.message({ v: 1, type: 'act', action: 'focus', target: { class: 'agent', id: 'a:claude:' + session } });
+  await until('the no-process message', () => vscode.calls.find(c => c[0] === 'info' && c[1] === noProcess));
+  await wait(50);
+  assert.deepEqual(vscode.calls.slice(before), [['info', noProcess]], 'one message, and no command');
+  assert.equal(listed, 0, 'the process list was not read');
+  // A session the hub does not know.
+  before = vscode.calls.length;
+  panel.handlers.message({ v: 1, type: 'act', action: 'focus', target: { class: 'agent', id: 'a:claude:99999999-2222-4333-8444-555555555555' } });
+  await until('the no-longer-live message', () => vscode.calls.length > before);
+  assert.deepEqual(vscode.calls.slice(before), [['info', '3D Monitor: this session is no longer live.']]);
+  // A session file in this home names the session, with this test's own process as its pid: the extension reads
+  // the file, walks that pid (a stand-in here), and finds this window's host in the chain. The file says terminal,
+  // and no terminal is open, so it is "in this window, not shown", and still nothing runs.
+  const sessionsDir = path.join(home, '.claude', 'sessions'), sessionPath = path.join(sessionsDir, process.pid + '.json');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(sessionPath, JSON.stringify({ pid: process.pid, sessionId: session, cwd: project, entrypoint: 'cli', status: 'idle' }));
+  const walked = [];
+  procs.ancestors = async pid => { walked.push(pid); return { chain: [pid], known: true }; };
+  before = vscode.calls.length;
+  panel.handlers.message({ v: 1, type: 'act', action: 'focus', target: { class: 'agent', id: 'a:claude:' + session } });
+  await until('the in-this-window message', () => vscode.calls.length > before);
+  await wait(50);
+  assert.deepEqual(vscode.calls.slice(before), [['info', '3D Monitor: this session runs in this window, but not in a terminal or chat panel that can be shown from here.']]);
+  assert.deepEqual(walked, [process.pid], 'the pid from the session file');
+  fs.rmSync(sessionPath);
+  procs.ancestors = realAncestors;
 
   // Set-up: shown as a diff first, then written after one confirmation; removal puts the file back.
   await vscode.commands_.get('wyardenMonitor.setupCollectors')();

@@ -91,8 +91,8 @@ test('a session is listed only when its file is whole, its fields have the right
   assert.deepEqual(list.map(s => s.session), [ID(1), ID(11)]);
   assert.deepEqual(list[0], {
     agent: 'claude', session: ID(1), key: 'claude:' + ID(1), cwd: '/home/dev/example-1', pid: 1001, status: 'busy',
-    waitingFor: undefined, updatedAt: 1767000001000, statusUpdatedAt: 1767000001000, procStart: '123456789012345678',
-    title: undefined,                                                       // its name is the CLI's placeholder, which is no title
+    waitingFor: undefined, updatedAt: 1767000001000, statusUpdatedAt: 1767000001000, procStart: '123456789012345678', entry: 'cli',
+    title: undefined,                                                      // its name is the CLI's placeholder, which is no title
     configDir: dir, transcript: path.join(dir, 'projects', '-home-dev-example-1', ID(1) + '.jsonl')
   });
   assert.equal(list[1].status, undefined, 'an unknown status is not passed on');
@@ -119,6 +119,23 @@ test('a session\'s title is the name its tab shows: given when the CLI or the ow
   assert.ok(titles[4].startsWith('A title with a tab and a line break'), 'control characters become spaces');
   assert.equal(titles[5], undefined, 'a name of spaces is no title');
   assert.equal(titles[6], 'No source given');
+});
+
+test('where a session runs: the chat panel, a terminal or no terminal is passed on; any other value is not', t => {
+  const dir = tmp(t);
+  sessionFile(dir, '1001.json', good(1, { entrypoint: 'claude-vscode' }));
+  sessionFile(dir, '1002.json', good(2, { entrypoint: 'cli' }));
+  sessionFile(dir, '1003.json', good(3, { entrypoint: 'sdk-cli' }));
+  sessionFile(dir, '1004.json', good(4, { entrypoint: 'example-new-place' }));
+  sessionFile(dir, '1005.json', good(5, { entrypoint: 7 }));
+  sessionFile(dir, '1006.json', good(6, { entrypoint: undefined }));
+  sessionFile(dir, '1007.json', good(7, { entrypoint: 'CLI' }));
+  const list = liveClaudeSessions([dir], { alive: () => true });
+  assert.deepEqual(list.map(s => [s.session, s.entry]), [
+    [ID(1), 'claude-vscode'], [ID(2), 'cli'], [ID(3), 'sdk-cli'],
+    [ID(4), undefined], [ID(5), undefined], [ID(6), undefined], [ID(7), undefined]
+  ]);
+  assert.ok(list.every(s => Object.hasOwn(s, 'entry')), 'the key is there, undefined when the value is not known');
 });
 
 test('waiting and waitingFor are passed on', t => {

@@ -1,22 +1,22 @@
 # Wyarden user guide
 
-Wyarden 0.1.2 is a preview for watching live Claude Code work inside a desktop editor. You can use the monitor with a normal terminal session or a Claude Code editor session that is working in an open local folder.
+Wyarden 0.1.3 is a preview for watching live Claude Code work inside a desktop editor. You can use the monitor with a normal terminal session or a Claude Code editor session that is working in an open local folder.
 
 ## Install and check the download
 
-Download **wyarden-monitor-3d-0.1.2.vsix** and **SHA256SUMS** from the release page. Open your editor's Command Palette and select **Extensions: Install from VSIX…**. Select the VSIX, then reload the window if prompted. [Release downloads](https://github.com/r-spring/wyarden/releases/tag/v0.1.2)
+Download **wyarden-monitor-3d-0.1.3.vsix** and **SHA256SUMS** from the release page. Open your editor's Command Palette and select **Extensions: Install from VSIX…**. Select the VSIX, then reload the window if prompted. [Release downloads](https://github.com/r-spring/wyarden/releases/tag/v0.1.3)
 
 You can also install from a shell in the directory containing the download:
 
 ```sh
-code --install-extension wyarden-monitor-3d-0.1.2.vsix
-codium --install-extension wyarden-monitor-3d-0.1.2.vsix
+code --install-extension wyarden-monitor-3d-0.1.3.vsix
+codium --install-extension wyarden-monitor-3d-0.1.3.vsix
 ```
 
 Use the command for the editor you want. Install the extension in each editor or profile where you want Wyarden to see the windows. You can compare the downloaded file's SHA-256 with the value in **SHA256SUMS**:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath .\wyarden-monitor-3d-0.1.2.vsix
+Get-FileHash -Algorithm SHA256 -LiteralPath .\wyarden-monitor-3d-0.1.3.vsix
 ```
 
 ```sh
@@ -37,6 +37,7 @@ Run **Wyarden 3D Monitor: Choose Workspace** if you prefer a list. Every chip re
 - An agent is an icosahedron, and a subagent is a dodecahedron. The workspace name appears on the tile beneath the agent. Point to an agent to see its session title.
 - The view arranges each session's activity in a column with related tool, MCP server, and resource nodes. Lines show calls between nodes. The preview draws up to 12 sessions per view and reports how many are left out.
 - Select a node to see its details. Double-click a file or press **Ctrl+Enter** on it to open it beside the monitor. For a grouped set of files Wyarden offers a picker. It asks before opening a URL in your browser.
+- Double-click an agent or press **Ctrl+Enter** to show its terminal or Claude Code panel when Wyarden can confirm the session is in this editor window. A subagent opens its parent session. For a session in another window, switch to that window first.
 - Switch between **NEXUS** and **Glasshouse** to change the appearance while keeping the layout. New sessions are framed automatically until you move the camera.
 
 ## Optional collectors
@@ -53,6 +54,8 @@ Wyarden's hub listens on loopback on the machine where the editor extension runs
 
 The hub keeps connection details in `~/.wyarden-monitor/hub.json`. The editor remembers the scope and view for each workspace. When no monitor tab is open, Wyarden pauses its session and transcript polling. Remote editor environments have their own sessions and hub.
 
+When you open a session from its agent node, the monitor checks the local process list to match the session to this window. It keeps that information in memory only for the lookup.
+
 ## Troubleshoot
 
 | Symptom | Check |
@@ -61,6 +64,7 @@ The hub keeps connection details in `~/.wyarden-monitor/hub.json`. The editor re
 | The window has a chip but no sessions | Run Claude Code from an open local project folder. Keep its session running while you open the monitor, then ask it to read a file. Try **All open** to verify the scope. |
 | The first calls are marked **derived** | This is expected in transcript mode. After configuring collectors, start a new Claude Code session if you want direct events. |
 | Files or commands appear incomplete | The view depends on the events the provider supplies. Shell calls do not say which files a script read or wrote. |
+| An agent node can't open its session | Switch to the window that owns the session. Wait a moment if its terminal is still starting. If Wyarden can't match a Claude Code panel to its process, use the editor's existing panel or terminal. |
 | New and old windows show different views after an update | Reload every window with the extension, or restart the editor after work finishes. One of the windows hosts the shared hub. |
 | A session stays briefly after exit | The hub detects the exit from the session file and retains the ended session for 20 seconds. |
 

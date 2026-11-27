@@ -1,6 +1,6 @@
 # Wyarden changelog
 
-## 0.1.2 preview
+## 0.1.3 preview
 
 - First public preview of the standalone Wyarden 3D Monitor.
 - See active Claude Code sessions and subagents alongside the tools, files, URLs, and MCP servers they use.
@@ -8,7 +8,7 @@
 - Identify agents by provider colour and shape, see the window name on the tile, and point to an agent to see the session title.
 - Switch between NEXUS and Glasshouse, choose a file from the scene, and open it beside the monitor.
 
-[Download and release notes](https://github.com/r-spring/wyarden/releases/tag/v0.1.2)
+[Download and release notes](https://github.com/r-spring/wyarden/releases/tag/v0.1.3)
 
 ## Earlier prototypes
 

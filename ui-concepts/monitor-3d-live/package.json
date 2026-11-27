@@ -2,7 +2,7 @@
   "name": "wyarden-monitor-3d",
   "displayName": "Wyarden 3D Monitor",
   "description": "Watch live Claude Code sessions, subagents, tools, files and MCP calls across your open editor windows.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "r-spring",
   "license": "GPL-3.0-only",
   "repository": {
