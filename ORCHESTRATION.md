@@ -79,7 +79,8 @@
 
 | Id | Task | State | Outcome |
 |---|---|---|---|
-| 9a8eb9 | Root | Planning | List written and delivered (`docs/looks/README.md`); where and which settled with Robert |
+| 9a8eb9 | Root | Running | List written and delivered (`docs/looks/README.md`); where and which settled with Robert; approved 27 November 14:17, not a governed run; `monitor-live-tests` on main (e7082f3) |
+| e9327e | 1. Foundation | Opened 14:19, Claude Fable, effort high, check `monitor-live-tests` | |
 
 ## Risks
 
