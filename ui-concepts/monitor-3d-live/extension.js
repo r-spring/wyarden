@@ -69,8 +69,6 @@ function activate(context) {
 
   client.onState = state => { log('hub', state + (client.role ? ' (' + client.role + ')' : '')); view.setHubState(state); showBar(); };
   client.onMessage = message => { view.fromHub(message); if (message && message.type === 'workspaces') showBar(); };
-  client.start();
-  context.subscriptions.push({ dispose: () => client.stop() });
   context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => client.update({ folders: folders() })));
   context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(() => view.sendLook()));
 
@@ -90,6 +88,10 @@ function activate(context) {
     bar.show();
   }
   showBar();
+  // The hub client starts only now. Its first state ("connecting") arrives inside start(), and what hears it
+  // sets the status bar item: started before the item was made, every start-up logged a ReferenceError.
+  client.start();
+  context.subscriptions.push({ dispose: () => client.stop() });
 
   /* ---------- the tab ---------- */
 
