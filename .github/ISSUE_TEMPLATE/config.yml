@@ -1,0 +1,4 @@
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/r-spring/wyarden/security/advisories/new
+    about: Use GitHub's private form for suspected security vulnerabilities.
