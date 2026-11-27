@@ -78,5 +78,10 @@
     "run": "node test/run.js --test-reporter=tap test/provider-ui-webview.test.js test/responsive-webview.test.js test/toggle-buttons-webview.test.js test/form-width-webview.test.js test/webview-gates.test.js",
     "what": "After build: the board's form and cards in headless Chrome or Edge with the real media/board.js and board.css.",
     "minutes": 3
+  },
+  "monitor-live-tests": {
+    "run": "node --test \"ui-concepts/monitor-3d-live/test/*.test.js\"",
+    "what": "Every test of the 3D Monitor working mock-up (ui-concepts/monitor-3d-live), run from the repository's top folder. Needs no build and no package. The page tests need Edge or Chrome and skip without one, so read the skip count. Measured on Windows 11, Node 26.7.0, 27 November 2026: 300 tests, 296 pass, 4 skipped, 61 s.",
+    "minutes": 4
   }
 }

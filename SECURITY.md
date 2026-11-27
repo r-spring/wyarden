@@ -4,9 +4,9 @@ Use a private route for a suspected vulnerability, such as unintended disclosure
 
 ## Find a private reporting route
 
-If [this repository's security area](https://github.com/r-spring/wyarden/security) offers **Report a vulnerability**, use that private form. Its availability depends on the repository settings; this document does not enable the feature. GitHub explains the workflow in its [private vulnerability reporting guide](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/report-privately).
+Use the repository's [private vulnerability reporting form](https://github.com/r-spring/wyarden/security/advisories/new). GitHub explains the workflow in its [private vulnerability reporting guide](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/report-privately).
 
-If the private form is unavailable, use a private security contact explicitly listed by the maintainers. If none is listed, and [[public issues](https://github.com/r-spring/wyarden/issues)](https://github.com/r-spring/wyarden/issues) are available, open an issue asking only: "How can I contact the maintainers privately about a security issue?" Do not include the affected component, exploit, logs or other vulnerability details in that public request. If neither route is available, retain the details until a private route is provided.
+If the private form is unavailable, use a private security contact listed by the maintainers. You can also open a [public issue](https://github.com/r-spring/wyarden/issues) asking how to contact the maintainers privately. Keep all vulnerability details and logs in the private conversation.
 
 ## What to send privately
 

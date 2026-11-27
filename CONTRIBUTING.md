@@ -2,6 +2,8 @@
 
 Keep contributions focused on a concrete problem and a reviewable change. For a larger feature, dependency or workflow change, discuss the proposal in [GitHub Issues](https://github.com/r-spring/wyarden/issues) before implementing it. Report suspected vulnerabilities using the [security policy](https://github.com/r-spring/wyarden/blob/main/SECURITY.md).
 
+The [code of conduct](https://github.com/r-spring/wyarden/blob/main/CODE_OF_CONDUCT.md) applies to project discussions and contributions.
+
 ## Work on a branch
 
 Use a source checkout of [r-spring/wyarden](https://github.com/r-spring/wyarden). Start a branch from its current `main`; keep unrelated changes out of your pull request. If using Git worktrees, give each task its own worktree and preserve other contributors' edits.
