@@ -2,8 +2,8 @@
 
 **What this is:** the list for card 9a8eb9, milestone 1. Every interface and mock-up in this repository, and each idea it shows, one entry per idea.
 **What an entry is:** one thing you could pick as a look. Its id is fixed here: it becomes the look's file name, its button, and the name the checks use.
-**The count:** 15 ideas. 4 are looks today (2 in each monitor page), 11 are not built as looks.
-**Not settled:** where the looks live. See the end.
+**The count:** 18 ideas. 4 are looks today (2 in each monitor page), 14 are not built as looks.
+**Where they will live:** in the live 3D Monitor tab, with a browser preview of that same page. You chose this on 27 November; see the end.
 
 Written 27 November 2026.
 
@@ -14,7 +14,8 @@ The rule is this repository's own ([the critique](../monitor-3d/01-mockup-critiq
 - **In a look:** colours, shapes, line weight and glow, caption style and lettering, the page's own colours and fonts, and a still backdrop (a street grid, orbit rings, contour lines).
 - **Not in a look:** where things stand, anything that moves by itself, any control, any new behaviour.
 - **So, for example:** Orbital Mechanics as a look has its lilac spheres, its rings and its indigo sky, on the same four floors and columns as every other look. Its planets do not orbit.
-- **How true to the original:** an original is drawn as its screenshot shows it, in its own colours and shapes. Where an original gives every type one shape (Event Horizon, Signal Terrain), the look keeps that: the floor and the caption still say what class a thing is. State stays a mark beside the shape in every look.
+- **How true to the original:** an original is drawn as its picture shows it, in its own colours and shapes. Where an original gives every type one shape (Event Horizon, Signal Terrain), the look keeps that: the floor and the caption still say what class a thing is.
+- **State is never a colour.** In every look a state is a mark beside the shape, with its name in the caption. Where an original colours things by state (Skyline, Control Room), the look uses those colours for the classes instead.
 
 ## The list
 
@@ -56,12 +57,22 @@ The main extension has no look switch of any kind: nothing sets a theme, a skin 
 
 These three interfaces are flat pages, so they show colours and lettering but no 3D shapes. As looks in the monitor they would bring their colours, lettering and line style; the shapes would be the plain wireframe ones.
 
-### D. Named in this repository, but not shown here (not on the list)
+### D. Named in this repository, shown only in Entridir (3 kept, 2 left out)
 
-Their look is not in any picture or description in this repository, only their names and a few borrowed rules. They are left out unless you say otherwise.
+This repository names five more ideas and borrows rules from them, but has no picture of them. You asked on 27 November for those that are quite different from the other looks, and not the derivatives. Each was looked at in Entridir: the four Godot looks in `docs/verification/godot-looks/looks.png`, Signal House by opening its page.
 
-- **Signal House** (a flat board concept in Entridir). The critique borrows three behaviours from it, not its look.
-- **The four Godot looks** (Synapse, Orbit, Skyline, Control Room in Entridir). The critique borrows their state marks and caption rules, which every look above already has.
+| id | Look | Shown in (Entridir) | What it looks like | Today |
+|---|---|---|---|---|
+| `skyline` | Skyline, from the Godot build | `godot/looks/skyline.gd` | Off-white. Solid glass blocks and towers outlined in dark ink: teal-green blocks, with amber, red and blue towers. The only light city, and the only look with solid, ink-outlined shapes. | Not built |
+| `control-room` | Control Room, from the Godot build | `godot/looks/control_room.gd` | Black. Flat, heavy, solid marks (triangle, cross, disc, diamond, square, dot), large lettering and thin grey rules, like a wall chart. Its colours were chosen to stay apart for colour-blind eyes. | Not built |
+| `signal-house` | Signal House | `nexus-3d/ui-concepts/signal-house-29d4d1/` | Warm paper beside dark slate panels. Slate ink with vermilion, sage green and blue; large serif headings with an italic flourish; small spaced capitals. `paper` is its plainer relative: one ink and no accent. | Not built |
+
+**Left out as derivatives:**
+
+| Idea | It is a relative of | Why it adds nothing as a look |
+|---|---|---|
+| Synapse, from the Godot build | `synapse` | The same plum ground, pink strands and mint diamonds. What differs is how its tree is arranged, which a look does not carry. |
+| Orbit, from the Godot build | `orbital` | Rings round a sun on a dark blue sky, as in Orbital Mechanics. What differs is that its shapes are coloured by state, which a look here may not do. |
 
 ## Interfaces with no look idea of their own
 
@@ -75,13 +86,15 @@ Their look is not in any picture or description in this repository, only their n
 | The test harness pages | `test/*-harness.html` | The real board, loaded for tests. |
 | The live tab's workspace chips, list, inspector and legend | `ui-concepts/monitor-3d-live/media/` | Parts of the page. Each look already colours them. |
 
-## Not settled: where the looks live
+## Where the looks live
 
-The repository does not say. The same two looks already live in two places whose files have grown apart, and the main extension has no place for a look at all.
+**Decided on 27 November: the live 3D Monitor tab, with a browser preview of that same page.** One set of look files, in `ui-concepts/monitor-3d-live/media/`. You switch in the real tab on your own sessions. The preview shows the same page with invented data, so every look can be photographed and checked with nothing installed.
+
+The repository did not say. The same two looks already lived in two places whose files have grown apart, and the main extension has no place for a look at all. The places that were weighed:
 
 | Place | What it is | For | Against |
 |---|---|---|---|
 | The live 3D Monitor tab | `ui-concepts/monitor-3d-live/`, the VSIX you installed | It is what you use, on your real sessions. Its drawing code is the newer one: provider colours, both solids, captions with or without a plate. | Card 7917d5 is changing its page files now. You must install the new VSIX and reload each window. |
 | A browser preview | A page opened from a local address, with invented data | Nothing to install. Every look can be photographed and checked. | It is not your real sessions. |
 | The simulated mock-up page | `ui-concepts/monitor-3d/` | It exists, and nobody else is changing it. | Its drawing code is the older one: no provider colours, no icosahedrons, until they are carried back. |
-| The Entomatical board | `media/board.css` | It is the main extension. | A board has no 3D scene: only colours and lettering would carry over, so 11 of the 15 would lose their shapes and backdrops. |
+| The Entomatical board | `media/board.css` | It is the main extension. | A board has no 3D scene: only colours and lettering would carry over, so most of the ideas would lose their shapes and backdrops. |
