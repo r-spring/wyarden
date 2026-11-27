@@ -88,6 +88,12 @@ test('each look has one colour for each provider, and none of them is another cl
     assert.equal(new Set(all).size, 4, look.id + ': four different colours');
     for (const c of all) { assert.match(c, /^#[0-9a-f]{6}$/); assert.ok(!taken.map(x => x.toLowerCase()).includes(c), look.id + ': ' + c + ' is used for something else'); }
     assert.equal(look.palette.captionBack, 0, look.id + ': no plate behind a caption');
+    // The owner named the colours: Claude orange, Codex blue, Antigravity purple, Grok green. Each provider's colour
+    // must be of that hue (in degrees round the colour wheel), in both looks.
+    const hue = c => { const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16) / 255), max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+      const h = d === 0 ? 0 : max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4; return (h * 60 + 360) % 360; };
+    for (const [kind, from, to, name] of [['claude', 15, 40, 'orange'], ['codex', 205, 235, 'blue'], ['antigravity', 265, 295, 'purple'], ['grok', 95, 135, 'green']])
+      assert.ok(hue(p[kind]) >= from && hue(p[kind]) <= to, look.id + ': ' + kind + ' should be ' + name + ', and its hue is ' + hue(p[kind]).toFixed(0));
     // Not only different: far enough apart to be told at a glance (a distance in red, green and blue of 40 or more) from
     // each other, from the other classes, from the floor agents stand on, and from the two colours that call for action.
     const rgb = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)), apart = (a, b) => Math.hypot(...rgb(a).map((v, i) => v - rgb(b)[i]));

@@ -3,7 +3,7 @@
 A live 3D view of the coding-agent sessions in your open workspaces. It is the simulated mock-up of [ui-concepts/monitor-3d/](../monitor-3d/README.md), wired to real sessions. The contract it was built against, and what was verified, is [docs/monitor-3d/05-working-mockup.md](../../docs/monitor-3d/05-working-mockup.md).
 
 - **What it shows:** each live Claude Code session as a column: the agent, its subagents, the tools it calls, the files, folders and addresses those calls touch, and its MCP servers. A call is a line from its start to its end.
-- **How to read it:** an agent is an icosahedron and a subagent a dodecahedron, both in their provider's colour. The tile an agent stands on carries the name of its workspace. Point at an agent to see the title of its tab under its name. Captions have no background, so they hide nothing.
+- **How to read it:** an agent is an icosahedron and a subagent a dodecahedron, both in their provider's colour: Claude orange, Codex blue, Antigravity purple, Grok green. The tile an agent stands on carries the name of its workspace. Point at an agent to see the title of its tab under its name. Captions have no background, so they hide nothing.
 - **Which sessions:** only sessions working in a folder that an editor window has open right now. Close the window and its workspace leaves the list.
 - **A workspace is a window.** One chip for each open editor window, named as the window is titled. A window that holds several folders (a workspace file) is still one chip.
 - **Which editors:** VS Code, VSCodium and Code - OSS, on Windows and Linux. One VSIX for all of them: plain JavaScript, no package, no native code.

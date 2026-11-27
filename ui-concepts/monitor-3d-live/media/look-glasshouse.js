@@ -28,10 +28,11 @@
       // A class's own colour. `agent` is also the colour of the floor agents stand on; an agent itself, and a subagent,
       // takes its provider's colour below.
       cls: { agent: '#1f7480', subagent: '#2b5fd0', tool: '#2f7d46', resource: '#6c4bb0', mcp: '#b3541e' },
-      // One colour for each provider, dark enough for the light floor: salmon, teal, graphite, blue. Claude's is
-      // lighter and more orange than the red of a failed call, and lighter than an MCP server's burnt orange.
-      provider: { claude: '#dd6a45', codex: '#0c7c86', grok: '#474d57', antigravity: '#2456c4' },
-      // The floor agents stand on: a quiet slate, so that no provider's colour (Codex's teal above all) runs into it.
+      // One colour for each provider, as the owner named them, dark enough for the light floor: Claude orange, Codex
+      // blue, Antigravity purple, Grok green. Each is a shade well away from the class that shares its hue (an MCP
+      // server's burnt orange, a resource's purple, a tool's green) and from the amber of "needs you".
+      provider: { claude: '#e36a12', codex: '#1f5fd6', antigravity: '#a02bd0', grok: '#3f9b0b' },
+      // The floor agents stand on: a quiet slate, so that no provider's colour runs into it.
       floor: { agent: '#8a9aa0' },
       state: { needs: '#b87700', failed: '#c8323f', working: '#12292e', unclear: '#6b7c7c', idle: '#6b7c7c', done: '#8d9d9a' },
       clash: '#c8323f',

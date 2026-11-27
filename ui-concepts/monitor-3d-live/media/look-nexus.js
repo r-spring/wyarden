@@ -26,10 +26,12 @@
       // A class's own colour. `agent` is also the colour of the floor agents stand on; an agent itself, and a subagent,
       // takes its provider's colour below, and these two are only what is used for a provider the look does not know.
       cls: { agent: '#61e5f5', subagent: '#6a95ff', tool: '#7ee6ab', resource: '#b9a2ff', mcp: '#ffb36a' },
-      // One colour for each provider, for its agents and their subagents: coral, cyan, silver, blue. None is a tool's
-      // green, a resource's violet or an MCP server's amber, and none is a state's yellow or red.
-      provider: { claude: '#ff8466', codex: '#4fd8e8', grok: '#e3e9ee', antigravity: '#6f9bff' },
-      // The floor agents stand on: a quiet steel, so that no provider's colour (Codex's cyan above all) runs into it.
+      // One colour for each provider, for its agents and their subagents, as the owner named them: Claude orange,
+      // Codex blue, Antigravity purple, Grok green. Three of those hues are also a class's (an MCP server's amber, a
+      // resource's violet, a tool's mint), so each is a shade well away from that class's: a full orange, a magenta
+      // purple and a pure green. A shape still says what class a thing is; among agents the colour says whose.
+      provider: { claude: '#ff8a2a', codex: '#4d8dff', antigravity: '#c45cff', grok: '#3ddc4b' },
+      // The floor agents stand on: a quiet steel, so that no provider's colour runs into it.
       floor: { agent: '#6f8996' },
       state: { needs: '#ffe14d', failed: '#ff647f', working: '#f4feff', unclear: '#b8c4cc', idle: '#9db4bf', done: '#7b919d' },
       clash: '#ff647f',
