@@ -12,7 +12,7 @@
 - **How true to an original:** as its picture shows it. Where an original gives every type one shape, the look keeps that. The rules "five silhouettes, five colours" and "one hue for each provider" hold only for looks that claim them in the registry; the four that exist today claim them.
 - **The switcher is buttons.** The page has no `select` or `input`, and stays that way.
 - **The preview is the same page.** It is `media/page.html` and `media/page.js` with a stand-in for the editor and a seeded invented feed. It is not the older page in `ui-concepts/monitor-3d/`, which is left as it is.
-- **The main extension is not touched.** Nothing under the top-level `src`, `media`, `hook`, `tools`, `test` or `public`.
+- **Entomatical is not touched.** Its extension left this repository on 27 November (commit `9f73bb0`, card 1d9e1b). `editor-theme` and `battle-neon` stay on the list Robert approved; their source is read from this repository's history: `git show 0a8c20c:media/board.css`.
 - **A test writes nothing that git tracks.** Test pictures go to an ignored folder. A look's committed picture is made by the shoot tool, for that look's id only.
 
 ## The 18 ids
@@ -27,9 +27,9 @@
     - Outcome: `test/looks.test.js` in the live suite. It holds the registry, `docs/looks/looks.json` and the buttons to the same 18 ids. For each built look it makes a real click on its button in headless Edge, reads `dataset.look` and `aria-pressed`, requires a drawn scene, and requires 0 frames at rest afterwards. No two built looks may draw the same picture. It writes only to an ignored folder, and it is safe to run in four worktrees at once (a free port, its own browser profile).
     - Outcome: `tools/shoot-looks.js <id>…` writes `docs/looks/img/<id>.png` for the ids named, on a fixed invented scene.
     - Outcome: `ui-concepts/monitor-3d-live/LOOKS.md`, one page on how to write a look.
-    - First: read card 7917d5's changes in its worktree, and keep clear of its lines in `page.html` and `page.js`.
+    - Card 33ceee is adding a display of agent thinking to the same monitor: keep changes to `page.js` and `engine.js` in new functions where possible, and new tests in new files.
     - Files: `ui-concepts/monitor-3d-live/media/**`, `lib/view.js`, `test/**`, `tools/**`, `LOOKS.md`; `docs/looks/looks.json`, `docs/looks/img/`.
-    - Evidence: check `monitor-live-tests` passes with the same 4 skips as before and 14 looks "to do"; the two rebuilt looks' pictures; 0 frames at rest still measured.
+    - Evidence: check `monitor-live-tests` passes with the same 4 skips as before (344 tests at version 0.1.3) and 14 looks "to do"; the two rebuilt looks' pictures; 0 frames at rest still measured.
 2. **Look `lattice`.** Owner: one child, Claude Opus. Opened after 1 is integrated.
     - Source: Entridir `nexus-lattice-29d4d1/scene.js`, `style.css`; picture `docs/monitor-3d/img/before/lattice.png`.
     - Files: `media/look-lattice.js`, `docs/looks/img/lattice.png`. Evidence: the looks test names it built; its picture beside the original.
@@ -43,7 +43,7 @@
     - Source: Entridir `modes-horizon-terrain.js`, `worlds.css`; pictures `horizon.png`, `terrain.png`.
     - Files: the two look files and pictures. Evidence: as 2, for each.
 6. **Looks `editor-theme` and `battle-neon`.** Owner: one child, Claude Opus. Opened after 1 is integrated.
-    - Source: `media/board.css` (read only): the theme variables and F52's skin; F105's neon.
+    - Source: Entomatical's `media/board.css` as it stood here, `git show 0a8c20c:media/board.css`: the theme variables and F52's skin; F105's neon.
     - `editor-theme` reads the editor's colours in the tab, reads them again when the editor's theme changes even if Robert chose the look himself, and has fixed fall-backs in the preview.
     - Evidence: as 2, for each, and `editor-theme` photographed under a dark and a light set of variables.
 7. **Looks `paper`, `paper-dark` and `signal-house`.** Owner: one child, Claude Opus. Opened after 1 is integrated.
@@ -66,13 +66,15 @@
 
 ## Waiting on other work
 
-- **7917d5** (Robert's own, live) is changing `ui-concepts/monitor-3d-live/media/page.html`, `page.js`, `nav.js`, `lib/view.js`, tests and `package.json`. Step 1 changes some of the same files. If 7917d5 is on main when step 1 opens, main is merged in first. If not, step 1 starts anyway and reads its diff; the root merges main in when 7917d5 lands and settles any clash before step 10.
-- **1d9e1b** (Robert's own, live) is preparing the public release. This run changes nothing it ships except one new entry in `workflows/checks.json`, which stays on this branch until the first child is opened.
+- **7917d5** (Robert's own) landed on main at 14:22 on 27 November as monitor 0.1.3, and is in this branch since the merge `ac7437b`. It may still add to the monitor.
+- **1d9e1b** (Robert's own) published the 0.1.3 preview and took the Entomatical extension out of this repository (`9f73bb0`). This repository is now the public Wyarden monitor.
+- **33ceee** (Robert's own, live) changed course at about 14:20: it now adds a display of agent thinking to this same monitor. The root told it on 27 November which files and parts this run changes, and asked which it will change.
+- **The board delivers this branch to main when a turn of the root ends.** So main carries this run's work as it is integrated, and other cards meet it there.
 
 ## Limits asked for
 
 - Open at once: 4. Total: 16 (10 children, and room for 6 repairs). Depth: 2.
-- Checks: `monitor-live-tests` (new in `workflows/checks.json`; 61 s today, 300 tests, 4 skipped).
+- Checks: `monitor-live-tests` (in `workflows/checks.json`; at version 0.1.3: 344 tests, 340 pass, 4 skipped, 58 s).
 - After approval and before any `add`: run `capabilities` again. If the run is governed, each `add` takes a profile and an assignment file, and children `submit`.
 
 ## Ledger
