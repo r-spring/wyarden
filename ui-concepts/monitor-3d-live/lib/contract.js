@@ -132,6 +132,24 @@ const normPath = p => fold(realOf(p), flavour(p));
 /** The first 12 hex characters of SHA-256 of the folder's normalised real path. */
 const wsKey = folder => crypto.createHash('sha256').update(normPath(folder)).digest('hex').slice(0, 12);
 
+/* ---------- a workspace is what one editor window has open ----------
+ * The owner picks a workspace by its window: one chip for each open window, named as the window is
+ * titled. A window may hold one folder, or the several folders of a workspace file; either way it
+ * is one workspace. The hub and the host both make the key with the function below, so neither
+ * has to be told the other's.
+ */
+/** The key of a set of folder keys (wsKey). One folder keeps its own key, so a key made before windows were grouped still names the same window. */
+function windowKeyOf(folderKeys) {
+  const keys = [...new Set((Array.isArray(folderKeys) ? folderKeys : []).filter(k => typeof k === 'string' && /^[0-9a-f]{12}$/.test(k)))].sort();
+  if (!keys.length) return '';
+  if (keys.length === 1) return keys[0];
+  return crypto.createHash('sha256').update('window\n' + keys.join('\n')).digest('hex').slice(0, 12);
+}
+/** The key of what a window has open, from its folders' paths. Their order and spelling do not matter. '' for a window with no folder. */
+const windowKey = folderPaths => windowKeyOf((Array.isArray(folderPaths) ? folderPaths : []).filter(p => isAbsolute(p) && p.length <= MAX_PATH).map(wsKey));
+/** A window's name as its title shows it. An editor reports a workspace file as "name (Workspace)"; the title does not. */
+const windowName = name => cleanName(String(name == null ? '' : name).replace(/\s+\(Workspace\)\s*$/, ''));
+
 /** `file` relative to `base` with forward slashes, '.' for the folder itself, or null when it is not inside. */
 function relativeIn(base, file) {
   const f = flavour(base);
@@ -295,6 +313,7 @@ module.exports = {
   hookPath, hookUrl, HOOK_URL, isHookUrl,
   AUTH_SCHEME, newNonce, signRequest, checkRequest, hubProof, sameText,
   isWinPath, isPosixPath, isAbsolute, isNetworkPath, isFsRoot, flavour, lexical, realOf, normPath, wsKey, relativeIn, isInside, MAX_PATH, MAX_CLIMB,
+  windowKey, windowKeyOf, windowName,
   sessionRoot, rootInfo, keptPath,
   cleanText, cleanName, cleanUrl, inputHash, isSessionId, safeId, safeName
 };

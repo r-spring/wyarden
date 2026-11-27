@@ -20,6 +20,11 @@
   const MIN_HIT = 8;           // px: a node smaller than this can still be clicked
   const MAX_GROWTH = .8;       // the most a resource grows: 1.8 times, which still fits its slot
   const CAMERA = { yaw: -0.42, pitch: 0.36, distance: 1800, target: [375, 250, 0] };
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  /* What each provider's agent is called in the scene. An agent and its subagents take their provider's colour
+     (the look's palette.provider); the name says the same in words, so the colour is never the only sign. */
+  const PROVIDERS = { claude: 'Claude', codex: 'Codex', grok: 'Grok', antigravity: 'Antigravity' };
+  const TITLE_SHOWN = 56;      // characters of a session's title shown under its agent when it is pointed at
 
   /* ---------- geometry ---------- */
 
@@ -77,6 +82,32 @@
       const c = (y || 0) + radius;
       return { vertices: [[0, c + radius, 0], [radius, c, 0], [0, c, radius], [-radius, c, 0], [0, c, -radius], [0, c - radius, 0]],
         lines: [[0, 1], [0, 2], [0, 3], [0, 4], [5, 1], [5, 2], [5, 3], [5, 4], [1, 2], [2, 3], [3, 4], [4, 1]] };
+    },
+    /** A regular solid from its corners: scaled so every corner is `radius` from the centre, its edges found as the
+        shortest distance between two corners, and set down on y. */
+    solid(corners, radius, y) {
+      const size = Math.hypot(...corners[0]), k = radius / size;
+      const points = corners.map(p => p.map(v => v * k)), lines = [];
+      let edge = Infinity;
+      for (let i = 0; i < points.length; i++) for (let j = i + 1; j < points.length; j++) edge = Math.min(edge, Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1], points[i][2] - points[j][2]));
+      for (let i = 0; i < points.length; i++) for (let j = i + 1; j < points.length; j++) if (Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1], points[i][2] - points[j][2]) < edge * 1.01) lines.push([i, j]);
+      const low = Math.min(...points.map(p => p[1])), y0 = y || 0;
+      return { vertices: points.map(p => [p[0], p[1] - low + y0, p[2]]), lines };
+    },
+    /** Twenty triangles: 12 corners, 30 edges. */
+    icosahedron(radius, y) {
+      const corners = [];
+      for (const a of [-1, 1]) for (const b of [-PHI, PHI]) corners.push([0, a, b], [a, b, 0], [b, 0, a]);
+      return shapes.solid(corners, radius, y);
+    },
+    /** Twelve pentagons: 20 corners, 30 edges. */
+    dodecahedron(radius, y) {
+      const corners = [], inv = 1 / PHI;
+      for (const a of [-1, 1]) for (const b of [-1, 1]) {
+        for (const c of [-1, 1]) corners.push([a, b, c]);
+        corners.push([0, a * inv, b * PHI], [a * inv, b * PHI, 0], [a * PHI, 0, b * inv]);
+      }
+      return shapes.solid(corners, radius, y);
     },
     pyramid(sides, radius, h, y, turn) {
       const vertices = [], lines = [], y0 = y || 0;
@@ -149,6 +180,9 @@
     }
   }
 
+  /** How big a state mark is drawn beside a node at this scale, and how far out from the node's corner its centre stands (in mark radii). */
+  const badgeSize = scale => Math.max(4.5, Math.min(8, 3.5 + scale * 5));
+  const BADGE_OUT = .72;
   function drawBadge(ctx, shape, x, y, s, color, backdrop) {
     if (!shape) return;
     ctx.setLineDash(NO_DASH); ctx.globalAlpha = .92; ctx.fillStyle = backdrop;
@@ -187,7 +221,7 @@
       this.width = 1; this.height = 1; this.ratio = 1;
       this.selected = ''; this.hover = ''; this.spread = 1; this.motion = false; this.isolated = null; this.savedCamera = null;
       this.keepClear = [];        // boxes, in canvas px, that no caption may cover (the page's overlays)
-      this.hit = []; this.labels = []; this.afterglow = []; this.pulses = new Map(); this.seenLinks = new Set(); this.glowTimer = null;
+      this.hit = []; this.labels = []; this.tileLabels = []; this.afterglow = []; this.pulses = new Map(); this.seenLinks = new Set(); this.glowTimer = null;
       this.meshes = new Map();
       this.stats = { frames: 0, ms: 0, nodes: 0, links: 0, labels: 0, skipped: 0, offscreen: 0 };
       this.redraw = new Redraw(reasons => this.draw(reasons), options.env);
@@ -244,11 +278,23 @@
     }
 
     /* ----- what a node looks like: class decides mesh and colour, state decides only the mark ----- */
+    /** The provider of an agent, a subagent, or a stack of subagents: its own, else its session's. */
+    providerOf(n) {
+      if (n.cls !== 'stack' && typeof n.kind === 'string' && Object.prototype.hasOwnProperty.call(PROVIDERS, n.kind)) return n.kind;
+      const key = n.owner || this.model.columns[n.col] || '';
+      return String(key).split(':')[0];
+    }
+    /** An agent and its subagents are coloured by provider; every other class has its own colour. */
+    colorOf(n) {
+      const pal = this.look.palette, cls = n.cls === 'stack' ? n.of : n.cls;
+      if (cls !== 'agent' && cls !== 'subagent') return pal.cls[cls];
+      const kind = this.providerOf(n);
+      return (pal.provider && Object.prototype.hasOwnProperty.call(pal.provider, kind) && pal.provider[kind]) || pal.cls[cls];
+    }
     visual(n) {
-      const cls = n.cls === 'stack' ? n.of : n.cls;
       return {
         mesh: n.cls === 'stack' ? 'stack' : n.cls === 'resource' ? 'resource.' + n.kind : n.cls,
-        color: this.look.palette.cls[cls],
+        color: this.colorOf(n),
         badge: M.STATES[n.status] ? M.STATES[n.status].shape : '',
         outline: n.cls === 'agent' && n.status === 'done' ? 'dashed' : 'solid',
         size: n.cls === 'resource' ? 1 + Math.min(MAX_GROWTH, Math.log2(1 + n.touches) * .16) : 1      // a resource grows with its touch count
@@ -264,8 +310,17 @@
       return mesh;
     }
     captionOf(n, full) {
-      const text = this.look.caption((full ? n.label : n.short || n.label) || ''), max = full ? 64 : 22;
+      // An agent is named by what it is: its provider. Its folder's name is a code more often than a word (a card's
+      // worktree), so it is left to the inspector; the tile it stands on names its workspace, and its tab's title
+      // shows under it when it is pointed at.
+      const name = n.cls === 'agent' ? PROVIDERS[this.providerOf(n)] || n.label : full ? n.label : n.short || n.label;
+      const text = this.look.caption(name || ''), max = full ? 64 : 22;
       return text.length > max ? text.slice(0, max - 1) + '…' : text;
+    }
+    /** The title of an agent's tab, as written, cut to fit. '' when there is none. */
+    titleOf(n) {
+      const text = n.cls === 'agent' && typeof n.title === 'string' ? n.title.trim() : '';
+      return text.length > TITLE_SHOWN ? text.slice(0, TITLE_SHOWN - 1) + '…' : text;
     }
     detailOf(n) {
       const state = M.STATES[n.status].name;
@@ -292,7 +347,9 @@
       /* 1. Floors: one tile for each column on each floor it has. A tile never changes place or height. */
       const cols = [L.DOCK].concat(model.columnsInUse()).filter(shown), placed = this.keepClear.map(b => Object.assign({}, b)), titles = [];
       for (const floor of L.FLOORS) {
-        const color = pal.cls[floor], tiles = cols.filter(col => L.floorsOf(col).includes(floor)).map(col => L.tile(col, floor, spread).map(P));
+        // A floor has its class's colour, except the agents' floor: agents are coloured by provider, so their floor is a
+        // neutral one that no provider's colour runs into.
+        const color = (pal.floor && pal.floor[floor]) || pal.cls[floor], tiles = cols.filter(col => L.floorsOf(col).includes(floor)).map(col => L.tile(col, floor, spread).map(P));
         if (pal.floorFill) {
           ctx.globalAlpha = pal.floorFill; ctx.fillStyle = color; ctx.beginPath();
           for (const t of tiles) if (t.every(Boolean)) { ctx.moveTo(t[0].x, t[0].y); for (let i = 1; i < 4; i++) ctx.lineTo(t[i].x, t[i].y); ctx.closePath(); }
@@ -309,7 +366,21 @@
         }
         stroke(color, pal.floorLine * .3, .6);
         const first = cols.find(col => L.floorsOf(col).includes(floor));
-        if (first !== undefined) titles.push({ floor, color, at: P(L.tile(first, floor, spread)[0]) });
+        let named = 0;
+        if (floor === 'agent') {
+          // The tile an agent stands on is labelled with the workspace it works in: the window's title, never a key.
+          for (const col of cols) {
+            if (col === L.DOCK) continue;
+            const agent = model.nodes.get('a:' + model.columns[col]), name = agent && typeof agent.space === 'string' ? agent.space.trim() : '';
+            if (!name) continue;
+            const tile = L.tile(col, floor, spread), at = P(tile[0]), end = P(tile[1]);
+            // Room: the tile's front edge and the gap to the next column, so two neighbours' names never run into each other.
+            titles.push({ floor, color, at, text: look.caption(name), room: at && end ? Math.max(24, (end.x - at.x) * (L.PITCH / L.CELL) - 8) : 0 });
+            named++;
+          }
+        }
+        // A hub that names no workspace (version 0.1.0) leaves the floor its own title.
+        if (!named && first !== undefined) titles.push({ floor, color, at: P(L.tile(first, floor, spread)[0]) });
       }
       ctx.beginPath();                                     // the posts that make a column read as one thing
       for (const col of cols) {
@@ -318,13 +389,23 @@
         for (let i = 0; i < 4; i++) seg(P(top[i]), P(bottom[i]));
       }
       stroke(pal.line, pal.post, .7);
-      ctx.font = '9px ' + look.font; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      const fit = (text, room) => {
+        if (ctx.measureText(text).width <= room) return text;
+        let cut = text;
+        while (cut.length > 3 && ctx.measureText(cut + '…').width > room) cut = cut.slice(0, -1);
+        return cut + '…';
+      };
+      this.tileLabels = [];
       for (const t of titles) {
         if (!t.at) continue;
-        const text = L.FLOOR_TITLE[t.floor], box = { x: t.at.x - 2, y: t.at.y + 4, w: ctx.measureText(text).width + 4, h: 12 };
+        ctx.font = (t.text ? '10px ' : '9px ') + look.font;
+        const text = t.text ? fit(t.text, t.room) : L.FLOOR_TITLE[t.floor], box = { x: t.at.x - 2, y: t.at.y + 4, w: ctx.measureText(text).width + 4, h: 12 };
         if (placed.some(b => overlap(b, box))) continue;
-        ctx.globalAlpha = .85; ctx.fillStyle = t.color; ctx.fillText(text, box.x + 2, box.y + 9.5);
+        // A workspace's name is a label to be read, so it has the captions' colour; a floor's own title has the floor's.
+        ctx.globalAlpha = t.text ? 1 : .85; ctx.fillStyle = t.text ? pal.caption : t.color; ctx.fillText(text, box.x + 2, box.y + 9.5);
         placed.push(box);
+        if (t.text) this.tileLabels.push({ text, x: box.x, y: box.y, w: box.w, h: box.h });
       }
 
       /* 2. Where every standing node is on screen. */
@@ -437,7 +518,11 @@
           if (n.reads) { ctx.beginPath(); ctx.arc(item.c.x - 5, y, r, 0, TAU); ctx.stroke(); }
           if (n.writes) ctx.fillRect(item.c.x + 5 - r, y - r, r * 2, r * 2);
         }
-        if (v.badge) drawBadge(ctx, v.badge, item.maxX + 1, item.minY - 1, Math.max(4.5, Math.min(8, 3.5 + item.c.scale * 5)), pal.state[n.status], pal.bg);
+        if (v.badge) {
+          // The mark stands clear of the shape, up and to the right. On the shape's corner its backdrop hid half of a small node.
+          const s = badgeSize(item.c.scale), out = (s + 2.5) * BADGE_OUT;
+          drawBadge(ctx, v.badge, item.maxX + out, item.minY - out, s, pal.state[n.status], pal.bg);
+        }
         this.hit.push({ id: n.id, hull: item.hull, x: item.c.x, y: item.c.y, depth: item.c.depth, base: item.base });
       }
 
@@ -466,16 +551,21 @@
       for (const { item, priority } of wanted) {
         const n = item.n, focus = priority < 2, s = item.c.scale;
         if (!focus && resting >= cap) { skipped++; continue; }
-        const lines = [this.captionOf(n, focus)];
-        if (n.cls !== 'stack' && (focus || (n.cls === 'agent' ? s >= .34 : s >= 1))) lines.push(look.caption(this.detailOf(n)));
         const size = focus ? 11 : 10;
-        ctx.font = (focus ? 'bold ' : '') + size + 'px ' + look.font;
-        const widths = lines.map((text, i) => { if (i === 1) ctx.font = '9px ' + look.font; return ctx.measureText(text).width; });
+        // Each line: its text, its font and its colour. The first names the node; the last gives its state.
+        const lines = [{ text: this.captionOf(n, focus), font: (focus ? 'bold ' : '') + size + 'px ' + look.font, color: focus ? pal.ink : pal.caption }];
+        // The title of an agent's tab, under its name, only while the pointer is on the agent. It is shown as written.
+        const title = n.id === this.hover ? this.titleOf(n) : '';
+        if (title) lines.push({ text: title, font: '10px ' + look.font, color: pal.ink, title: true });
+        if (n.cls !== 'stack' && (focus || (n.cls === 'agent' ? s >= .34 : s >= 1))) lines.push({ text: look.caption(this.detailOf(n)), font: '9px ' + look.font, color: pal.muted });
+        const widths = lines.map(line => { ctx.font = line.font; return ctx.measureText(line.text).width; });
         const bw = Math.max(...widths) + 8, bh = lines.length * 12 + 3, marks = n.cls === 'resource' ? 9 : 3;
         // Four places to try. A node in the left or right third of its cell tries its outer side first, so a full cell can be read.
         const at = (x, y) => ({ x, y, w: bw, h: bh, id: n.id });
-        const below = at(item.c.x - bw / 2, item.maxY + marks), above = at(item.c.x - bw / 2, item.minY - bh - (item.v.badge ? 10 : 4));
-        const right = at(item.maxX + (item.v.badge ? 13 : 5), item.c.y - bh / 2), left = at(item.minX - bw - 5, item.c.y - bh / 2);
+        // A state mark takes room up and to the right of its shape (see where it is drawn): a caption there starts beyond it.
+        const mark = item.v.badge ? (badgeSize(s) + 2.5) * (1 + BADGE_OUT) : 0;
+        const below = at(item.c.x - bw / 2, item.maxY + marks), above = at(item.c.x - bw / 2, item.minY - bh - (mark ? mark + 2 : 4));
+        const right = at(item.maxX + (mark ? mark + 3 : 5), item.c.y - bh / 2), left = at(item.minX - bw - 5, item.c.y - bh / 2);
         const third = n.cls === 'agent' ? 1 : n.slot % 3, tries = third === 0 ? [left, below, above, right] : third === 2 ? [right, below, above, left] : [below, above, right, left];
         const blocked = b => b.x < 0 || b.x + b.w > w || b.y < 0 || b.y + b.h > h || placed.some(other => overlap(other, b));
         let box = tries.find(b => !blocked(b));
@@ -483,12 +573,18 @@
           if (!focus || placed.some(other => other.id && overlap(other, below))) { skipped++; continue; }
           box = below;                                     // the selected or pointed-at node is always named
         }
+        box.lines = lines.map(line => line.text); box.title = title;
         placed.push(box); this.labels.push(box);
         if (!focus) resting++;
-        ctx.globalAlpha = pal.captionBack; ctx.fillStyle = pal.bg; ctx.fillRect(box.x, box.y, box.w, box.h);
-        ctx.globalAlpha = 1; ctx.fillStyle = focus ? pal.ink : pal.caption; ctx.font = (focus ? 'bold ' : '') + size + 'px ' + look.font;
-        ctx.fillText(lines[0], box.x + bw / 2, box.y + 11);
-        if (lines[1]) { ctx.font = '9px ' + look.font; ctx.fillStyle = pal.muted; ctx.fillText(lines[1], box.x + bw / 2, box.y + 23); }
+        // A caption is see-through: no plate behind it, so it never hides the shapes it lies over. A thin outline
+        // in the background's colour, around the letters only, keeps it readable where a line runs through it.
+        if (pal.captionBack > 0) { ctx.globalAlpha = pal.captionBack; ctx.fillStyle = pal.bg; ctx.fillRect(box.x, box.y, box.w, box.h); }
+        lines.forEach((line, i) => {
+          const x = box.x + bw / 2, y = box.y + 11 + i * 12;
+          ctx.font = line.font;
+          if (pal.captionHalo > 0) { ctx.globalAlpha = pal.captionHalo; ctx.strokeStyle = pal.bg; ctx.lineWidth = 3; ctx.setLineDash(NO_DASH); ctx.strokeText(line.text, x, y); }
+          ctx.globalAlpha = 1; ctx.fillStyle = line.color; ctx.fillText(line.text, x, y);
+        });
       }
       ctx.globalAlpha = 1; ctx.setLineDash(NO_DASH);
 
@@ -575,6 +671,6 @@
     }
   }
 
-  const api = { View, Redraw, project, arch, hull, inHull, overlap, shapes, drawBadge, drawIcon, DATA_GAP, GLOW_MS, MIN_HIT, MAX_GROWTH, CAMERA };
+  const api = { View, Redraw, project, arch, hull, inHull, overlap, shapes, drawBadge, drawIcon, DATA_GAP, GLOW_MS, MIN_HIT, MAX_GROWTH, CAMERA, PROVIDERS, TITLE_SHOWN };
   if (inNode) module.exports = api; else root.MonitorEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);

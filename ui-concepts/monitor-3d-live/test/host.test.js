@@ -154,10 +154,56 @@ test('ready: the page gets the look, the hub state and the workspaces, and the h
   assert.deepEqual(panel.posted[3], { v: 1, type: 'records', scope: 'all', records: [{ ev: 'tool.start' }] });
 });
 
-test('the scope: the saved choice, else this window\'s first folder, else every open workspace', t => {
+test('the scope: the saved choice, else this window\'s own workspace, else every open workspace', t => {
   assert.equal(makeView(t, { saved: { [SCOPE_KEY]: 'bbbbbbbbbbbb' } }).view.wanted(), 'bbbbbbbbbbbb');
   assert.equal(makeView(t, { saved: { [SCOPE_KEY]: 'not a key' } }).view.wanted(), C.wsKey('/home/example/proj'), 'a saved value of the wrong shape is ignored');
   assert.equal(makeView(t, { folders: [] }).view.wanted(), 'all');
+  // A window with several folders is one workspace: its key is the window's, not its first folder's.
+  const two = [{ path: '/home/example/proj', name: 'proj' }, { path: '/home/example/tools', name: 'tools' }];
+  const view = makeView(t, { folders: two }).view;
+  assert.equal(view.wanted(), C.windowKey(two.map(f => f.path)));
+  assert.notEqual(view.wanted(), C.wsKey('/home/example/proj'));
+  assert.equal(view.own(), view.wanted());
+  assert.equal(makeView(t, { folders: [] }).view.own(), '');
+});
+
+test('the workspaces message for the page: this window\'s own keys, and a newer hub\'s fields only when they are of the right kind', t => {
+  const two = [{ path: '/home/example/proj', name: 'proj' }, { path: '/home/example/tools', name: 'tools' }];
+  const own = C.windowKey(two.map(f => f.path));
+  const { vscode, view } = makeView(t, { folders: two });
+  view.setHubState('up');
+  view.show();
+  const panel = vscode.panels[0];
+  say(panel, { v: 1, type: 'ready' });
+  const last = () => panel.posted.filter(m => m.type === 'workspaces').pop();
+  const list = [{ key: own, name: 'Example Shop', apps: ['Example Editor'], windows: 1, sessions: 2, needs: 1, folders: ['proj', 'tools'] }];
+  // A hub of 0.1.1.
+  view.fromHub({ type: 'workspaces', list, hidden: 0, scope: own, total: 2, totalNeeds: 1, watching: true, own });
+  assert.deepEqual(last(), { v: 1, type: 'workspaces', list, hidden: 0, scope: own, here: [own, C.wsKey('/home/example/proj'), C.wsKey('/home/example/tools')], total: 2, totalNeeds: 1, watching: true, own });
+  // A hub of 0.1.0 sends none of the new fields: none is invented.
+  view.fromHub({ type: 'workspaces', list: [], hidden: 0, scope: 'all' });
+  assert.deepEqual(Object.keys(last()).sort(), ['here', 'hidden', 'list', 'scope', 'type', 'v']);
+  // Fields of the wrong kind are left out, not passed on.
+  view.fromHub({ type: 'workspaces', list: [], hidden: 0, scope: 'all', total: 'many', totalNeeds: null, watching: 'yes', own: '../x' });
+  assert.deepEqual(Object.keys(last()).sort(), ['here', 'hidden', 'list', 'scope', 'type', 'v']);
+});
+
+test('the status bar\'s figures: a count is given only while the hub is looking', t => {
+  const { vscode, view } = makeView(t);
+  assert.deepEqual(view.figures(), { windows: 0, sessions: 0, needs: 0, counted: false }, 'nothing is known before the hub has spoken');
+  const list = [{ key: 'aaaaaaaaaaaa', name: 'a', apps: [], windows: 1, sessions: 2, needs: 1 }, { key: 'bbbbbbbbbbbb', name: 'b', apps: [], windows: 1, sessions: 1, needs: 0 }];
+  // A hub of 0.1.1 says whether it is looking.
+  view.fromHub({ type: 'workspaces', list, hidden: 0, scope: null, total: 0, totalNeeds: 0, watching: false });
+  assert.deepEqual(view.figures(), { windows: 2, sessions: 0, needs: 0, counted: false }, 'not looking: two windows, and no count to show');
+  view.fromHub({ type: 'workspaces', list, hidden: 0, scope: 'all', total: 2, totalNeeds: 1, watching: true });
+  assert.deepEqual(view.figures(), { windows: 2, sessions: 2, needs: 1, counted: true }, 'a session two windows share is counted once');
+  // A hub of 0.1.0 does not say: its sum counts only while this window's own tab is open.
+  view.fromHub({ type: 'workspaces', list, hidden: 0, scope: null });
+  assert.equal(view.figures().counted, false);
+  assert.equal(view.figures().sessions, 3);
+  view.show();
+  say(vscode.panels[0], { v: 1, type: 'ready' });
+  assert.equal(view.figures().counted, true);
 });
 
 test('a chip: a valid scope is remembered and asked for; anything else is ignored', t => {

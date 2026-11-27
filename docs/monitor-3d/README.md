@@ -62,11 +62,12 @@ Written 26 November 2026. Section 6 was added the same day.
 
 [05-working-mockup.md](05-working-mockup.md) · the extension: [ui-concepts/monitor-3d-live/](../../ui-concepts/monitor-3d-live/README.md) · screenshots from real editors: [VS Code](img/live/vscode-live-session.png), [VSCodium](img/live/vscodium-hooks.png)
 
-- **To use it:** run `node ui-concepts/monitor-3d-live/tools/pack.js`, install the VSIX it writes (`code --install-extension <file>`, or `codium --install-extension <file>`), then click **3D Monitor** in the status bar.
+- **To use it:** run `node ui-concepts/monitor-3d-live/tools/pack.js`, install the VSIX it writes (`code --install-extension <file>`, or `codium --install-extension <file>`), then click **3D Monitor** in the status bar. After an update, reload each window: the update is complete when every window has been reloaded.
 - **It works with nothing set up.** Live sessions come from Claude Code's own session files, their calls from their transcripts (marked derived). "Set Up Collectors…" adds hooks for exact calls, after showing each change as a diff.
-- **You choose the workspace** with a chip. Only folders open in an editor window right now are listed; a window that closes takes its workspace with it. A session that ends leaves after 20 seconds.
+- **You choose the workspace** with a chip: one for each editor window that is open right now, named as the window is titled. A window that closes takes its chip with it. A session that ends leaves after 20 seconds.
+- **Changed on 27 November, after your first look (version 0.1.1):** the chips are windows, not folders (it had shown eight for your six windows); agents are icosahedrons and subagents dodecahedrons, coloured by provider; captions have no background; the tile an agent stands on carries its workspace's name; pointing at an agent shows its tab's title.
 - **One build for every editor and system:** plain JavaScript, no package, no native code.
-- **Verified:** 259 tests on Windows and on Linux (the page tests need a browser and ran on Windows only); the real extension in VS Code 1.148 and VSCodium 1.143 side by side on Windows, sharing one hub, with a real Claude Code session posting to it, and the hub handed over when its window closed.
+- **Verified:** 300 tests on Windows and on Linux (the page tests need a browser and ran on Windows only); the real extension in VS Code 1.148 and VSCodium 1.143 side by side on Windows, sharing one hub, with a real Claude Code session posting to it, and the hub handed over when its window closed.
 - **Reviewed:** four independent reviewers tried to break its privacy rule, its hub, its installer and its page. What they found is fixed; section 9.4 of the document lists it, and what was left as it is.
 - **Not verified:** any editor on Linux; Code - OSS; a remote window; a screen reader. Section 9.3 of the document has the full list.
 - **Not on a shared machine:** do not set up collectors where other people log in. While no editor is open, another user's program could listen on the hub's port and receive what the hooks post.

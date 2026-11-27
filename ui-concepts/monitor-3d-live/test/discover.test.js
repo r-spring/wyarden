@@ -92,12 +92,33 @@ test('a session is listed only when its file is whole, its fields have the right
   assert.deepEqual(list[0], {
     agent: 'claude', session: ID(1), key: 'claude:' + ID(1), cwd: '/home/dev/example-1', pid: 1001, status: 'busy',
     waitingFor: undefined, updatedAt: 1767000001000, statusUpdatedAt: 1767000001000, procStart: '123456789012345678',
+    title: undefined,                                                       // its name is the CLI's placeholder, which is no title
     configDir: dir, transcript: path.join(dir, 'projects', '-home-dev-example-1', ID(1) + '.jsonl')
   });
   assert.equal(list[1].status, undefined, 'an unknown status is not passed on');
   assert.equal(list[1].waitingFor, undefined);
   assert.equal(list[1].procStart, undefined);
   assert.equal(list[1].statusUpdatedAt, undefined);
+});
+
+test('a session\'s title is the name its tab shows: given when the CLI or the owner named it, cleaned and cut', t => {
+  const dir = tmp(t);
+  sessionFile(dir, '1001.json', good(1, { name: 'Fix the checkout total', nameSource: 'auto' }));
+  sessionFile(dir, '1002.json', good(2, { name: 'My own name for it', nameSource: 'user' }));
+  sessionFile(dir, '1003.json', good(3, { name: 'example-3-1f', nameSource: 'derived' }));          // the placeholder before a title exists
+  sessionFile(dir, '1004.json', good(4, { name: 42, nameSource: 'auto' }));
+  sessionFile(dir, '1005.json', good(5, { name: 'A title\twith a tab and a line\nbreak ' + 'x'.repeat(200), nameSource: 'auto' }));
+  sessionFile(dir, '1006.json', good(6, { name: '   ', nameSource: 'auto' }));
+  sessionFile(dir, '1007.json', good(7, { name: 'No source given' , nameSource: undefined }));
+  const titles = liveClaudeSessions([dir], { alive: () => true }).map(s => s.title);
+  assert.equal(titles[0], 'Fix the checkout total');
+  assert.equal(titles[1], 'My own name for it');
+  assert.equal(titles[2], undefined);
+  assert.equal(titles[3], undefined);
+  assert.equal(titles[4].length, 80);
+  assert.ok(titles[4].startsWith('A title with a tab and a line break'), 'control characters become spaces');
+  assert.equal(titles[5], undefined, 'a name of spaces is no title');
+  assert.equal(titles[6], 'No source given');
 });
 
 test('waiting and waitingFor are passed on', t => {

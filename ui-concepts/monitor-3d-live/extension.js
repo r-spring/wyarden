@@ -15,6 +15,7 @@
 const vscode = require('vscode');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
+const path = require('node:path');
 const C = require('./lib/contract.js');
 const { createHubClient } = require('./lib/hub-client.js');
 const discover = require('./lib/discover.js');
@@ -25,7 +26,16 @@ const DIFF_SCHEME = 'wyarden-monitor-change';
 
 /** This window's folders that are on a disk. A virtual folder has no path an agent could work in. */
 const folders = () => (vscode.workspace.workspaceFolders || []).filter(f => f.uri.scheme === 'file').map(f => ({ path: f.uri.fsPath, name: f.name }));
-const windowName = () => vscode.workspace.name || (folders()[0] && folders()[0].name) || 'no folder';
+/**
+ * This window's name as its title shows it: the workspace file's name when the window has one
+ * ("Example Shop.code-workspace" is "Example Shop"), else the editor's name for it, else its folder.
+ * The chip for this window carries this name, so the owner finds the window he is looking at.
+ */
+function windowName() {
+  const file = vscode.workspace.workspaceFile;
+  if (file && file.scheme === 'file') { const base = path.basename(file.fsPath).replace(/\.code-workspace$/i, ''); if (base) return C.windowName(base); }
+  return C.windowName(vscode.workspace.name) || (folders()[0] && folders()[0].name) || 'no folder';
+}
 
 function activate(context) {
   const out = vscode.window.createOutputChannel('Wyarden 3D Monitor');
@@ -61,11 +71,13 @@ function activate(context) {
   bar.command = 'wyardenMonitor.open';
   context.subscriptions.push(bar);
   function showBar() {
-    const list = (view.workspaces && view.workspaces.list) || [];
-    const sessions = list.reduce((n, w) => n + (w.sessions || 0), 0), needs = list.reduce((n, w) => n + (w.needs || 0), 0);
-    bar.text = '$(pulse) 3D Monitor' + (needs ? ' $(bell) ' + needs : '');
+    const f = view.figures();
+    // Sessions are counted only while a monitor tab is open somewhere: with none open the hub is not looking,
+    // and "0 live sessions" would be a guess. So the count, and the bell, are shown only when it is a count.
+    bar.text = '$(pulse) 3D Monitor' + (f.counted && f.needs ? ' $(bell) ' + f.needs : '');
     bar.tooltip = view.hubState !== 'up' ? 'Wyarden 3D Monitor: the hub is ' + (view.hubState === 'blocked' ? 'blocked: another program holds its port' : 'starting')
-      : 'Wyarden 3D Monitor: ' + list.length + ' open workspace' + (list.length === 1 ? '' : 's') + (view.workspaces ? ', ' + sessions + ' live session' + (sessions === 1 ? '' : 's') : '') + '. Click to open.';
+      : 'Wyarden 3D Monitor: ' + f.windows + ' open workspace' + (f.windows === 1 ? '' : 's') +
+        (f.counted ? ', ' + f.sessions + ' live session' + (f.sessions === 1 ? '' : 's') : '') + '. Click to open.';
     bar.show();
   }
   showBar();
@@ -79,13 +91,14 @@ function activate(context) {
   }));
 
   context.subscriptions.push(vscode.commands.registerCommand('wyardenMonitor.chooseWorkspace', async () => {
-    const list = (view.workspaces && view.workspaces.list) || [], mine = folders().map(f => C.wsKey(f.path));
+    const list = (view.workspaces && view.workspaces.list) || [], mine = [view.own(), ...folders().map(f => C.wsKey(f.path))];
+    const counted = view.figures().counted;
     const items = [{ label: 'All open workspaces', scope: C.ALL }].concat(list.map(w => ({
       label: w.name, scope: w.key,
-      description: (w.sessions || 0) + ' live' + (w.needs ? ', ' + w.needs + ' waiting for you' : '') + (mine.includes(w.key) ? ' · this window' : ''),
-      detail: (w.apps || []).join(', ')
+      description: [counted ? (w.sessions || 0) + ' live' + (w.needs ? ', ' + w.needs + ' waiting for you' : '') : '', mine.includes(w.key) ? 'this window' : ''].filter(Boolean).join(' · '),
+      detail: [Array.isArray(w.folders) && w.folders.length > 1 ? 'Folders: ' + w.folders.join(', ') : '', (w.apps || []).join(', ')].filter(Boolean).join(' · ')
     })));
-    const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Show which workspace in the 3D monitor? Only workspaces open in an editor window are listed.' });
+    const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Show which workspace in the 3D monitor? One for each editor window that is open now.' });
     if (!pick) return;
     view.setScope(pick.scope);
     open();
@@ -149,13 +162,13 @@ function activate(context) {
     out.appendLine('Editor: ' + vscode.env.appName + ' ' + vscode.version + ' on ' + process.platform + (vscode.env.remoteName ? ' (remote: ' + vscode.env.remoteName + ')' : ''));
     out.appendLine('Hub: ' + view.hubState + (client.role ? ', this window is the ' + client.role : '') + ', port ' + hub.port);
     out.appendLine('Claude Code collector: ' + c.state + ' (' + c.installed + ' of ' + c.folders + ' account folders)');
-    out.appendLine('This window\'s folders: ' + (folders().map(f => f.name).join(', ') || 'none'));
+    out.appendLine('This window: ' + windowName() + ' (folders: ' + (folders().map(f => f.name).join(', ') || 'none') + ')');
     try { out.appendLine('Hub figures: ' + JSON.stringify(await client.status(), null, 2)); }
     catch (error) { out.appendLine('Hub figures: not available (' + error.message + ')'); }
     out.show(true);
   }));
 
-  e2e(context, { view, client, open, log });
+  e2e(context, { view, client, open, log, bar: () => bar.tooltip });
 }
 
 /**
@@ -181,7 +194,10 @@ function e2e(context, parts) {
   parts.client.onState = state => { seen.states.push(state); seen.role = parts.client.role || ''; onState(state); write(); };
   parts.client.onMessage = message => {
     seen.messages[message.type] = (seen.messages[message.type] || 0) + 1;
-    if (message.type === 'workspaces') { seen.workspaces = message.list.map(w => ({ name: w.name, sessions: w.sessions, windows: w.windows, apps: w.apps })); seen.scope = message.scope; }
+    if (message.type === 'workspaces') {
+      seen.workspaces = message.list.map(w => ({ name: w.name, sessions: w.sessions, windows: w.windows, apps: w.apps, folders: w.folders, key: w.key }));
+      seen.scope = message.scope; seen.own = message.own; seen.watching = message.watching; seen.total = message.total;
+    }
     if (message.type === 'records') for (const r of message.records) {
       if (r.ctl === 'snapshot') { seen.snapshots++; try { const s = JSON.parse(r.state).state; seen.nodes = s.nodes.$map.length; seen.sessions = s.sessions.$map.length; } catch { /* counted anyway */ } }
       else if (r.ctl === 'drop') seen.drops++;
@@ -195,10 +211,13 @@ function e2e(context, parts) {
         }
       }
     }
-    onMessage(message); write();
+    onMessage(message);
+    seen.bar = parts.bar();                      // the status bar's hover text, as it reads after this message
+    write();
   };
   parts.log('e2e', 'writing what this window sees to the file the check named');
-  setTimeout(() => { parts.open(); write(); }, 1500);
+  // The tab opens after a pause, so the hover text from before any tab was open is on record too.
+  setTimeout(() => { seen.barBeforeTab = parts.bar(); parts.open(); write(); }, Number(process.env.WYARDEN_MONITOR_E2E_WAIT) || 1500);
 }
 
 function deactivate() { /* everything is disposed through context.subscriptions */ }

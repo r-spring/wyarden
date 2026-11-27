@@ -367,8 +367,9 @@ test('two windows with different scopes get different records; a disconnect remo
 
 test('update: a new scope gives a new snapshot; snapshot: true gives one for the same scope; resolve and status over HTTP', async t => {
   const s = await setup(t);
-  const w = open(s, winBody('A', [P, OTHER], kP));
-  await w.waitFor(snapshotOf);
+  const w = open(s, winBody('A', [P], kP));
+  const other = open(s, winBody('B', [OTHER], null));
+  await w.waitFor(snapshotOf); await other.waitFor(m => m.type === 'workspaces');
   await post(s, { session: 's1', cwd: P, events: [{ ev: 'tool.start', call: 'c1', tool: 'Read' }, { ev: 'resource.touch', call: 'c1', kind: 'file', op: 'read', path: 'src/a.js' }] });
   const up = await control(s, 'POST', '/v1/update', { window: 'A', scope: kOther });
   assert.equal(up.status, 200); assert.equal(up.body, '{}');
@@ -381,8 +382,23 @@ test('update: a new scope gives a new snapshot; snapshot: true gives one for the
   assert.deepEqual(res, { kind: 'file', root: P, folder: P + '/src', members: [{ name: 'a.js', path: P + '/src/a.js' }] });
   assert.deepEqual(JSON.parse((await control(s, 'POST', '/v1/resolve', { window: 'A', target: { id: 'r:claude:nobody:file:src/' } })).body), { kind: 'none' });
   const st = JSON.parse((await control(s, 'GET', '/v1/status')).body);
-  assert.equal(st.windows, 1); assert.equal(st.workspaces, 2); assert.equal(st.sessions.shown, 1); assert.equal(st.role, 'thread');
+  assert.equal(st.windows, 2); assert.equal(st.workspaces, 2); assert.equal(st.sessions.shown, 1); assert.equal(st.role, 'thread');
   assert.deepEqual(st.off, []);
+  w.close(); other.close();
+});
+
+test('a window attaching with two folders and a name gets a list of one entry, with that name and both folders', async t => {
+  const s = await setup(t);
+  const body = { v: 1, window: { id: 'A', app: 'Code', name: 'Example (Workspace)', pid: 1, folders: [{ path: P, name: 'proj' }, { path: OTHER, name: 'other' }] }, scope: kP };
+  const w = open(s, body);
+  const snap = await w.waitFor(snapshotOf);
+  const ws = w.messages.find(m => m.type === 'workspaces');
+  const key = contract.windowKey([P, OTHER]);
+  assert.deepEqual(ws.list.map(x => [x.key, x.name, x.folders, x.windows]), [[key, 'Example', ['proj', 'other'], 1]]);
+  assert.equal(ws.own, key);
+  assert.equal(snap.scope, key, 'a 0.1.0 host\'s first-folder key lands on its own window');
+  const last = await w.waitFor(m => m.type === 'workspaces' && m.watching === true, 3000, 'watching');
+  assert.equal(last.scope, key); assert.equal(last.total, 0);
   w.close();
 });
 

@@ -88,6 +88,34 @@ test('a workspace key is the same however the folder is spelled', t => {
   assert.notEqual(C.wsKey('/home/example/a'), C.wsKey('/home/example/b'));
 });
 
+test('a workspace is what one window has open: one key for its folders, in any order and spelling', () => {
+  const a = 'C:\\Users\\example\\alpha', b = 'C:\\Users\\example\\beta', c = '/home/example/gamma';
+  assert.equal(C.windowKey([a]), C.wsKey(a), 'a window with one folder keeps that folder\'s key');
+  const two = C.windowKey([a, b]);
+  assert.match(two, /^[0-9a-f]{12}$/);
+  assert.notEqual(two, C.wsKey(a));
+  assert.notEqual(two, C.wsKey(b));
+  assert.equal(C.windowKey([b, a]), two, 'the order of the folders does not matter');
+  assert.equal(C.windowKey(['c:\\users\\EXAMPLE\\alpha\\', b, a]), two, 'nor their spelling, nor a folder named twice');
+  assert.notEqual(C.windowKey([a, b, c]), two);
+  assert.equal(C.windowKey([a, b]), C.windowKeyOf([C.wsKey(b), C.wsKey(a)]), 'the hub, which holds keys, makes the same one');
+  assert.equal(C.windowKey([]), '');
+  assert.equal(C.windowKey(['relative/path', 7, null]), '', 'what is not a folder path is not counted');
+  assert.equal(C.windowKey([a, 'relative/path']), C.wsKey(a));
+  assert.equal(C.windowKeyOf(['not a key', C.wsKey(a)]), C.wsKey(a));
+  assert.equal(C.windowKey('not a list'), '');
+});
+
+test('a window is named as its title shows it', () => {
+  assert.equal(C.windowName('Example Shop (Workspace)'), 'Example Shop');
+  assert.equal(C.windowName('example-folder'), 'example-folder');
+  assert.equal(C.windowName('Untitled (Workspace)'), 'Untitled');
+  assert.equal(C.windowName('A (Workspace) of mine'), 'A (Workspace) of mine', 'only at the end');
+  assert.equal(C.windowName(''), '');
+  assert.equal(C.windowName(null), '');
+  assert.equal(C.windowName('x'.repeat(300)).length, C.LIMITS.name);
+});
+
 test('the session root is the nearest folder with a .git entry, else the folder itself', t => {
   const base = temp(t);
   const repo = path.join(base, 'repo'), deep = path.join(repo, 'src', 'deep'), tree = path.join(repo, '.wt', 'card');

@@ -5,6 +5,9 @@
  * nexus-3d/ui-concepts/nexus-worlds-29d4d1/modes-glass-synapse.js.
  * Changed: one chip and one colour for each of the five classes (the original drew every node in
  * one of two colours and gave a tool and a task the same box), and no lift or other motion.
+ * Changed for the working mock-up, at the owner's word: an agent is an icosahedron and a subagent a
+ * dodecahedron (no longer a tower and a chip), both in their provider's colour; and a caption has no
+ * plate behind it.
  *
  * A look is palette, meshes and caption style. It has no say in where a node stands.
  */
@@ -22,16 +25,24 @@
     caption: text => text,
     palette: {
       bg: '#f1f4ee', panel: '#e6ece5', line: '#7f9c97', ink: '#12292e', caption: '#1f4046', muted: '#4f6b6a', accent: '#1f7480',
+      // A class's own colour. `agent` is also the colour of the floor agents stand on; an agent itself, and a subagent,
+      // takes its provider's colour below.
       cls: { agent: '#1f7480', subagent: '#2b5fd0', tool: '#2f7d46', resource: '#6c4bb0', mcp: '#b3541e' },
+      // One colour for each provider, dark enough for the light floor: salmon, teal, graphite, blue. Claude's is
+      // lighter and more orange than the red of a failed call, and lighter than an MCP server's burnt orange.
+      provider: { claude: '#dd6a45', codex: '#0c7c86', grok: '#474d57', antigravity: '#2456c4' },
+      // The floor agents stand on: a quiet slate, so that no provider's colour (Codex's teal above all) runs into it.
+      floor: { agent: '#8a9aa0' },
       state: { needs: '#b87700', failed: '#c8323f', working: '#12292e', unclear: '#6b7c7c', idle: '#6b7c7c', done: '#8d9d9a' },
       clash: '#c8323f',
-      fill: .16, solid: .92, floorFill: .07, floorLine: .6, post: .5, captionBack: .84
+      // captionBack 0: a caption has no plate behind it. captionHalo: a thin outline in the background's colour, around the letters only.
+      fill: .16, solid: .92, floorFill: .07, floorLine: .6, post: .5, captionBack: 0, captionHalo: .85
     },
-    /** One silhouette for each class: a tower with a mast, a small step, a braced crate, a sheet, a globe on a plate, a triangle, a hexagon, a pile. */
+    /** One silhouette for each class: twenty-sided, small twelve-sided, a braced crate, a sheet, a globe on a plate, a triangle, a hexagon, a pile. */
     mesh(key) {
       switch (key) {
-        case 'agent': return S.merge(S.box(40, 7, 32), S.box(28, 6, 22, 7), S.box(16, 6, 12, 13), S.path([[0, 19, 0], [0, 32, 0]]));
-        case 'subagent': return S.merge(S.box(22, 5, 18), S.box(12, 5, 10, 5));
+        case 'agent': return S.icosahedron(22);
+        case 'subagent': return S.dodecahedron(12);
         case 'tool': return S.merge(S.box(26, 10, 20), S.path([[-13, 10, -10], [13, 10, 10]]), S.path([[13, 10, -10], [-13, 10, 10]]));
         case 'mcp': return S.merge(S.prism(6, 20, 6), S.prism(6, 11, 6, 6));
         case 'resource.file': return S.merge(S.box(24, 3, 30), S.path([[-7, 3, -8], [7, 3, -8]]), S.path([[-7, 3, -2], [7, 3, -2]]), S.path([[-7, 3, 4], [3, 3, 4]]));

@@ -24,6 +24,7 @@ const MAX_FOLDERS = 64;             // folders one window may name
 const RANK = { 'sessions-file': 1, transcript: 2, hook: 3 };
 const COUNTING = /^(session|turn|wait)\./;       // the events that can change a chip's counts
 const STATUSES = new Set(['busy', 'idle', 'waiting']);
+const TITLE_MAX = 120;              // a session's tab title, as the list gives it
 
 const className = error => (error && error.constructor && error.constructor.name) || typeof error;
 
@@ -71,8 +72,10 @@ function createHubCore(options = {}) {
   const started = now();
 
   const sessions = new Map();       // key -> session record; Map order is not used for recency
-  const windows = new Map();        // id -> window
-  let workspaces = new Map();       // key -> {key, name, norm, windows: Set, apps: Set}
+  const windows = new Map();        // id -> window; Map order is attach order (a re-attach keeps its place)
+  // A workspace is what one window has open: key -> {key, name, folders: [{key, norm, name}], windows: Set, apps: Set}.
+  let workspaces = new Map();
+  let byFolder = new Map();         // folder norm -> [workspace keys]: the windows that hold that folder
   const models = new Map([[ALL, Model.create()]]);
   const counts = { received: 0, applied: 0, duplicates: 0, rejected: 0, tooLarge: 0, ignored: 0, replayed: 0 };
   const info = { role: 'thread', tails: 0, off: [] };
@@ -95,14 +98,17 @@ function createHubCore(options = {}) {
 
   /* ---------- sessions ---------- */
 
-  function ownerOf(s) {
-    if (!s.cwdNorm) return null;
-    let best = null, length = -1;
-    for (const ws of workspaces.values()) {
-      if (ws.norm.length > length && contract.isInside(ws.norm, s.cwdNorm)) { best = ws.key; length = ws.norm.length; }
+  /** The workspaces that own a session: the longest open folder that holds its cwd decides, and
+      every window that has that folder open owns it. Sorted; empty when no window does. */
+  function ownersOf(s) {
+    if (!s.cwdNorm) return [];
+    let best = null;
+    for (const norm of byFolder.keys()) {
+      if ((!best || norm.length > best.length) && contract.isInside(norm, s.cwdNorm)) best = norm;
     }
-    return best;
+    return best ? byFolder.get(best).slice() : [];
   }
+  const sameKeys = (a, b) => a.length === b.length && a.every((k, i) => k === b[i]);
   function setCwd(s, given, root) {
     const cwd = keptCwd(given);
     if (!cwd || cwd === s.cwd) return;
@@ -113,7 +119,7 @@ function createHubCore(options = {}) {
   }
   function evictOne() {
     let victim = null;
-    for (const s of sessions.values()) if (!s.owner && (!victim || s.lastAt < victim.lastAt)) victim = s;
+    for (const s of sessions.values()) if (!s.owners.length && (!victim || s.lastAt < victim.lastAt)) victim = s;
     if (!victim) for (const s of sessions.values()) if (!victim || s.lastAt < victim.lastAt) victim = s;
     if (victim) forgetSession(victim, 'ended');
   }
@@ -121,7 +127,7 @@ function createHubCore(options = {}) {
     while (sessions.size >= MAX_SESSIONS) evictOne();
     const s = {
       key, agent, session, cwd: null, cwdNorm: null, root: null, pid: null, status: undefined, waitingFor: undefined,
-      procStart: undefined, transcript: null, configDir: null, best: null, hookSeen: false, lastAt: t, owner: null,
+      procStart: undefined, transcript: null, configDir: null, best: null, hookSeen: false, lastAt: t, owners: [],
       in: new Set(), dupes: new Set(), ended: false, cancelDrop: null, misses: 0
     };
     sessions.set(key, s);
@@ -164,6 +170,13 @@ function createHubCore(options = {}) {
     return Object.assign({ v: VERSION, t, agent: s.agent, session: s.session, ws: (s.root && s.root.ws) || '', ev, grade: 'derived', src }, extra);
   }
   const rootField = s => (s.root && s.root.name ? { root: { name: s.root.name } } : {});
+  /** The name of the workspace a session works in, as its tile is labelled: its owners' names, sorted. Never a key or a path. */
+  function spaceOf(s) {
+    const names = s.owners.map(k => workspaces.get(k)).filter(Boolean).map(ws => ws.name).sort();
+    return contract.cleanText(names.join(', '), TITLE_MAX);
+  }
+  /** What a session.start carries: its root's name, its workspace's name, and, when the CLI has named it, its tab's title. */
+  const startFields = s => Object.assign(rootField(s), typeof s.title === 'string' ? { title: s.title } : {}, s.owners.length ? { space: spaceOf(s) } : {});
   /** The status a session-file session had, as events, so a workspace that opens later shows it as it is. */
   function statusEvents(s, t, src, from, to) {
     const out = [];
@@ -173,13 +186,17 @@ function createHubCore(options = {}) {
     else if (to === 'waiting') out.push(envelope(s, t, 'wait.start', src, { why: /permission/i.test(s.waitingFor || '') ? 'permission' : 'question' }));
     return out;
   }
-  /** Put a live session into its owner's model and into `all`, wherever it is not yet. */
+  /** Put a live session into each owner's model and into `all`, wherever it is not yet. */
   function putInto(s, t, src) {
-    if (!s.owner || s.ended) return;
-    const missing = [ALL, s.owner].filter(scope => !s.in.has(scope));
-    if (!missing.length) return;
-    deliver(s, envelope(s, t, 'session.start', src, rootField(s)), missing);
+    if (!s.owners.length || s.ended) return [];
+    const missing = [ALL, ...s.owners].filter(scope => !s.in.has(scope));
+    if (!missing.length) return [];
+    // A session in no model yet: the start tells every model its space. Otherwise the models it is
+    // already in learn a new space from refreshWorkspaces' session.info.
+    if (!s.in.size) s.space = spaceOf(s);
+    deliver(s, envelope(s, t, 'session.start', src, startFields(s)), missing);
     if (!s.hookSeen) for (const e of statusEvents(s, t, src, undefined, s.status)) deliver(s, e, missing);
+    return missing;
   }
   function dropFrom(s, scope, why) {
     const model = models.get(scope);
@@ -204,14 +221,17 @@ function createHubCore(options = {}) {
   /** One event of a known session, from any source. */
   function onEvent(s, e, t) {
     s.lastAt = t;
-    if (s.ended && e.ev !== 'session.end') {          // it speaks again: the drop is called off
+    // It speaks again: the drop is called off. A new name is not speaking.
+    if (s.ended && e.ev !== 'session.end' && e.ev !== 'session.info') {
       s.ended = false;
       if (s.cancelDrop) { s.cancelDrop(); s.cancelDrop = null; }
       markWorkspaces();
     }
-    if (s.owner) {
+    if (s.owners.length) {
       if (e.ev !== 'session.start' && e.ev !== 'session.end') putInto(s, t, 'hub:known');
-      deliver(s, e, [ALL, s.owner]);
+      // Every start the hub delivers names the workspace, the normaliser's too.
+      if (e.ev === 'session.start') { s.space = spaceOf(s); e.space = s.space; }
+      deliver(s, e, [ALL, ...s.owners]);
     } else {
       try { Model.validate(e); } catch { counts.rejected++; return; }
     }
@@ -238,7 +258,7 @@ function createHubCore(options = {}) {
     setCwd(s, out.cwd, out.root);
     if (out.source === 'hook' && !s.hookSeen) { s.hookSeen = true; markWorkspaces(); }
     better(s, out.source);
-    if (s.owner === null && s.cwdNorm) { const owner = ownerOf(s); if (owner) { s.owner = owner; markWorkspaces(); } }
+    if (!s.owners.length && s.cwdNorm) { const owners = ownersOf(s); if (owners.length) { s.owners = owners; markWorkspaces(); } }
     for (const e of Array.isArray(out.events) ? out.events : []) {
       if (!e || typeof e !== 'object' || e.agent + ':' + e.session !== s.key) { counts.rejected++; continue; }
       try { Model.validate(e); } catch { counts.rejected++; continue; }
@@ -266,6 +286,8 @@ function createHubCore(options = {}) {
       const key = agent + ':' + item.session;
       named.add(key);
       const status = STATUSES.has(item.status) ? item.status : undefined;   // a new file has no status yet
+      // The title of the session's tab: text from the session, kept only for its two events and the snapshot.
+      const title = typeof item.title === 'string' && item.title.length <= TITLE_MAX ? item.title : undefined;
       let s = sessions.get(key);
       const fresh = !s;
       if (fresh) s = makeSession(agent, item.session, key, t);
@@ -279,13 +301,18 @@ function createHubCore(options = {}) {
       const before = s.status;
       s.waitingFor = typeof item.waitingFor === 'string' ? item.waitingFor.slice(0, 200) : undefined;
       if (fresh) {
-        s.status = status;
-        s.owner = ownerOf(s);
-        if (s.owner) {
-          hubEvent(s, t, 'session.start', 'sessions-file', rootField(s));
+        s.status = status; s.title = title;
+        s.owners = ownersOf(s);
+        if (s.owners.length) {
+          hubEvent(s, t, 'session.start', 'sessions-file', startFields(s));
           for (const e of statusEvents(s, t, 'sessions-file', undefined, status)) onEvent(s, e, t);
         }
         continue;
+      }
+      // A new title, whatever source reports the session: one event. A title that goes away is "".
+      if (title !== s.title) {
+        s.title = title;
+        hubEvent(s, t, 'session.info', 'sessions-file', { title: title === undefined ? '' : title });
       }
       if (status === undefined) continue;
       s.status = status;
@@ -323,7 +350,18 @@ function createHubCore(options = {}) {
     }
     return out;
   }
-  const scopeOf = scope => (scope === null || scope === undefined ? null : scope === ALL || workspaces.has(scope) ? scope : ALL);
+  /** A scope as asked, resolved to what is open: `all`; a workspace key; a folder key (what a 0.1.0
+      host and a saved choice send) held by some workspace (this window's own, else the one with the
+      fewest folders, else the smallest key); anything else is `all`. */
+  function scopeOf(scope, w) {
+    if (scope === null || scope === undefined) return null;
+    if (scope === ALL || workspaces.has(scope)) return scope;
+    const holders = [...workspaces.values()].filter(ws => ws.folders.some(f => f.key === scope));
+    if (!holders.length) return ALL;
+    if (w && w.own && holders.some(ws => ws.key === w.own)) return w.own;
+    holders.sort((a, b) => a.folders.length - b.folders.length || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    return holders[0].key;
+  }
   function sendSnapshot(w) {
     if (!models.get(w.scope)) return;
     // The server brings new transcript tails up to date here, so their recent calls are part of
@@ -337,61 +375,109 @@ function createHubCore(options = {}) {
   }
   /** The steps of 7.1 "when the workspaces change". */
   function refreshWorkspaces(t) {
-    const next = new Map();
+    // One workspace for each set of folders a window has open; windows with the same set share it.
+    // Windows are visited in attach order, so the name is the first window's.
+    const next = new Map(), folderOwners = new Map(), ownBefore = new Map();
     for (const w of windows.values()) {
-      for (const f of w.folders) {
-        let ws = next.get(f.key);
-        if (!ws) { ws = { key: f.key, name: f.name, norm: f.norm, windows: new Set(), apps: new Set() }; next.set(f.key, ws); }
-        ws.windows.add(w.id);
-        if (w.app) ws.apps.add(w.app);
+      ownBefore.set(w.id, w.own);
+      w.own = contract.windowKeyOf(w.folders.map(f => f.key));
+      if (!w.own) continue;
+      let ws = next.get(w.own);
+      if (!ws) {
+        const folders = [];
+        for (const f of w.folders) if (!folders.some(x => x.key === f.key)) folders.push(f);
+        ws = { key: w.own, name: contract.windowName(w.name) || folders[0].name || '(root)', folders, windows: new Set(), apps: new Set() };
+        next.set(w.own, ws);
+        for (const f of folders) {
+          const list = folderOwners.get(f.norm) || [];
+          list.push(ws.key);
+          folderOwners.set(f.norm, list);
+        }
       }
+      ws.windows.add(w.id);
+      if (w.app) ws.apps.add(w.app);
     }
+    for (const list of folderOwners.values()) list.sort();
     const before = workspaces;
-    workspaces = next;
+    workspaces = next; byFolder = folderOwners;
     for (const key of next.keys()) if (!before.has(key)) models.set(key, Model.create());
+    const startedNow = new Map();     // session key -> the models that just got its start, with its space on it
     for (const s of sessions.values()) {
-      const owner = ownerOf(s);
-      if (owner === s.owner) continue;
-      const old = s.owner;
-      s.owner = owner;
-      // The old workspace may still be open (a deeper folder took the session): it no longer shows it.
-      if (old && s.in.has(old)) dropFrom(s, old, 'workspace-closed');
-      if (!owner) { if (s.in.has(ALL)) dropFrom(s, ALL, 'workspace-closed'); }
-      else putInto(s, t, 'hub:known');
+      const owners = ownersOf(s);
+      if (sameKeys(owners, s.owners)) continue;
+      s.owners = owners;
+      // A workspace it was in and no longer belongs to (it closed, or a deeper folder took the session) stops showing it.
+      for (const scope of [...s.in]) {
+        if (scope === ALL || owners.includes(scope)) continue;
+        if (next.has(scope)) dropFrom(s, scope, 'workspace-closed'); else s.in.delete(scope);
+      }
+      if (!owners.length) { if (s.in.has(ALL)) dropFrom(s, ALL, 'workspace-closed'); }
+      else startedNow.set(s.key, putInto(s, t, 'hub:known'));
     }
     for (const key of before.keys()) {
       if (next.has(key)) continue;
       models.delete(key);
       for (const s of sessions.values()) s.in.delete(key);
     }
+    // Its owners changed, or one was renamed (its first window left): the models it stays in learn its new space.
+    for (const s of sessions.values()) {
+      if (!s.owners.length || !s.in.size) continue;
+      const space = spaceOf(s);
+      if (space === s.space || !space) continue;
+      s.space = space;
+      const fresh = startedNow.get(s.key) || [];
+      const told = [...s.in].filter(scope => !fresh.includes(scope));
+      if (told.length) deliver(s, envelope(s, t, 'session.info', 'hub:known', { space }), told);
+    }
+    // A window that showed its own workspace follows it to its new key (it opened or closed a
+    // folder); a window whose scope is gone otherwise goes to `all`. Either gets a snapshot.
     for (const w of windows.values()) {
-      if (w.scope && w.scope !== ALL && !workspaces.has(w.scope)) { w.scope = ALL; if (w.ready) sendSnapshot(w); }
+      if (!w.scope || w.scope === ALL) continue;
+      const prev = ownBefore.get(w.id);
+      let scope = w.scope;
+      if (prev && scope === prev && w.own && w.own !== prev) scope = w.own;
+      else if (!workspaces.has(scope)) scope = ALL;
+      if (scope !== w.scope) { w.scope = scope; if (w.ready) sendSnapshot(w); }
     }
     markWorkspaces();
   }
 
+  /** Whether a session waits for its owner, read from an owner's model first: `all` can overflow at 12 columns. */
+  function needsOwner(s) {
+    for (const scope of [...s.owners, ALL]) {
+      const model = models.get(scope);
+      const node = model && model.nodes.get('a:' + s.key);
+      if (node) return node.status === 'needs';
+    }
+    return false;
+  }
   function workspaceList() {
     const list = [];
-    let hidden = 0;
+    let hidden = 0, total = 0, totalNeeds = 0;
     const per = new Map();
     for (const s of sessions.values()) {
       if (s.ended) continue;
-      if (!s.owner) { hidden++; continue; }
-      const c = per.get(s.owner) || { sessions: 0, needs: 0 };
-      c.sessions++;
-      const node = (models.get(s.owner) || models.get(ALL)).nodes.get('a:' + s.key);
-      if (node && node.status === 'needs') c.needs++;
-      per.set(s.owner, c);
+      if (!s.owners.length) { hidden++; continue; }
+      const needs = needsOwner(s);
+      total++; if (needs) totalNeeds++;
+      for (const owner of s.owners) {
+        const c = per.get(owner) || { sessions: 0, needs: 0 };
+        c.sessions++; if (needs) c.needs++;
+        per.set(owner, c);
+      }
     }
     for (const ws of workspaces.values()) {
       const c = per.get(ws.key) || { sessions: 0, needs: 0 };
-      list.push({ key: ws.key, name: ws.name, apps: [...ws.apps].sort(), windows: ws.windows.size, sessions: c.sessions, needs: c.needs });
+      list.push({ key: ws.key, name: ws.name, apps: [...ws.apps].sort(), windows: ws.windows.size, sessions: c.sessions, needs: c.needs,
+        folders: ws.folders.slice(0, 16).map(f => f.name) });
     }
     list.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-    return { list, hidden };
+    return { list, hidden, total, totalNeeds };
   }
   function sendWorkspaces(w, built) {
-    const message = { type: 'workspaces', list: built.list, hidden: built.hidden, scope: w.scope };
+    // `watching` false: no window shows a scope, the hub has not looked, and the counts are not known.
+    const message = { type: 'workspaces', list: built.list, hidden: built.hidden, scope: w.scope,
+      total: built.total, totalNeeds: built.totalNeeds, watching: core.needsDiscovery(), own: w.own || '' };
     const text = JSON.stringify(message);
     if (text === w.lastWorkspaces) return false;
     w.lastWorkspaces = text;
@@ -414,13 +500,14 @@ function createHubCore(options = {}) {
     const id = contract.safeId(win.id) || 'w' + (++windowSeq);
     const had = windows.get(id);
     if (!had && windows.size >= LIMITS.windows) return null;
+    // The raw name: windowName strips a 0.1.0 host's " (Workspace)" before anything cuts it short.
     const w = {
-      id, app: contract.cleanName(win.app || ''), name: contract.cleanName(win.name || ''),
-      pid: Number.isInteger(win.pid) ? win.pid : null, folders: cleanFolders(win.folders), scope: null, ready: false, lastWorkspaces: null
+      id, app: contract.cleanName(win.app || ''), name: typeof win.name === 'string' ? win.name.slice(0, 1000) : '',
+      pid: Number.isInteger(win.pid) ? win.pid : null, folders: cleanFolders(win.folders), scope: null, ready: false, lastWorkspaces: null, own: ''
     };
-    windows.set(id, w);
+    windows.set(id, w);                               // Map.set on a known id keeps its place in attach order
     refreshWorkspaces(t);
-    w.scope = scopeOf(win.scope);
+    w.scope = scopeOf(win.scope, w);
     sendWorkspaces(w, workspaceList());               // at once: the page needs its chips before anything
     if (w.scope) sendSnapshot(w);
     return id;
@@ -431,7 +518,7 @@ function createHubCore(options = {}) {
     if (change.folders !== undefined) { w.folders = cleanFolders(change.folders); refreshWorkspaces(now()); }
     let snapshotSent = false;
     if (change.scope !== undefined) {
-      const scope = scopeOf(change.scope);
+      const scope = scopeOf(change.scope, w);
       if (scope !== w.scope) {
         w.scope = scope; w.ready = false;
         if (scope) { sendSnapshot(w); snapshotSent = true; }
@@ -450,7 +537,7 @@ function createHubCore(options = {}) {
   core.tailTargets = function tailTargets() {
     if (!core.needsDiscovery()) return [];
     return [...sessions.values()]
-      .filter(s => !s.hookSeen && !s.ended && s.owner && typeof s.transcript === 'string' && s.cwd)
+      .filter(s => !s.hookSeen && !s.ended && s.owners.length && typeof s.transcript === 'string' && s.cwd)
       .sort((a, b) => b.lastAt - a.lastAt).slice(0, MAX_TAILS)
       .map(s => ({ key: s.key, session: s.session, cwd: s.cwd, transcript: s.transcript }));
   };
@@ -458,8 +545,8 @@ function createHubCore(options = {}) {
   /* ---------- resolve and status (7.4) ---------- */
 
   function nodeOf(s, id) {
-    for (const scope of [ALL, s.owner]) {
-      const model = scope && models.get(scope);
+    for (const scope of [ALL, ...s.owners]) {
+      const model = models.get(scope);
       const node = model && model.nodes.get(id);
       if (node) return node;
     }
@@ -520,7 +607,7 @@ function createHubCore(options = {}) {
     let shown = 0, hidden = 0;
     const sources = { hook: 0, transcript: 0, sessionsFile: 0 };
     for (const s of sessions.values()) {
-      if (!s.ended) { if (s.owner) shown++; else hidden++; }
+      if (!s.ended) { if (s.owners.length) shown++; else hidden++; }
       if (s.best === 'hook') sources.hook++; else if (s.best === 'transcript') sources.transcript++; else if (s.best === 'sessions-file') sources.sessionsFile++;
     }
     return {

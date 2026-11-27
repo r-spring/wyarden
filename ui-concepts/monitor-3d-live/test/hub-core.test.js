@@ -40,7 +40,7 @@ function harness(extra = {}) {
   const hook = (session, cwd, ...events) => core.ingest({ session, cwd, events });
   const records = id => sent.filter(x => x.id === id && x.message.type === 'records').flatMap(x => x.message.records);
   const lastWs = id => { const all = sent.filter(x => x.id === id && x.message.type === 'workspaces'); return all.length ? all[all.length - 1].message : null; };
-  const win = (id, folders, scope, app = 'Code') => core.attach({ id, app, name: id, pid: 1, folders: folders.map(p => ({ path: p, name: contract.flavour(p).basename(p) })), scope });
+  const win = (id, folders, scope, app = 'Code', name = id) => core.attach({ id, app, name, pid: 1, folders: folders.map(p => ({ path: p, name: contract.flavour(p).basename(p) })), scope });
   return { core, clock, run, jobs, sent, hook, records, lastWs, win, forgot, clear: () => { sent.length = 0; } };
 }
 const kP = contract.wsKey(P), kDeep = contract.wsKey(DEEP), kOther = contract.wsKey(OTHER);
@@ -54,24 +54,54 @@ test('Sessions: one record per key with agent, session, cwd, root, pid, status, 
   h.hook('s1', P + '/src', start);
   let s = h.core.session('claude:s1');
   assert.equal(s.agent, 'claude'); assert.equal(s.session, 's1'); assert.equal(s.cwd, P + '/src');
-  assert.equal(s.root.root, P + '/src'); assert.equal(s.best, 'hook'); assert.equal(s.lastAt, T0); assert.equal(s.owner, kP);
+  assert.equal(s.root.root, P + '/src'); assert.equal(s.best, 'hook'); assert.equal(s.lastAt, T0); assert.deepEqual(s.owners, [kP]);
   h.clock.add(500);
   h.core.setLiveSessions([{ agent: 'claude', session: 's1', key: 'claude:s1', cwd: P + '/src', pid: 42, status: 'busy' }]);
   s = h.core.session('claude:s1');
   assert.equal(s.pid, 42); assert.equal(s.status, 'busy'); assert.equal(s.best, 'hook', 'a hook is a better source than the file');
 });
 
-test('Workspaces: every window\'s folders; a key is wsKey(path); two windows with one folder are one workspace', () => {
+test('Workspaces: one for each window\'s set of folders; a single folder keeps wsKey(path); the same set in two editors is one workspace', () => {
   const h = harness();
   h.win('A', [P], null, 'Code');
-  h.win('B', [P, OTHER], null, 'VSCodium');
+  h.win('B', [P, OTHER], null, 'VSCodium', 'Example (Workspace)');
+  h.win('C', [OTHER, P], null, 'Code', 'Other title');      // the same set, in another order and editor
   h.core.flushWorkspaces();
   const ws = h.lastWs('A');
   assert.equal(h.core.status().workspaces, 2);
-  const proj = ws.list.find(x => x.key === kP);
-  assert.equal(proj.windows, 2);
-  assert.deepEqual(proj.apps, ['Code', 'VSCodium']);
-  assert.ok(ws.list.some(x => x.key === kOther));
+  const single = ws.list.find(x => x.key === kP);
+  assert.equal(single.windows, 1); assert.deepEqual(single.folders, ['proj']); assert.equal(single.name, 'A');
+  const kBoth = contract.windowKey([P, OTHER]);
+  assert.notEqual(kBoth, kP);
+  const both = ws.list.find(x => x.key === kBoth);
+  assert.equal(both.windows, 2);
+  assert.deepEqual(both.apps, ['Code', 'VSCodium']);
+  assert.deepEqual(both.folders, ['proj', 'other']);
+  assert.equal(both.name, 'Example', 'the first window\'s name, its " (Workspace)" suffix stripped');
+  assert.equal(h.lastWs('B').own, kBoth); assert.equal(h.lastWs('C').own, kBoth); assert.equal(ws.own, kP);
+});
+
+test('Workspaces: the owner\'s case, six windows of which two hold two folders, are six workspaces, named as the windows', () => {
+  const h = harness();
+  const base = '/home/example/w';
+  const sets = [[base + '1'], [base + '2'], [base + '3', base + '4'], [base + '5'], [base + '6', base + '7'], [base + '8']];
+  sets.forEach((folders, i) => h.win('W' + i, folders, null, 'Code', 'Window ' + i + (folders.length > 1 ? ' (Workspace)' : '')));
+  h.core.flushWorkspaces();
+  const list = h.lastWs('W0').list;
+  assert.equal(list.length, 6);
+  assert.deepEqual(list.map(x => x.name), ['Window 0', 'Window 1', 'Window 2', 'Window 3', 'Window 4', 'Window 5']);
+  assert.deepEqual(list.map(x => x.key), sets.map(f => contract.windowKey(f)));
+  assert.deepEqual(list.find(x => x.name === 'Window 2').folders, ['w3', 'w4']);
+  assert.equal(h.core.status().workspaces, 6);
+});
+
+test('Workspaces: a window with no name takes its first folder\'s name; a window with no folder makes no workspace', () => {
+  const h = harness();
+  h.win('A', [OTHER, P], null, 'Code', '');
+  h.win('B', [], null, 'Code', 'Empty');
+  h.core.flushWorkspaces();
+  assert.deepEqual(h.lastWs('A').list.map(x => x.name), ['other']);
+  assert.equal(h.lastWs('B').own, '');
 });
 
 test('Owner: the longest folder that holds the cwd wins; no owner means hidden and drawn nowhere', () => {
@@ -81,9 +111,9 @@ test('Owner: the longest folder that holds the cwd wins; no owner means hidden a
   h.hook('s1', DEEP + '/x', start);
   h.hook('s2', P + '/y', start);
   h.hook('s3', '/home/example/elsewhere', start);
-  assert.equal(h.core.session('claude:s1').owner, kDeep);
-  assert.equal(h.core.session('claude:s2').owner, kP);
-  assert.equal(h.core.session('claude:s3').owner, null);
+  assert.deepEqual(h.core.session('claude:s1').owners, [kDeep]);
+  assert.deepEqual(h.core.session('claude:s2').owners, [kP]);
+  assert.deepEqual(h.core.session('claude:s3').owners, []);
   const st = h.core.status();
   assert.deepEqual(st.sessions, { known: 3, shown: 2, hidden: 1 });
   assert.equal(h.core.models.get('all').sessions.has('claude:s3'), false);
@@ -108,7 +138,7 @@ test('Workspaces change: a new workspace gets a model, and its known live sessio
   const h = harness();
   h.win('A', [OTHER], 'all');
   h.hook('s1', P + '/src', start);                 // no workspace holds it yet
-  assert.equal(h.core.session('claude:s1').owner, null);
+  assert.deepEqual(h.core.session('claude:s1').owners, []);
   h.clear();
   h.win('B', [P], kP);
   const e = h.records('A').find(r => r.ev === 'session.start');
@@ -347,7 +377,8 @@ test('A long simulator stream through the core equals the same stream applied to
   h.win('A', [P], kP);
   h.win('B', [P], 'all');
   const direct = M.create();
-  for (const e of events) { direct.apply(e); h.core.ingest({ e }, { t: e.t }); }
+  // The hub names the workspace on every start it delivers: here the one window-workspace, "A".
+  for (const e of events) { direct.apply(e.ev === 'session.start' ? Object.assign({}, e, { space: 'A' }) : e); h.core.ingest({ e }, { t: e.t }); }
   const st = h.core.status();
   assert.equal(st.events.duplicates, 0, 'this seed has no repeats by the keys of 2.5');
   assert.equal(st.events.applied, events.length);
@@ -384,10 +415,10 @@ test('A session moves owner when a deeper folder is opened in another window, an
   const h = harness();
   h.win('A', [P], kP);
   h.hook('s1', DEEP + '/x', start);
-  assert.equal(h.core.session('claude:s1').owner, kP);
+  assert.deepEqual(h.core.session('claude:s1').owners, [kP]);
   h.clear();
   h.win('B', [DEEP], kDeep);
-  assert.equal(h.core.session('claude:s1').owner, kDeep);
+  assert.deepEqual(h.core.session('claude:s1').owners, [kDeep]);
   const toA = h.records('A');
   assert.deepEqual(toA.map(r => r.ctl || r.ev), ['drop'], 'the shallower workspace no longer shows it');
   assert.equal(h.core.models.get(kP).sessions.has('claude:s1'), false);
@@ -395,13 +426,15 @@ test('A session moves owner when a deeper folder is opened in another window, an
   assert.ok(h.core.models.get('all').sessions.has('claude:s1'), 'all keeps it');
   h.clear();
   h.core.detach('B');
-  assert.equal(h.core.session('claude:s1').owner, kP);
+  assert.deepEqual(h.core.session('claude:s1').owners, [kP]);
   assert.deepEqual(h.records('A').map(r => r.ev + ' ' + r.src), ['session.start hub:known']);
 });
 
 test('Hidden counts and needs in the workspaces message; the list is sorted by name, then key', () => {
   const h = harness();
-  h.win('A', ['/home/example/zeta', '/home/example/alpha', P], 'all');
+  h.win('A', ['/home/example/zeta'], 'all', 'Code', 'zeta');
+  h.win('B', ['/home/example/alpha'], null, 'Code', 'alpha');
+  h.win('C', [P], null, 'Code', 'proj');
   h.hook('s1', P, start, { ev: 'wait.start', why: 'permission' });
   h.hook('s2', P, start);
   h.hook('s3', '/home/example/nowhere', start);
@@ -412,7 +445,9 @@ test('Hidden counts and needs in the workspaces message; the list is sorted by n
   const proj = ws.list.find(x => x.key === kP);
   assert.equal(proj.sessions, 2); assert.equal(proj.needs, 1);
   assert.equal(ws.hidden, 2); assert.equal(ws.scope, 'all');
-  for (const k of ['key', 'name', 'apps', 'windows', 'sessions', 'needs']) assert.ok(k in proj);
+  assert.equal(ws.total, 2); assert.equal(ws.totalNeeds, 1);
+  for (const k of ['key', 'name', 'apps', 'windows', 'sessions', 'needs', 'folders']) assert.ok(k in proj);
+  for (const k of ['list', 'hidden', 'scope', 'total', 'totalNeeds', 'watching', 'own']) assert.ok(k in ws, k);
 });
 
 test('Memory bounds: 500 sessions (the least recently active unowned first), and at most LIMITS.windows windows', () => {
@@ -522,7 +557,7 @@ test('setLiveSessions refuses a hostile entry: a bad session id is skipped, a ba
   assert.equal(st.sessions.known, 3);
   for (const id of ['ok1', 'ok2', 'ok3']) {
     const s = h.core.session('claude:' + id);
-    assert.equal(s.cwd, null); assert.equal(s.owner, null);
+    assert.equal(s.cwd, null); assert.deepEqual(s.owners, []);
   }
   assert.equal(h.core.session('claude:ok3').procStart, undefined);
   assert.equal(h.core.session('claude:ok3').transcript, null);
@@ -532,9 +567,11 @@ test('setLiveSessions refuses a hostile entry: a bad session id is skipped, a ba
 
 test('a window on the top of a file system is listed as "(root)", not as its path', () => {
   const h = harness();
-  h.win('A', ['/', 'C:\\'], null);
+  h.win('A', ['/'], null, 'Code', '');
+  h.win('B', ['C:\\'], null, 'Code', '');
   h.core.flushWorkspaces();
   assert.deepEqual(h.lastWs('A').list.map(x => x.name), ['(root)', '(root)']);
+  assert.deepEqual(h.lastWs('A').list.map(x => x.folders), [['(root)'], ['(root)']]);
 });
 
 test('a duplicate key built from a long value stays short', () => {
@@ -544,6 +581,262 @@ test('a duplicate key built from a long value stays short', () => {
   h.hook('s1', P, long); h.hook('s1', P, long);
   assert.equal(h.core.status().events.duplicates, 1);
   for (const k of h.core.session('claude:s1').dupes) assert.ok(k.length <= 200, 'kept short: ' + k.length);
+});
+
+/* ---------- 0.1.1: a workspace is what one window has open ---------- */
+
+test('A session in folder F is owned by window A (F alone) and window B (F and G): in both models, in all once', () => {
+  const h = harness();
+  const kA = kP, kB = contract.windowKey([P, OTHER]);
+  h.win('X', ['/home/example/watch'], 'all');
+  h.win('A', [P], kA);
+  h.hook('s1', P + '/src', start);
+  h.clear();
+  h.win('B', [P, OTHER], kB);
+  assert.deepEqual(h.core.session('claude:s1').owners, [kA, kB].sort());
+  assert.deepEqual(h.records('X').map(e => e.ev + ' ' + e.space), ['session.info A, B'], 'all already holds it: no second start, only its new space');
+  assert.ok(M.load(h.records('B')[0].state).sessions.has('claude:s1'), 'B\'s first snapshot holds it');
+  for (const k of [kA, kB, 'all']) assert.ok(h.core.models.get(k).sessions.has('claude:s1'), k);
+  h.core.flushWorkspaces();
+  const ws = h.lastWs('X');
+  assert.equal(ws.list.find(x => x.key === kA).sessions, 1);
+  assert.equal(ws.list.find(x => x.key === kB).sessions, 1);
+  assert.equal(ws.total, 1, 'counted once for "All open"');
+  h.clear();
+  h.hook('s1', P, { ev: 'tool.end', call: 'c1', tool: 'Read', ok: true });
+  for (const id of ['X', 'A', 'B']) assert.deepEqual(h.records(id).map(e => e.ev), ['tool.end'], id + ' gets the event once');
+  h.clear();
+  h.core.detach('A');
+  assert.deepEqual(h.core.session('claude:s1').owners, [kB]);
+  for (const id of ['X', 'B']) assert.deepEqual(h.records(id).map(e => e.ev + ' ' + e.space), ['session.info B'], 'closing A only renames the space for ' + id);
+  assert.equal(h.core.models.has(kA), false);
+  assert.ok(h.core.models.get('all').sessions.has('claude:s1'));
+  h.clear();
+  h.core.detach('B');
+  assert.deepEqual(h.records('X').map(r => r.ctl + ' ' + r.why), ['drop workspace-closed']);
+  assert.equal(h.core.models.get('all').sessions.has('claude:s1'), false);
+});
+
+test('Adding a folder changes a window\'s key: it follows its own workspace; a window that showed the old key goes to all', () => {
+  const h = harness();
+  const G = '/home/example/g';
+  h.win('A', [P], kP);
+  h.win('V', [OTHER], kP);                  // V shows A's workspace
+  h.hook('s1', P, start);
+  h.clear();
+  h.core.update('A', { folders: [{ path: P, name: 'proj' }, { path: G, name: 'g' }] });
+  const kNew = contract.windowKey([P, G]);
+  assert.equal(h.core.models.has(kP), false, 'the old workspace is gone');
+  assert.deepEqual(h.core.session('claude:s1').owners, [kNew]);
+  const a = h.records('A'), v = h.records('V');
+  assert.equal(a[0].ctl, 'snapshot'); assert.equal(a[0].scope, kNew, 'A follows its own workspace');
+  assert.ok(M.load(a[0].state).sessions.has('claude:s1'));
+  assert.equal(v[0].ctl, 'snapshot'); assert.equal(v[0].scope, 'all', 'V goes to all');
+  h.core.flushWorkspaces();
+  assert.equal(h.lastWs('A').own, kNew); assert.equal(h.lastWs('A').scope, kNew);
+});
+
+test('Adding a folder while another window keeps the old set: the window still follows its own workspace', () => {
+  const h = harness();
+  const G = '/home/example/g';
+  h.win('A', [P], kP); h.win('C', [P], kP);
+  h.clear();
+  h.core.update('A', { folders: [P, G].map(p => ({ path: p })) });
+  assert.ok(h.core.models.has(kP), 'C still holds the old set');
+  assert.equal(h.records('A')[0].scope, contract.windowKey([P, G]));
+  assert.deepEqual(h.records('C'), [], 'C is not moved');
+});
+
+test('scopeOf: all; a workspace key; a folder key (own window, else fewest folders, else smallest key); else all', () => {
+  const h = harness();
+  const F = '/home/example/f', G = '/home/example/g', H = '/home/example/h', Z = '/home/example/z';
+  const kF = contract.wsKey(F), kG = contract.wsKey(G), kH = contract.wsKey(H);
+  h.win('A', [F], null); h.win('B', [F, G], null); h.win('C', [G, H], null); h.win('D', [Z], null); h.win('E', [G, H, Z], null);
+  const kB = contract.windowKey([F, G]), kC = contract.windowKey([G, H]);
+  const scopeAfter = (id, scope) => { h.core.update(id, { scope }); h.core.flushWorkspaces(); return h.lastWs(id).scope; };
+  assert.equal(scopeAfter('D', 'all'), 'all');
+  assert.equal(scopeAfter('D', kB), kB, 'a workspace key');
+  assert.equal(scopeAfter('B', kG), kB, 'a folder key this window holds: its own (a 0.1.0 host\'s first-folder key)');
+  assert.equal(scopeAfter('D', kH), kC, 'held by C and E: C has fewer folders');
+  assert.equal(scopeAfter('A', kG), [kB, kC].sort()[0], 'held by B and C, both with two folders: the smaller key');
+  assert.equal(scopeAfter('D', 'abcdef012345'), 'all', 'anything else');
+  // Pinned corner: B (F and G) asking for wsKey(F) gets A's workspace, because kF IS a workspace key.
+  assert.equal(scopeAfter('B', kF), kF);
+  const snap = h.records('B').filter(r => r.ctl === 'snapshot').pop();
+  assert.equal(snap.scope, kF, 'the snapshot carries the resolved key');
+  // A scope given at attach is resolved the same way.
+  h.win('Old', [G, H], kG);
+  assert.equal(h.records('Old')[0].scope, kC);
+});
+
+test('A re-attach keeps its place: the workspace is still named after the window that attached first', () => {
+  const h = harness();
+  h.win('A', [P, OTHER], null, 'Code', 'First');
+  h.win('C', [OTHER, P], null, 'Code', 'Second');
+  h.win('A', [P, OTHER], null, 'Code', 'First');
+  h.core.flushWorkspaces();
+  assert.deepEqual(h.lastWs('C').list.map(x => x.name), ['First']);
+});
+
+test('A deeper folder takes a session from two windows at once: each drops it, all keeps it with no second start', () => {
+  const h = harness();
+  h.win('X', ['/home/example/watch'], 'all');
+  h.win('A', [P], kP);
+  h.win('B', [P, OTHER], contract.windowKey([P, OTHER]));
+  h.hook('s1', DEEP + '/x', start);
+  h.clear();
+  h.win('C', [DEEP], kDeep);
+  assert.deepEqual(h.core.session('claude:s1').owners, [kDeep]);
+  assert.deepEqual(h.records('A').map(r => r.ctl + ' ' + r.key), ['drop claude:s1']);
+  assert.deepEqual(h.records('B').map(r => r.ctl + ' ' + r.key), ['drop claude:s1']);
+  assert.deepEqual(h.records('X').map(e => e.ev + ' ' + e.space), ['session.info C'], 'all holds it throughout, and learns its new space');
+  assert.ok(M.load(h.records('C')[0].state).sessions.has('claude:s1'));
+});
+
+test('watching flips with the first scope asked for and the last one dropped, and goes out each time', () => {
+  const h = harness();
+  h.win('A', [P], null); h.win('B', [OTHER], null);
+  h.core.flushWorkspaces();
+  assert.equal(h.lastWs('A').watching, false); assert.equal(h.lastWs('B').watching, false);
+  h.clear();
+  h.core.update('A', { scope: 'all' });
+  h.core.flushWorkspaces();
+  assert.equal(h.lastWs('A').watching, true); assert.equal(h.lastWs('B').watching, true, 'B is told too');
+  h.clear();
+  h.core.update('A', { scope: null });
+  h.core.flushWorkspaces();
+  assert.equal(h.lastWs('A').watching, false); assert.equal(h.lastWs('B').watching, false);
+  h.clear();
+  h.win('C', [P], 'all');
+  h.core.flushWorkspaces();
+  assert.equal(h.lastWs('B').watching, true, 'a window attaching with a scope flips it as well');
+  h.clear();
+  h.core.detach('C');
+  h.core.flushWorkspaces();
+  assert.equal(h.lastWs('B').watching, false, 'and its leaving flips it back');
+});
+
+test('total and totalNeeds count each owned live session once; needs are read from an owner\'s model', () => {
+  const h = harness();
+  h.win('A', [P], null); h.win('B', [P, OTHER], null);
+  h.hook('s1', P, start, { ev: 'wait.start', why: 'question' });
+  h.hook('s2', OTHER, start);
+  h.hook('s3', '/home/example/elsewhere', start);
+  h.core.flushWorkspaces();
+  const ws = h.lastWs('A');
+  assert.equal(ws.total, 2); assert.equal(ws.totalNeeds, 1); assert.equal(ws.hidden, 1);
+  const kB = contract.windowKey([P, OTHER]);
+  assert.deepEqual([ws.list.find(x => x.key === kP).sessions, ws.list.find(x => x.key === kP).needs], [1, 1]);
+  assert.deepEqual([ws.list.find(x => x.key === kB).sessions, ws.list.find(x => x.key === kB).needs], [2, 1]);
+});
+
+/* ---------- 0.1.1: the title of a session's tab ---------- */
+
+test('Titles: a fresh session starts with its title; a change gives one session.info to all and each owner; the same gives none; gone gives ""', () => {
+  const h = harness();
+  h.win('X', ['/home/example/watch'], 'all');
+  h.win('A', [P], kP);
+  h.win('B', [P, OTHER], contract.windowKey([P, OTHER]));
+  const entry = title => ({ agent: 'claude', session: 't1', key: 'claude:t1', cwd: P, pid: 5, title });
+  h.clear();
+  h.core.setLiveSessions([entry('Fix the parser')]);
+  const startX = h.records('X').find(e => e.ev === 'session.start');
+  assert.equal(startX.title, 'Fix the parser'); assert.deepEqual(startX.root, { name: 'proj' });
+  const step = title => { h.clear(); h.core.setLiveSessions([entry(title)]); return ['X', 'A', 'B'].map(id => h.records(id).filter(e => e.ev === 'session.info' && 'title' in e).map(e => e.title)); };
+  assert.deepEqual(step('Fix the parser'), [[], [], []], 'the same title again: nothing');
+  assert.deepEqual(step('Write the tests'), [['Write the tests'], ['Write the tests'], ['Write the tests']], 'one event for all and each owner');
+  const e = h.records('X')[0];
+  assert.deepEqual([e.grade, e.src], ['derived', 'sessions-file']);
+  assert.deepEqual(step(undefined), [[''], [''], ['']], 'a title that goes away');
+  assert.deepEqual(step(undefined), [[], [], []]);
+  assert.equal(h.core.models.get('all').nodes.get('a:claude:t1').title, '');
+});
+
+test('Titles: a session a hook reports for still gets its title from the list', () => {
+  const h = harness();
+  h.win('A', [P], 'all');
+  h.hook('t2', P, start);
+  h.clear();
+  h.core.setLiveSessions([{ agent: 'claude', session: 't2', key: 'claude:t2', cwd: P, pid: 6, title: 'Hooked' }]);
+  assert.deepEqual(h.records('A').map(e => e.ev + ' ' + e.title), ['session.info Hooked']);
+  assert.equal(h.core.models.get('all').nodes.get('a:claude:t2').title, 'Hooked');
+});
+
+test('Titles: a session put into a newly attached window\'s model carries its title on the hub:known start', () => {
+  const h = harness();
+  h.win('X', ['/home/example/watch'], 'all');
+  h.core.setLiveSessions([{ agent: 'claude', session: 't3', key: 'claude:t3', cwd: P, pid: 7, title: 'Later' }]);
+  h.clear();
+  h.win('A', [P], kP);
+  const start3 = h.records('X').find(e => e.ev === 'session.start');
+  assert.equal(start3.src, 'hub:known'); assert.equal(start3.title, 'Later');
+  assert.equal(M.load(h.records('A')[0].state).nodes.get('a:claude:t3').title, 'Later', 'in the new window\'s first snapshot');
+});
+
+test('Titles: a title that is not a string or is too long is ignored; every event made passes validate', () => {
+  const h = harness();
+  h.win('A', [P], 'all');
+  h.core.setLiveSessions([
+    { agent: 'claude', session: 'u1', key: 'claude:u1', cwd: P, pid: 8, title: 42 },
+    { agent: 'claude', session: 'u2', key: 'claude:u2', cwd: P, pid: 9, title: 'x'.repeat(121) },
+    { agent: 'claude', session: 'u3', key: 'claude:u3', cwd: P, pid: 10, title: 'x'.repeat(120) }
+  ]);
+  const starts = Object.fromEntries(h.records('A').filter(e => e.ev === 'session.start').map(e => [e.session, e.title]));
+  assert.deepEqual(starts, { u1: undefined, u2: undefined, u3: 'x'.repeat(120) });
+  assert.equal(h.core.session('claude:u1').title, undefined);
+  h.core.setLiveSessions([
+    { agent: 'claude', session: 'u1', key: 'claude:u1', cwd: P, pid: 8, title: { bad: true } },
+    { agent: 'claude', session: 'u2', key: 'claude:u2', cwd: P, pid: 9, title: 'Now fine' },
+    { agent: 'claude', session: 'u3', key: 'claude:u3', cwd: P, pid: 10, title: 'x'.repeat(500) }
+  ]);
+  for (const e of h.records('A').filter(r => r.ev)) assert.doesNotThrow(() => M.validate(e), e.ev);
+  assert.deepEqual(h.records('A').filter(e => e.ev === 'session.info' && 'title' in e).map(e => e.session + ' ' + e.title), ['u2 Now fine', 'u3 ']);
+});
+
+/* ---------- 0.1.1: the name of the workspace a session works in ---------- */
+
+test('Space: every start names the window, not a folder: from the list, from a hook\'s own start, and a hub-made one', () => {
+  const h = harness();
+  h.win('W', [P, OTHER], 'all', 'Code', 'Example Shop (Workspace)');
+  h.core.setLiveSessions([{ agent: 'claude', session: 'p1', key: 'claude:p1', cwd: P, pid: 3 }]);
+  h.core.ingest({ session: 'p2', cwd: OTHER, events: [{ ev: 'session.start', source: 'startup' }] });
+  h.hook('p3', OTHER, start);
+  const starts = h.records('W').filter(e => e.ev === 'session.start');
+  assert.deepEqual(starts.map(e => e.session + ' ' + e.src + ' ' + e.space), ['p1 sessions-file Example Shop', 'p2 hook:Test Example Shop', 'p3 hub:known Example Shop']);
+  assert.equal(h.core.models.get('all').nodes.get('a:claude:p1').space, 'Example Shop');
+  for (const e of h.records('W').filter(r => r.ev)) assert.doesNotThrow(() => M.validate(e));
+});
+
+test('Space: two owners give both names; closing one sends one session.info with the other to all and its model; unchanged sends nothing', () => {
+  const h = harness();
+  const kB = contract.windowKey([P, OTHER]);
+  h.win('X', ['/home/example/watch'], 'all', 'Code', 'Watch');
+  h.win('A', [P], kP, 'Code', 'Zeta Shop');
+  h.win('B', [P, OTHER], kB, 'Code', 'Alpha Site');
+  h.hook('p1', P, start);
+  assert.equal(h.records('X').find(e => e.ev === 'session.start').space, 'Alpha Site, Zeta Shop');
+  h.clear();
+  h.win('Y', ['/home/example/elsewhere'], null, 'Code', 'Elsewhere');
+  assert.deepEqual(h.records('X').filter(e => e.ev === 'session.info'), [], 'an unrelated window: the space is unchanged, nothing is sent');
+  h.clear();
+  h.core.detach('A');
+  const infos = id => h.records(id).filter(e => e.ev === 'session.info').map(e => e.space);
+  assert.deepEqual(infos('X'), ['Alpha Site'], 'all learns the remaining name, once');
+  assert.deepEqual(infos('B'), ['Alpha Site'], 'and so does the remaining window\'s model');
+  assert.equal(h.core.models.get(kB).nodes.get('a:claude:p1').space, 'Alpha Site');
+  assert.equal(h.core.models.get('all').nodes.get('a:claude:p1').space, 'Alpha Site');
+  for (const id of ['X', 'B']) for (const e of h.records(id).filter(r => r.ev)) assert.doesNotThrow(() => M.validate(e));
+});
+
+test('Space: a workspace renamed because its first window left sends the new name', () => {
+  const h = harness();
+  h.win('X', ['/home/example/watch'], 'all', 'Code', 'Watch');
+  h.win('A', [P], null, 'Code', 'First');
+  h.win('C', [P], null, 'Code', 'Second');
+  h.hook('p1', P, start);
+  h.clear();
+  h.core.detach('A');
+  assert.deepEqual(h.records('X').filter(e => e.ev === 'session.info').map(e => e.space), ['Second']);
 });
 
 test('status has every field of 7.4', () => {

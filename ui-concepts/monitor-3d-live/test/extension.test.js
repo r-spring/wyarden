@@ -25,7 +25,7 @@ async function until(what, test, ms = 8000) {
 }
 
 /** As much of `vscode` as extension.js, view.js and actions.js touch. */
-function fakeVscode(folders, answer) {
+function fakeVscode(folders, answer, workspaceFile) {
   const uri = (scheme, p) => ({ scheme, path: p, fsPath: p, toString: () => scheme + ':' + p });
   const v = {
     commands_: new Map(), panels: [], calls: [], bars: [], output: [], providers: new Map(), modals: [],
@@ -42,7 +42,9 @@ function fakeVscode(folders, answer) {
     },
     env: { appName: 'Example Editor', remoteName: undefined, openExternal: async u => { v.calls.push(['openExternal', u.path]); return true; } },
     workspace: {
-      name: 'example-workspace',
+      // As an editor reports a window that has a workspace file: the file's name, and a suffix the window's title does not show.
+      name: workspaceFile ? path.basename(workspaceFile).replace(/\.code-workspace$/, '') + ' (Workspace)' : path.basename(folders[0] || 'no-folder'),
+      workspaceFile: workspaceFile ? uri('file', workspaceFile) : undefined,
       workspaceFolders: folders.map(f => ({ uri: uri('file', f), name: path.basename(f) })),
       onDidChangeWorkspaceFolders: () => ({ dispose() {} }),
       registerTextDocumentContentProvider: (scheme, provider) => { v.providers.set(scheme, provider); return { dispose() {} }; }
@@ -98,10 +100,11 @@ function post(port, urlPath, body) {
 
 test('activated in a window: a hook payload reaches the tab, a double-click opens the file, and the collector goes in and comes out', async t => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'wym-'));
-  const home = path.join(base, 'home'), monitor = path.join(base, 'monitor'), project = path.join(base, 'example-project');
+  const home = path.join(base, 'home'), monitor = path.join(base, 'monitor'), project = path.join(base, 'example-project'), tools = path.join(base, 'example-tools');
   fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
   fs.mkdirSync(path.join(project, 'src'), { recursive: true });
   fs.mkdirSync(path.join(project, '.git'));
+  fs.mkdirSync(tools);                                           // the window's second folder: one window, one workspace
   fs.writeFileSync(path.join(project, 'src', 'a.js'), '// invented\n');
   const settingsFile = path.join(home, '.claude', 'settings.json');
   const original = JSON.stringify({ permissions: { allow: ['Read'] }, hooks: { Stop: [{ hooks: [{ type: 'command', command: 'example-notify' }] }] } }, null, 2) + '\n';
@@ -114,7 +117,7 @@ test('activated in a window: a hook payload reaches the tab, a double-click open
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
   let pressed = buttons => buttons[0];
-  const vscode = fakeVscode([project], buttons => pressed(buttons));
+  const vscode = fakeVscode([project, tools], buttons => pressed(buttons), path.join(base, 'Example Shop.code-workspace'));
   const realLoad = Module._load;
   Module._load = function (request, ...rest) { return request === 'vscode' ? vscode : realLoad.call(this, request, ...rest); };
   const subscriptions = [];
@@ -141,9 +144,13 @@ test('activated in a window: a hook payload reaches the tab, a double-click open
   assert.equal(vscode.bars[0].command, 'wyardenMonitor.open');
   assert.equal(vscode.bars[0].shown, true);
 
-  // The tab: its page says it is ready, and gets the look, the hub state, the workspaces and a snapshot.
+  // Before any tab is open the hub is not looking for sessions, so the status bar gives no count: not "0 live sessions".
   const hub = C.readHubFile(monitor);
   assert.ok(hub, 'the hub file was made in the folder the test named');
+  await until('the status bar to hear from the hub', () => /1 open workspace\b/.test(vscode.bars[0].tooltip));
+  assert.equal(vscode.bars[0].tooltip, 'Wyarden 3D Monitor: 1 open workspace. Click to open.');
+
+  // The tab: its page says it is ready, and gets the look, the hub state, the workspaces and a snapshot.
   vscode.commands_.get('wyardenMonitor.open')();
   const panel = vscode.panels[0];
   assert.ok(panel.webview.html.includes('page.js') && !panel.webview.html.includes('{{'), 'the real page.html, filled');
@@ -154,10 +161,14 @@ test('activated in a window: a hook payload reaches the tab, a double-click open
   const hubUp = await until('the hub to be up', () => [...panel.posted].reverse().find(m => m.type === 'hub' && m.state === 'up'));
   assert.equal(hubUp.role, 'hub', 'the only window runs the hub');
   assert.deepEqual(hubUp.collectors.claude, { state: 'missing', folders: 1, installed: 0 });
-  const spaces = [...panel.posted].reverse().find(m => m.type === 'workspaces');
-  assert.deepEqual(spaces.list.map(w => [w.name, w.windows, w.apps]), [['example-project', 1, ['Example Editor']]]);
-  assert.deepEqual(spaces.here, [C.wsKey(project)]);
-  assert.equal(spaces.scope, C.wsKey(project), 'the window is shown its own folder first');
+  // One window with two folders is ONE workspace, named as the window's title names it (the workspace file's name).
+  const own = C.windowKey([project, tools]);
+  const spaces = await until('the list with the hub looking', () => [...panel.posted].reverse().find(m => m.type === 'workspaces' && m.watching === true));
+  assert.deepEqual(spaces.list.map(w => [w.key, w.name, w.windows, w.apps, w.folders]), [[own, 'Example Shop', 1, ['Example Editor'], ['example-project', 'example-tools']]]);
+  assert.deepEqual(spaces.here, [own, C.wsKey(project), C.wsKey(tools)]);
+  assert.equal(spaces.own, own);
+  assert.equal(spaces.scope, own, 'the window is shown its own workspace first');
+  assert.equal(vscode.bars[0].tooltip, 'Wyarden 3D Monitor: 1 open workspace, 0 live sessions. Click to open.', 'with a tab open the hub has looked: now 0 is a count');
 
   // A hook payload, posted the way Claude Code posts it.
   const session = '11111111-2222-4333-8444-555555555555';

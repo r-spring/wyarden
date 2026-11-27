@@ -9,7 +9,10 @@
  *   serialize() and load(): the hub sends its model as a snapshot, and the page carries on from it;
  *   drop(key): a session leaves at once (it ended, or its workspace is no longer open);
  *   an agent is named after its folder (session.start's `root.name`), and knows whether a
- *   collector reports for it (`collector`: an event whose `src` starts with "hook:" was seen).
+ *   collector reports for it (`collector`: an event whose `src` starts with "hook:" was seen);
+ *   an agent carries the title of its session's tab (`title`) and the name of the workspace it
+ *   works in (`space`), both from session.start or the event `session.info`; a subagent carries
+ *   its provider (`kind`), so agents and subagents can be coloured by provider.
  * The hub (Node) and the page load this one file, so the same events give the same slots.
  */
 (function (root) {
@@ -18,7 +21,9 @@
 
   const VERSION = 1;
   const EVENTS = ['session.start', 'session.end', 'turn.start', 'turn.end', 'tool.start', 'tool.end', 'resource.touch',
-    'mcp.start', 'mcp.end', 'subagent.start', 'subagent.stop', 'wait.start', 'wait.end'];
+    'mcp.start', 'mcp.end', 'subagent.start', 'subagent.stop', 'wait.start', 'wait.end', 'session.info'];
+  const TITLE_MAX = 120;       // a session's title, as its tab shows it; and the name of the workspace it works in
+  const INFO = ['title', 'space'];   // what session.info, and session.start, may say about a session besides its state
   const AGENT_KINDS = ['claude', 'codex', 'grok', 'antigravity'];
   const CLASSES = ['agent', 'subagent', 'tool', 'resource', 'mcp'];
   const CLASS_NAME = { agent: 'Agent', subagent: 'Subagent', tool: 'Tool', resource: 'Resource', mcp: 'MCP server', stack: 'Stack' };
@@ -71,6 +76,10 @@
       if (!OPS.includes(e.op)) fail('resource.touch: unknown op "' + e.op + '"');
     }
     if (e.ev === 'subagent.start' || e.ev === 'subagent.stop') need('sub');
+    if (e.ev === 'session.start' || e.ev === 'session.info') {
+      for (const k of INFO) if (e[k] !== undefined && (typeof e[k] !== 'string' || e[k].length > TITLE_MAX)) fail(e.ev + ': ' + k + ' must be a short text');
+      if (e.ev === 'session.info' && !INFO.some(k => typeof e[k] === 'string')) fail('session.info: nothing to say');
+    }
     if (e.ev === 'wait.start' && !WHYS.includes(e.why)) fail('wait.start: unknown why "' + e.why + '"');
     if (e.ev === 'turn.end' && !OUTCOMES.includes(e.outcome)) fail('turn.end: unknown outcome "' + e.outcome + '"');
   }
@@ -236,7 +245,7 @@
       this.own(s, this.addNode({
         id: s.agentId, cls: 'agent', col, kind: e.agent, label: e.agent + ' ' + short(e.session), session: e.session, ws: e.ws || '',
         status: e.ev === 'session.start' ? 'idle' : 'unclear', grade: e.grade, since: e.t, calls: 0, failed: 0, model: '', turn: '', wait: null,
-        root: '', card: '', collector: false
+        root: '', card: '', collector: false, title: '', space: ''
       }));
       return s;
     }
@@ -262,7 +271,7 @@
     subagent(s, sub, e) {
       const id = 's:' + s.key + ':' + sub;
       let n = this.nodes.get(id);
-      if (!n) n = this.own(s, this.addNode({ id, cls: 'subagent', col: s.col, sub, type: '', label: 'subagent ' + short(sub), status: 'working', grade: e.grade, since: e.t, calls: 0, failed: 0 }));
+      if (!n) n = this.own(s, this.addNode({ id, cls: 'subagent', col: s.col, kind: s.kind, sub, type: '', label: 'subagent ' + short(sub), status: 'working', grade: e.grade, since: e.t, calls: 0, failed: 0 }));
       else if (e.ev !== 'subagent.stop') this.surface(n);
       return n;
     }
@@ -399,12 +408,15 @@
       if (!s) { if (e.ev !== 'session.end') this.leftOut.events++; return; }
       const agent = this.agentOf(s);
       this.touch(agent);
-      if (s.ended && e.ev !== 'session.end') s.ended = false;      // a resumed session speaks again
+      if (s.ended && e.ev !== 'session.end' && e.ev !== 'session.info') s.ended = false;      // a resumed session speaks again
       if (!agent.collector && typeof e.src === 'string' && e.src.indexOf('hook:') === 0) agent.collector = true;
       if (e.root && typeof e.root.name === 'string' && e.root.name && agent.root !== e.root.name) {
         agent.root = e.root.name; agent.card = typeof e.root.card === 'string' ? e.root.card : ''; agent.label = e.agent + ' ' + e.root.name;
       }
+      // The title of the session's tab: on its start when it is known then, and in an event of its own when it changes.
+      if (e.ev === 'session.start' || e.ev === 'session.info') for (const k of INFO) if (typeof e[k] === 'string') agent[k] = e[k];
       switch (e.ev) {
+        case 'session.info': break;                              // a name is not a state: nothing else changes
         case 'session.start':
           s.ended = false; agent.model = e.model || agent.model; agent.source = e.source || '';
           this.setStatus(agent, s.turnOpen ? 'working' : 'idle', e); break;
@@ -547,6 +559,8 @@
       if (n.cls === 'resource' && (!isMap(n.members) || !RESOURCE_KINDS.includes(n.kind) || !text(n.group))) return 'a resource';
       if (n.cls === 'tool' && !text(n.tool)) return 'a tool';
       if (n.cls === 'agent' && (!text(n.session) || !AGENT_KINDS.includes(n.kind))) return 'an agent';
+      if (n.cls === 'agent') for (const k of INFO) if (n[k] !== undefined && (!text(n[k]) || n[k].length > TITLE_MAX)) return 'an agent\'s ' + k;
+      if (n.cls === 'subagent' && n.kind !== undefined && !AGENT_KINDS.includes(n.kind)) return 'a subagent\'s provider';
     }
     for (const [key, x] of s.sessions) {
       if (!text(key) || !obj(x) || x.key !== key || !int(x.col) || x.col < 0 || x.col >= L.MAX_COLUMNS) return 'a session';
@@ -589,7 +603,7 @@
   const api = {
     Model, create: () => new Model(), load, validate, groupOf,
     VERSION, EVENTS, AGENT_KINDS, CLASSES, CLASS_NAME, RESOURCE_KINDS, TOUCH_KINDS, OPS, WHYS, OUTCOMES, STATES,
-    HISTORY, MEMBER_CAP, PORT_CAP, STACK_CAP, ARC_CAP, STALE_MS
+    HISTORY, MEMBER_CAP, PORT_CAP, STACK_CAP, ARC_CAP, STALE_MS, TITLE_MAX
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MonitorModel = api;
 })(typeof window === 'undefined' ? globalThis : window);

@@ -191,14 +191,16 @@
   /* ---------- the list twin ---------- */
 
   const rowOf = new Map();      // row key -> element
+  const groupOf = new Map();    // column -> { box, title }: a column's title names its workspace, which session.info can change
   let rowSeq = 0;
   function rebuildTwin() {
-    rowOf.clear();
+    rowOf.clear(); groupOf.clear();
     const parts = [];
     for (const group of N.rows(model)) {
       const box = el('div'); box.setAttribute('role', 'group'); box.setAttribute('aria-label', group.title);
       const title = el('div', 'twin-title', group.title); title.setAttribute('aria-hidden', 'true');
       box.append(title);
+      if (group.col !== undefined) groupOf.set(group.col, { box, title });
       for (const row of group.rows) {
         const item = el('div', 'twin-row', row.text);
         item.id = 'row-' + (++rowSeq); item.setAttribute('role', 'option'); item.dataset.node = row.id; item.setAttribute('aria-selected', 'false');
@@ -216,6 +218,11 @@
       if (!n || n.folded) continue;
       const text = N.line(n, model);
       for (const key of [id, 'attention ' + id]) { const item = rowOf.get(key); if (item && item.textContent !== text) item.textContent = text; }
+      const group = n.cls === 'agent' && groupOf.get(n.col);
+      if (group) {
+        const title = N.columnTitle(model, n.col);
+        if (group.title.textContent !== title) { group.title.textContent = title; group.box.setAttribute('aria-label', title); }
+      }
     }
   }
   function markTwin(scroll) {
@@ -250,12 +257,22 @@
     const look = LOOKS[state.look], pal = look.palette, body = $('legend-body');
     const item = (mark, name, key) => { const row = el('div', 'legend-item'), text = el('span', '', name); if (key) { countOf[key] = el('i', '', ''); text.append(' ', countOf[key]); } row.append(mark, text); return row; };
     const line = (color, dash, extra) => sample(ctx => { ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(2, 7); ctx.lineTo(32, 7); ctx.stroke(); ctx.setLineDash([]); if (extra) extra(ctx); });
-    const classes = el('div', 'legend-grid');
+    // An agent's and a subagent's colour is its provider's, so their shapes are shown here in a neutral colour,
+    // and the providers get a group of their own. A look with no provider colours still draws a legend.
+    const neutral = pal.muted || pal.caption, classes = el('div', 'legend-grid'), agentMark = icon('agent', neutral, 22);
+    agentMark.dataset.color = neutral;            // the colour each swatch was drawn in, for the tests
     classes.append(
-      item(icon('agent', pal.cls.agent, 22), 'Agent', 'agent'), item(icon('subagent', pal.cls.subagent, 22), 'Subagent', 'subagent'),
+      item(agentMark, 'Agent', 'agent'), item(icon('subagent', neutral, 22), 'Subagent', 'subagent'),
       item(icon('tool', pal.cls.tool, 22), 'Tool', 'tool'), item(icon('mcp', pal.cls.mcp, 22), 'MCP server', 'mcp'),
       item(icon('resource.file', pal.cls.resource, 22), 'Files', 'file'), item(icon('resource.url', pal.cls.resource, 22), 'URLs', 'url'),
       item(icon('resource.context', pal.cls.resource, 22), 'Context', 'context'), item(icon('stack', pal.muted, 22), '+N idle, folded'));
+    const providers = el('div', 'legend-grid');
+    for (const kind of Object.keys(E.PROVIDERS || {})) {
+      const color = pal.provider && Object.prototype.hasOwnProperty.call(pal.provider, kind) ? pal.provider[kind] : pal.cls.agent;
+      const mark = icon('agent', color, 22);
+      mark.dataset.color = color;
+      providers.append(item(mark, E.PROVIDERS[kind], 'provider:' + kind));
+    }
     const states = el('div', 'legend-grid');
     for (const key of Object.keys(M.STATES)) if (M.STATES[key].shape) states.append(item(badge(key, 18), M.STATES[key].name));
     const calls = el('div', 'legend-grid legend-wide');
@@ -267,31 +284,56 @@
       item(line(pal.cls.resource, [1, 4]), 'Search (dotted)'),
       item(line(pal.cls.tool, [2, 6]), 'A call that has just ended; a cross if it failed'),
       item(line(pal.clash, [6, 4], ctx => { ctx.font = 'bold 9px sans-serif'; ctx.fillText('!', 15, 6); }), 'Two agents wrote the same file'));
-    body.replaceChildren(el('h3', '', 'Classes (files, URLs and context are resources)'), classes, el('h3', '', 'States (a mark beside the shape)'), states, el('h3', '', 'Calls'), calls,
+    body.replaceChildren(el('h3', '', 'Classes (files, URLs and context are resources)'), classes,
+      el('h3', '', 'Providers (the colour of an agent and its subagents)'), providers,
+      el('h3', '', 'States (a mark beside the shape)'), states, el('h3', '', 'Calls'), calls,
       el('p', 'hint', 'A resource grows with the number of times it was touched. A dashed agent is a session that has ended; it leaves 20 seconds later. "exact" came from a hook; "derived" was read from a transcript or a session file.'));
     countLegend();
   }
   function countLegend() {
     const counts = Object.assign(model.classCounts(), { file: 0, url: 0, context: 0 });
-    for (const n of model.nodes.values()) if (n.cls === 'resource') counts[n.kind]++;
-    for (const key of Object.keys(countOf)) countOf[key].textContent = '(' + counts[key] + ')';
+    for (const kind of Object.keys(E.PROVIDERS || {})) counts['provider:' + kind] = 0;
+    for (const n of model.nodes.values()) {
+      if (n.cls === 'resource') counts[n.kind]++;
+      else if (n.cls === 'agent' && ('provider:' + view.providerOf(n)) in counts) counts['provider:' + view.providerOf(n)]++;
+    }
+    for (const key of Object.keys(countOf)) countOf[key].textContent = '(' + (counts[key] || 0) + ')';
   }
 
   /* ---------- workspace chips: a filter on what is shown, chosen by the hub's next snapshot ---------- */
 
+  /* A chip stands for one open editor window's workspace (0.1.1); a 0.1.0 hub listed one per folder.
+     Every field the 0.1.1 hub added (folders, total, totalNeeds, own, watching) may be missing. */
   const chipOf = new Map();     // scope -> { button, count, needs, note }
+  const countOrNull = value => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null);
   function workspaceList() {
     const m = state.workspaces, here = new Set(m && Array.isArray(m.here) ? m.here : []);
+    const own = m && typeof m.own === 'string' ? m.own : '';
+    // This window's own workspace: `own` alone when the hub names it (0.1.1); else `here`, which is what a 0.1.0 hub needs.
+    const mine = key => (own ? key === own : here.has(key));
     const list = m ? m.list.filter(w => w && typeof w.key === 'string' && w.key) : [];
     const name = w => (typeof w.name === 'string' && w.name ? w.name : w.key);
-    return list.slice().sort((a, b) => (here.has(b.key) - here.has(a.key)) || name(a).localeCompare(name(b), undefined, { sensitivity: 'base' }) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
-      .map(w => ({ key: w.key, name: name(w), here: here.has(w.key), sessions: Number(w.sessions) || 0, needs: Number(w.needs) || 0, apps: Array.isArray(w.apps) ? w.apps.filter(a => typeof a === 'string') : [], windows: Number(w.windows) || 0 }));
+    return list.slice().sort((a, b) => (mine(b.key) - mine(a.key)) || name(a).localeCompare(name(b), undefined, { sensitivity: 'base' }) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+      .map(w => ({ key: w.key, name: name(w), here: mine(w.key), sessions: Number(w.sessions) || 0, needs: Number(w.needs) || 0, windows: Number(w.windows) || 0,
+        apps: Array.isArray(w.apps) ? w.apps.filter(a => typeof a === 'string' && a) : [], folders: Array.isArray(w.folders) ? w.folders.filter(f => typeof f === 'string' && f) : [] }));
+  }
+  /** The hover text: the full name; the folders when they say more than the name; the editors that have it open. */
+  function chipTitle(w) {
+    if (w.key === 'all') return 'Every open editor window, each session counted once';
+    const lines = [w.name];
+    if (w.folders.length > 1 || (w.folders.length === 1 && w.folders[0] !== w.name)) lines.push('Folders: ' + w.folders.join(', ') + '.');
+    lines.push('Open in ' + (w.apps.length ? w.apps.join(', ') : 'a window') + (w.here ? ' (this window).' : '.'));
+    return lines.join('\n');
   }
   function renderChips() {
-    const list = workspaceList();
-    const all = { key: 'all', name: 'All open', here: false, sessions: list.reduce((s, w) => s + w.sessions, 0), needs: list.reduce((s, w) => s + w.needs, 0), apps: [], windows: 0 };
+    const list = workspaceList(), m = state.workspaces || {};
+    // A session can belong to two windows, so the hub's own totals win over the sums when it sends them.
+    const total = countOrNull(m.total), totalNeeds = countOrNull(m.totalNeeds);
+    const all = { key: 'all', name: 'All open', here: false, apps: [], folders: [], windows: 0,
+      sessions: total !== null ? total : list.reduce((s, w) => s + w.sessions, 0), needs: totalNeeds !== null ? totalNeeds : list.reduce((s, w) => s + w.needs, 0) };
     const entries = [all].concat(list);
-    // Rebuilt only when the chips themselves change, so a count that moves never takes the focus away.
+    // Rebuilt only when the chips themselves change (key, name, order), so a count, a hover text or
+    // `watching` that moves never takes the focus away.
     const signature = JSON.stringify(entries.map(w => [w.key, w.name, w.here]));
     if (signature !== state.chipsSignature) {
       const focused = chips.contains(document.activeElement) ? document.activeElement.dataset.scope : undefined;
@@ -321,7 +363,7 @@
       if (switching) chip.button.setAttribute('aria-busy', 'true'); else chip.button.removeAttribute('aria-busy');
       const label = w.name + (known ? ', ' + plural(w.sessions, 'live session', 'live sessions') : '') + (w.needs ? ', ' + w.needs + ' waiting for you' : '') + (switching ? ', switching' : '');
       if (chip.button.getAttribute('aria-label') !== label) chip.button.setAttribute('aria-label', label);
-      const title = w.key === 'all' ? 'Every workspace that is open in a window' : w.name + ': open in ' + (w.apps.length ? w.apps.join(', ') : 'a window') + (w.here ? ' (this window)' : '');
+      const title = chipTitle(w);
       if (chip.button.title !== title) chip.button.title = title;
     }
     rovingTabs();
@@ -430,7 +472,7 @@
     if (changes.structure || attention !== state.attention) { rebuildTwin(); countLegend(); renderEmpty(); renderStatus(); } else refreshTwin(changes.ids);
     if (attention !== state.attention) {
       const before = state.attention.split(' '), fresh = waiting.filter(n => !before.includes(n.id));
-      if (fresh.length) $('live').textContent = fresh.map(n => n.label + ' needs you' + (n.wait ? ': ' + n.wait.why : '')).join('. ') + '.';
+      if (fresh.length) $('live').textContent = fresh.map(n => N.agentName(n) + (typeof n.title === 'string' && n.title.trim() ? ', “' + n.title.trim() + '”,' : '') + ' needs you' + (n.wait ? ': ' + n.wait.why : '')).join('. ') + '.';
       state.attention = attention;
     }
     if (state.selected && changes.ids.has(state.selected)) renderInspector();

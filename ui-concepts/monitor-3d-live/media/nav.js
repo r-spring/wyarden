@@ -8,6 +8,9 @@
  * where its calls come from (Claude Code's hooks, exact, or the transcript, derived), and the
  * "In VS Code" list names only what is wired in this slice (a double-click or Ctrl+Enter opens a
  * file or an address) and says so plainly for every other class.
+ * Changed again at the owner's word: an agent is named by its provider (the scene's caption says
+ * "CLAUDE"), so the list and the inspector name the provider, its tab's title and its workspace.
+ * In the scene the title shows only under the pointer; here it is always written out.
  *
  * Pure functions of the model: no DOM here, so they can be tested in Node.
  */
@@ -16,11 +19,20 @@
   const inNode = typeof module !== 'undefined' && module.exports;
   const L = inNode ? require('./layout.js') : root.MonitorLayout;
   const M = inNode ? require('./model.js') : root.MonitorModel;
+  const E = inNode ? require('./engine.js') : root.MonitorEngine;      // for the providers' names, which the scene's captions use
 
   const clock = t => new Date(t).toISOString().slice(11, 19) + ' UTC';     // a clock time never needs a redraw as time passes
   const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
   const stateOf = n => M.STATES[n.status] || M.STATES.rest;
   const kindName = n => (n.cls === 'resource' ? { file: 'files in a folder', url: 'URLs on a host', context: 'context' }[n.kind] : '');
+  const own = (object, key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(object, key);
+  /** A provider's name as the scene writes it ("Claude"); an unknown one as it came. */
+  const providerName = kind => (E && E.PROVIDERS && own(E.PROVIDERS, kind) ? E.PROVIDERS[kind] : String(kind || 'agent'));
+  /** The provider of an agent or a subagent: its own, else its session's (a snapshot from before subagents carried one). */
+  const providerOf = (n, model) => (typeof n.kind === 'string' && n.cls !== 'resource' && n.kind ? n.kind : ((model && model.sessions.get(n.owner)) || {}).kind || '');
+  const text = value => (typeof value === 'string' ? value.trim() : '');
+  /** An agent's heading: its provider and its folder ("Claude site-docs"). */
+  const agentName = n => providerName(n.kind) + ' ' + (text(n.root) || String(n.label || '').replace(/^\S+\s+/, ''));
 
   /* ---------- order and keyboard ---------- */
 
@@ -77,14 +89,17 @@
 
   /* ---------- the list twin ---------- */
 
-  /** One line of text that says what a node is, its state in words, and its counts. */
-  function line(n) {
+  /** One line of text that says what a node is, its state in words, and its counts. An agent's first
+      sentence says, in this order: its provider, its tab's title in quotes, its workspace, its state. */
+  function line(n, model) {
     const state = stateOf(n).name;
     if (n.cls === 'agent') {
       const wait = n.wait && n.wait.why !== 'idle' ? ' (' + n.wait.why + (n.wait.tool ? ' for ' + n.wait.tool : '') + ')' : '';
-      return 'Agent: ' + n.label + '. ' + state + wait + ' since ' + clock(n.since) + '. ' + plural(n.calls, 'call') + ', ' + n.open + ' open, ' + n.failed + ' failed.';
+      const title = text(n.title), space = text(n.space);
+      return 'Agent: ' + providerName(n.kind) + (title ? ', “' + title + '”' : '') + (space ? ', in ' + space : text(n.root) ? ', folder ' + text(n.root) : '') +
+        ', ' + state + wait + ' since ' + clock(n.since) + '. ' + plural(n.calls, 'call') + ', ' + n.open + ' open, ' + n.failed + ' failed.';
     }
-    if (n.cls === 'subagent') return 'Subagent: ' + n.label + '. ' + state + '. ' + plural(n.calls, 'call') + '.';
+    if (n.cls === 'subagent') return 'Subagent of ' + providerName(providerOf(n, model)) + ': ' + n.label + '. ' + state + '. ' + plural(n.calls, 'call') + '.';
     if (n.cls === 'tool') return 'Tool: ' + n.label + '. ' + state + '. ' + plural(n.calls, 'call') + ', ' + n.open + ' open, ' + n.failed + ' failed.';
     if (n.cls === 'mcp') return 'MCP server: ' + n.label + '. ' + state + '. ' + plural(n.calls, 'call') + ', ' + n.open + ' open, ' + plural(n.ports.size, 'tool') + '.';
     if (n.cls === 'resource') return 'Resource, ' + kindName(n) + ': ' + n.label + '. ' + (n.open ? 'in use. ' : '') + 'read ' + n.reads + ', write ' + n.writes + (n.searches ? ', search ' + n.searches : '') + (n.unknowns ? ', unknown ' + n.unknowns : '') + '.';
@@ -102,13 +117,20 @@
     waiting.sort((a, b) => a.since - b.since || (a.id < b.id ? -1 : 1));
     if (waiting.length) groups.push({ title: 'Needs you (' + waiting.length + ')', rows: waiting.map(n => ({ key: 'attention ' + n.id, id: n.id, text: line(n, model) })) });
     for (const col of model.columnsInUse()) {
-      const session = model.sessions.get(model.columns[col]), agent = model.nodes.get(session.agentId), list = [];
+      const list = [];
       for (const floor of L.floorsOf(col)) for (const id of cellNodes(model, col, floor)) list.push({ key: id, id, text: line(model.nodes.get(id), model) });
-      groups.push({ title: 'Column ' + (col + 1) + ': ' + agent.label, rows: list });
+      groups.push({ col, title: columnTitle(model, col), rows: list });
     }
     const servers = cellNodes(model, L.DOCK, 'mcp');
     if (servers.length) groups.push({ title: 'MCP servers, at the boundary', rows: servers.map(id => ({ key: id, id, text: line(model.nodes.get(id), model) })) });
     return groups;
+  }
+  /** A column's group title: its agent's provider and the workspace it works in (its folder when no workspace is named). */
+  function columnTitle(model, col) {
+    const session = model.sessions.get(model.columns[col]), agent = session && model.nodes.get(session.agentId);
+    if (!agent) return 'Column ' + (col + 1);
+    const space = text(agent.space);
+    return 'Column ' + (col + 1) + ': ' + (space ? providerName(agent.kind) + ' in ' + space : agentName(agent));
   }
 
   /* ---------- the inspector ---------- */
@@ -134,7 +156,7 @@
     ? 'exact, from ' + (n.kind === 'claude' ? "Claude Code's" : "the agent's") + ' hooks'
     : 'derived, read from the transcript; set up the collector for exact calls');
   const result = n => (n.lastOk == null ? 'none yet' : (n.lastOk ? 'ok' : 'failed (' + (n.lastError || 'failed') + ')') + (n.lastMs == null ? '' : ', ' + n.lastMs + ' ms'));
-  const ownerLabel = (n, model) => { const s = model.sessions.get(n.owner); const a = s && model.nodes.get(s.agentId); return a ? a.label : ''; };
+  const ownerLabel = (n, model) => { const s = model.sessions.get(n.owner); const a = s && model.nodes.get(s.agentId); return a ? agentName(a) : ''; };
 
   /** Everything the inspector shows for a node: facts as label and value, lists, and the "In VS Code" labels. */
   function describe(n, model) {
@@ -146,9 +168,11 @@
     const fact = (label, value) => { if (value !== '' && value != null) out.facts.push([label, String(value)]); };
     if (n.cls === 'agent') {
       const s = model.sessions.get(n.owner);
-      fact('Agent', n.kind); fact('Folder', n.root || 'not reported yet'); fact('Card', n.card); fact('Session id', n.session);
+      out.title = agentName(n);
+      fact('Provider', providerName(n.kind)); fact('Tab title', text(n.title)); fact('Workspace', text(n.space));
+      fact('Folder', n.root || 'not reported yet'); fact('Card', n.card); fact('Session id', n.session);
       fact('Calls', sourceOf(n));
-      fact('Workspace', n.ws); fact('Model', n.model); fact('Column', n.col + 1);
+      fact('Model', n.model); fact('Column', n.col + 1);
       if (n.wait) fact('Waiting for', n.wait.why + (n.wait.tool ? ' for ' + n.wait.tool : '') + ', since ' + clock(n.wait.since) + ' (' + n.wait.grade + ')');
       fact('Turn', n.turn); fact('Calls made', n.calls + ', ' + n.open + ' open, ' + n.failed + ' failed');
       fact('Subagents', [...s.nodes].filter(id => (model.nodes.get(id) || {}).cls === 'subagent').length);
@@ -156,7 +180,7 @@
       if (last.length) out.lists.push({ title: 'Last calls', items: last });
       out.actions = actions(['select', 'agent']);
     } else if (n.cls === 'subagent') {
-      fact('Type', n.type); fact('Id', n.sub); fact('Agent', ownerLabel(n, model)); fact('Calls seen', n.calls);
+      fact('Provider', providerName(providerOf(n, model))); fact('Type', n.type); fact('Id', n.sub); fact('Agent', ownerLabel(n, model)); fact('Calls seen', n.calls);
       if (n.reported != null) fact('Reported at stop', plural(n.reported, 'call') + (n.ms == null ? '' : ', ' + n.ms + ' ms'));
       fact('Started by call', n.parentCall);
       out.actions = actions(['select', 'subagent']);
@@ -167,7 +191,7 @@
     } else if (n.cls === 'mcp') {
       fact('Server', n.server); fact('Configured in', n.source ? n.source + ' settings' : '');
       fact('Calls', n.calls + ', ' + n.open + ' open, ' + n.failed + ' failed'); fact('Last call', result(n));
-      fact('Used by', [...n.usedBy].map(key => { const s = model.sessions.get(key); return s ? model.nodes.get(s.agentId).label : ''; }).filter(Boolean).join(', '));
+      fact('Used by', [...n.usedBy].map(key => { const s = model.sessions.get(key), a = s && model.nodes.get(s.agentId); return a ? agentName(a) : ''; }).filter(Boolean).join(', '));
       out.lists.push({ title: 'Tools (' + (n.ports.size + n.morePorts) + ')', items: [...n.ports.values()].map(p => p.name + '  ' + plural(p.calls, 'call') + (p.open ? ', ' + p.open + ' open' : '') + (p.failed ? ', ' + p.failed + ' failed' : '')) });
       out.actions = actions(['select', 'mcp']);
     } else if (n.cls === 'resource') {
@@ -184,13 +208,13 @@
     } else {
       const folded = model.foldedIn(n), cell = model.cell(n.col, n.floor);
       fact('Holds', plural(n.count, 'item') + ' with no slot'); fact('In use now', n.open || '');
-      if (n.col !== L.DOCK) fact('Agent', (model.nodes.get('a:' + model.columns[n.col]) || {}).label);
+      if (n.col !== L.DOCK) { const a = model.nodes.get('a:' + model.columns[n.col]); fact('Agent', a ? agentName(a) : ''); }
       out.lists.push({ title: 'Folded', items: folded.slice(-12).reverse().map(f => f.label).concat(n.count > 12 ? ['and ' + (n.count - Math.min(12, folded.length)) + ' more' + (cell.dropped ? ' (' + cell.dropped + ' no longer remembered)' : '')] : []) });
       out.actions = actions(['select', 'stack']);
     }
     return out;
   }
 
-  const api = { order, move, rows, line, describe, clock, opens, sourceOf, ACTIONS };
+  const api = { order, move, rows, line, describe, clock, opens, sourceOf, providerName, providerOf, agentName, columnTitle, ACTIONS };
   if (inNode) module.exports = api; else root.MonitorNav = api;
 })(typeof window === 'undefined' ? globalThis : window);

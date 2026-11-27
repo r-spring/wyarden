@@ -96,12 +96,13 @@ class MonitorView {
 
   /* ---------- which workspace ---------- */
 
-  /** The owner's last choice for this window, else this window's first folder, else every open workspace. */
+  /** The key of this window's own workspace: everything the window has open, as one. '' for a window with no folder. */
+  own() { return C.windowKey(this.deps.folders().map(f => f.path)); }
+  /** The owner's last choice for this window, else this window's own workspace, else every open workspace. */
   wanted() {
     const saved = this.context.workspaceState.get(SCOPE_KEY);
     if (validScope(saved)) return saved;
-    const first = this.deps.folders()[0];
-    return first ? C.wsKey(first.path) : C.ALL;
+    return this.own() || C.ALL;
   }
   setScope(scope) {
     if (!validScope(scope)) return;
@@ -147,7 +148,28 @@ class MonitorView {
   sendWorkspaces() {
     const m = this.workspaces;
     if (!m) return;
-    this.post({ type: 'workspaces', list: m.list, hidden: m.hidden, scope: m.scope, here: this.deps.folders().map(f => C.wsKey(f.path)) });
+    // `here`: this window's own workspace, and each of its folders' keys too, which is what a hub of
+    // version 0.1.0 lists (windows are reloaded one at a time, so the hub may still be the older one).
+    const here = [...new Set([this.own(), ...this.deps.folders().map(f => C.wsKey(f.path))].filter(Boolean))];
+    const message = { type: 'workspaces', list: m.list, hidden: m.hidden, scope: m.scope, here };
+    // Added by a hub of 0.1.1; passed on only when the hub sent them, with the kind each must have.
+    if (Number.isFinite(m.total)) message.total = m.total;
+    if (Number.isFinite(m.totalNeeds)) message.totalNeeds = m.totalNeeds;
+    if (typeof m.watching === 'boolean') message.watching = m.watching;
+    if (validScope(m.own) && m.own !== C.ALL) message.own = m.own;
+    this.post(message);
+  }
+  /** What is known about live sessions now, for the status bar. `counted` is false while the hub is not looking. */
+  figures() {
+    const m = this.workspaces, list = (m && Array.isArray(m.list) ? m.list : []);
+    const sum = key => list.reduce((n, w) => n + (Number.isFinite(w[key]) ? w[key] : 0), 0);
+    return {
+      windows: list.length,
+      sessions: m && Number.isFinite(m.total) ? m.total : sum('sessions'),
+      needs: m && Number.isFinite(m.totalNeeds) ? m.totalNeeds : sum('needs'),
+      // An older hub does not say whether it is looking; it looks only while some tab is open, and this window's is the one known here.
+      counted: !!m && (typeof m.watching === 'boolean' ? m.watching : this.ready)
+    };
   }
   sendHub() {
     this.post({ type: 'hub', state: this.hubState, role: this.deps.client.role || 'client', collectors: this.deps.collectors() });

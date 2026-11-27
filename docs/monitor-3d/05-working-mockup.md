@@ -10,8 +10,9 @@ This document is the contract the parts were built against. Sections 1 to 8 say 
 
 | Asked for | Rule |
 |---|---|
-| "Select the workspace." | The view has one chip for each open workspace, and one for "All open". A chip is a filter on what is shown; it edits nothing. |
-| "Anything that is currently open in VS Code." | A workspace is a folder that is open in a window of an editor where this extension runs. Each window tells the hub its folders and keeps one connection open. |
+| "Select the workspace." | The view has one chip for each open editor window, named as the window is titled, and one for "All open". A chip is a filter on what is shown; it edits nothing. |
+| "Anything that is currently open in VS Code." | A workspace is what one editor window has open: its folder, or all the folders of its workspace file. Each window tells the hub its name and folders and keeps one connection open. A window with no folder has no workspace and no chip. |
+| "Only the windows of VS Code that are open." (27 November, after the first look) | Version 0.1.0 listed each folder: eight chips for six windows, because two windows held two folders each. Since 0.1.1 the list is the windows. |
 | "No dead workspaces." | A workspace is listed only while a window holds its connection. When the window closes, the connection drops and the workspace leaves the list at once. |
 | "Only what is alive." | A session is drawn only when its folder is inside an open workspace. An ended session leaves the scene 20 seconds after its end. A session whose process is gone is ended. |
 | "VS Code and the open-source builds, Windows and Linux." | Plain JavaScript, no package, no native code, no build step. Only stable `vscode` API. One VSIX for every system and editor. Paths are handled by their own form (Windows or POSIX), so both forms are tested on both systems. |
@@ -58,6 +59,7 @@ Written. Every part loads it. Read the file; the main exports:
 | `rootInfo(cwd)` | `{root, real, ws, name}` for a session's folder: the nearest folder at or above `cwd` with a `.git` entry, else `cwd`. Cached. |
 | `keptPath(info, cwd, file)` | A path as it may be kept: relative to the root with `/`, or `{outside: true, name}`. |
 | `wsKey(folder)`, `normPath`, `relativeIn`, `isInside` | The key of a folder (12 hex of SHA-256 of its real path, case-folded where case is ignored), and containment. |
+| `windowKey(folderPaths)`, `windowKeyOf(folderKeys)`, `windowName(name)` | The key of a workspace: everything one window has open. One folder keeps that folder's key; several folders give one key of their own, whatever their order or spelling. And the window's name as its title shows it (an editor adds " (Workspace)" for a workspace file; the title does not). |
 | `cleanText`, `cleanName`, `cleanUrl`, `inputHash` | The only ways text from a payload may be kept. |
 | `LIMITS`, `ALL`, `AGENTS`, `VERSION` | Limits and constants. |
 
@@ -65,14 +67,18 @@ Written. Every part loads it. Read the file; the main exports:
 
 The vocabulary is [02-live-signals.md](02-live-signals.md) section 11, and `media/model.js` checks every event (`validate`). Additions in this slice:
 
-- **`session.start` carries `root: {name}`**: the base name of the session root. The model names the agent after it ("claude wyarden").
+- **`session.start` carries `root: {name}`**: the base name of the session root. It is in the inspector as "Folder"; the scene no longer shows it, because for a card's worktree it is a code and not a word.
+- **Since 0.1.1 a session also has two short texts**, each at most 120 characters, on its `session.start` when known then, and in the event **`session.info`** when either changes:
+  - `title`: the title of the session's tab, from the CLI's session file (`name`, unless it is the CLI's placeholder). The scene shows it under the agent only while the pointer is on the agent; the inspector and the list always have it.
+  - `space`: the name of the workspace the session works in, which is its window's title. The tile the agent stands on is labelled with it.
+- **The title is an addition to what may be kept** (02 section 13 lists no session title). The owner asked for it on 27 November. It is the text the editor already shows on the tab; it is cleaned and cut like every other text, held in memory, sent only to the windows of this machine's editors, and written nowhere.
 - **`src` values:** `hook:<Event>`, `args:<tool>` (a file or address read from a hook's tool arguments), `transcript:<Event>`, `sessions-file`, `hub:known` (a session the hub already knew, shown because its workspace opened), `hub:gone` (its process ended), `hub:silent` (no end signal and no event for 30 minutes).
 - **Ids and names are kept only when they look like ids and names** (`contract.safeId`, `safeName`): a call, turn or subagent id made of id characters; a tool, server, model or agent-type name made of name characters and at most four words. Any other value becomes a stand-in made from its hash (`id-…`, `unnamed-…`), so a path or a command line cannot ride in a name field. A session id that is not letters, digits, `-` and `_` is not a session, and its payload is refused.
 - **The hub adds `seq`** to every event: a whole number rising by one. Order is `seq`.
 - **Two control records** (they have `ctl`, not `ev`):
   - `{ctl: "snapshot", epoch, seq, scope, state}`: `state` is `model.serialize()` text. Always the first record a page gets, and the first after a change of scope.
   - `{ctl: "drop", key, why}`: the session `key` (`<agent>:<session>`) leaves now; apply `model.drop(key)`. `why` is `ended` or `workspace-closed`.
-- **`media/model.js`** (written) adds `serialize()`, `load(text)`, `drop(key)`, the agent's `root`, `card` and `collector` fields. The hub and the page load this same file.
+- **`media/model.js`** (written) adds `serialize()`, `load(text)`, `drop(key)`, the agent's `root`, `card`, `collector`, `title` and `space` fields, and a subagent's `kind` (its provider). The hub and the page load this same file. A page of 0.1.0 does not know `session.info`: it refuses the event and counts it, and nothing else happens.
 
 ## 5. `lib/normalise.js`
 
@@ -118,9 +124,10 @@ n.size();                                           // sessions remembered (at m
 ```js
 const { claudeConfigDirs, liveClaudeSessions, pidAlive } = require('./discover.js');
 claudeConfigDirs({ home, env })          // existing folders: ~/.claude, each folder in ~/.claude-accounts (not *.lock), $CLAUDE_CONFIG_DIR; no folder twice
-liveClaudeSessions(dirs, { alive })       // [{agent: 'claude', session, key, cwd, pid, status, waitingFor, updatedAt, statusUpdatedAt, procStart, configDir, transcript}]
+liveClaudeSessions(dirs, { alive })       // [{agent: 'claude', session, key, cwd, pid, status, waitingFor, updatedAt, statusUpdatedAt, procStart, title, configDir, transcript}]
 ```
 
+- `title` is the session's `name` in that file, at most 80 characters: what its tab is titled. It is absent while the CLI has only its placeholder name (`nameSource: "derived"`).
 - A session is listed when `<dir>/sessions/<file>.json` parses, has a `pid` that is a positive whole number, a `sessionId` of letters, digits, `-` and `_` (at most 128), and a string `cwd`, and the process is alive. `status` is `busy`, `idle`, `waiting` or undefined, as the file gives it. A session listed in two folders is given once, the more recently written.
 - `transcript` is `<dir>/projects/<cwd with every character outside [a-zA-Z0-9] replaced by "-">/<sessionId>.jsonl`, whether or not it exists yet.
 - The session files and the transcript are the CLI's own and undocumented. Every read tolerates a missing folder, a half-written file and an unknown shape, and gives nothing rather than throwing.
@@ -158,13 +165,15 @@ core.needsDiscovery();                                // true while at least one
 ```
 
 - **Sessions.** One record per session key: agent, session, cwd, root, pid, status, the best source seen (`hook` over `transcript` over `sessions-file`), the time of its last event, and its owner.
-- **Workspaces.** The folders of every attached window. A workspace's key is `wsKey(path)`. Two windows with one folder are one workspace.
-- **A session's owner** is the workspace whose folder holds the session's `cwd`; the longest folder wins. No owner: the session is kept in the hub's memory, drawn nowhere, and counted as hidden.
-- **Scopes and models.** One model for `all` and one for each workspace key. An event of an owned session is given a `seq` and applied to both `all` and its owner's model. It is sent to each window whose scope is `all` or that owner.
+- **Workspaces.** One for each attached window that has a folder: everything that window has open. Its key is `contract.windowKeyOf` of its folders' keys (one folder keeps that folder's `wsKey`). Its name is the window's (`contract.windowName`), else its first folder's. Two windows with the same folders, in two editors say, are one workspace.
+- **A session's owners.** The folder that holds the session is the longest folder, over all windows, that contains its `cwd`. Every workspace that has that folder owns the session: mostly one, two when the same folder is open in two windows of different make-up. A deeper folder in another window takes the session from an outer one. No owner: the session is kept in the hub's memory, drawn nowhere, and counted as hidden.
+- **Scopes and models.** One model for `all` and one for each workspace key. An event of an owned session is given a `seq` and applied to `all` and to each owner's model. It is sent to each window whose scope is one of those.
+- **A scope given as a folder's key** (what a 0.1.0 window and a choice saved by it send) is taken as the window that holds that folder.
 - **When the workspaces change** (attach, update, detach):
   - a workspace that is new gets a model; each known live session it now owns is put into it, and into `all` if it was not there, with a `session.start` of `grade: "derived"`, `src: "hub:known"` and its `root`;
-  - a session that lost its owner gets `{ctl: "drop", why: "workspace-closed"}` in `all`; a workspace that is gone loses its model;
-  - a window whose scope is gone is moved to `all`;
+  - a session is dropped (`{ctl: "drop", why: "workspace-closed"}`) from each workspace that no longer owns it, and from `all` when none owns it; a workspace that is gone loses its model;
+  - a session that stays in a model while its owners, or a workspace's name, change gets one `session.info` with its new `space`;
+  - a window whose folders changed follows its own workspace to the new key; any other window whose scope is gone is moved to `all`;
   - every window gets a new `workspaces` message.
 - **Duplicates** are dropped by the keys of 04 section 2.5, remembered per session (the last 500).
 - **Unknown session.** The first event of a session the hub has not seen makes the session; if that event is not a `session.start`, the hub first makes one itself (`derived`, `src: "hub:known"`, with `root`).
@@ -202,7 +211,7 @@ hub.port; hub.core; await hub.close();
 - **A sender that stalls** is dropped: 5 seconds for the headers, 10 for the request. At most 256 connections.
 - **Messages on a window's connection:**
   - `{type: "hello", v: 1, epoch, pid, proof}`: first. `epoch` is 8 random hex characters made when the hub starts.
-  - `{type: "workspaces", list: [{key, name, apps: [..], windows, sessions, needs}], hidden, scope}`: after attach, and when the list, a count or this window's scope changes. At most four a second. `sessions` is the live sessions that workspace owns; `needs` how many of them wait for the owner; `hidden` the live sessions no workspace owns; `scope` what this window is shown.
+  - `{type: "workspaces", list: [{key, name, apps: [..], windows, sessions, needs, folders: [..]}], hidden, scope, total, totalNeeds, watching, own}`: after attach, and when the list, a count or this window's scope changes. At most four a second. `sessions` is the live sessions that workspace owns; `needs` how many of them wait for the owner; `folders` the names of its folders; `hidden` the live sessions no workspace owns; `scope` what this window is shown; `total` and `totalNeeds` the same counts over every window, each session once; `own` this window's own workspace; `watching` whether the hub is looking for sessions at all (false while no window shows a scope: then the counts are not counts). The last five fields are new in 0.1.1, and a window of either version works with a hub of the other.
   - `{type: "records", scope, records: [...]}`: section 7.1. Events are batched: one message per turn of the event loop, never one per event.
 - **Timers**, only while `core.needsDiscovery()`: discovery every 3 s (`liveClaudeSessions` into `core.setLiveSessions`), and once at the moment the first window asks for a scope, before its snapshot is made; each transcript tail of `core.tailTargets()` polled every 700 ms. With no window showing a scope, no timer runs.
 - **The 30-minute silence rule** (`session.end`, `src: "hub:silent"`) runs from the discovery timer, for sessions with no `pid`.
@@ -243,7 +252,7 @@ Every message has `v: 1` and a `type`.
 |---|---|---|
 | page to host | `{type: "ready"}` | The page has loaded and wants the feed. |
 | host to page | `{type: "records", scope, records: [...]}` | Passed through from the hub. |
-| host to page | `{type: "workspaces", list, hidden, scope, here: [keys]}` | The chips. `here` is the keys of this window's own folders. |
+| host to page | `{type: "workspaces", list, hidden, scope, here: [keys], total?, totalNeeds?, watching?, own?}` | The chips. `own` is this window's workspace; `here` is the same and its folders' keys, for a hub of 0.1.0. The last four are passed on only when the hub sent them. |
 | host to page | `{type: "hub", state, role, collectors: {claude: {state, folders, installed}}}` | The status line. `state`: `connecting`, `up`, `blocked`, `stopped`. Collector `state`: `installed`, `partly`, `missing`. |
 | host to page | `{type: "look", look}` | `nexus` for a dark theme, `glasshouse` for a light one. |
 | page to host | `{type: "scope", scope}` | A chip was chosen: `all` or a workspace key. |
@@ -262,7 +271,13 @@ Every message has `v: 1` and a `type`.
 | `media/page.js` | Joins the feed, the model and the view. Replaces the mock-up's `app.js`: the simulated-feed buttons are gone, the workspace chips are new. |
 | `media/nav.js`, `style.css`, `engine.js`, `look-*.js`, `layout.js`, `model.js` | From the mock-up. `nav.js` describes an agent with its folder and its source. |
 
-- **Chips:** "All open", then one per workspace, this window's first. Each shows the workspace's name and its live sessions, and marks one that waits for the owner. They are buttons in a toolbar; the chosen one has `aria-pressed="true"`.
+- **Chips:** "All open", then one for each open editor window, this window's first. Each shows the window's name and its live sessions, and marks one that waits for the owner; its hover text names its folders and the editors that have it open. They are buttons in a toolbar; the chosen one has `aria-pressed="true"`.
+- **The scene, as the owner asked for it on 27 November:**
+  - an agent is an icosahedron and a subagent a dodecahedron, in both looks;
+  - an agent and its subagents have their provider's colour (Claude, Codex, Grok, Antigravity: one colour each in each look); a tool, a resource and an MCP server keep their class's colour. The agent's caption names the provider in words, and the legend lists the four with their colours;
+  - a caption has no plate behind it, so it hides nothing; a thin outline in the background's colour, round the letters only, keeps it readable where a line runs through it;
+  - an agent's caption is what it is ("CLAUDE") and its state. The title of its tab shows under its name only while the pointer is on it;
+  - the tile an agent stands on is labelled with the name of its workspace (the window's title), cut to fit the tile.
 - **Nothing live:** the scene shows one sentence that says so, and names the workspace.
 - **The status line** under the scene says: hub state; how many sessions are shown and how many are hidden because their folder is open in no window; and whether Claude Code's collector is installed, with the name of the command that installs it.
 - **No editing control:** no `input`, `select`, `textarea` or `contenteditable`.
@@ -374,7 +389,38 @@ Three reviewers, each given claims to refute and no reasoning, attacked the priv
 - **A process running as the owner** with the ingest token can still waste the hub's time within the limits above, and one with the control token can take all 64 window places. Such a process can already read every transcript.
 - **On Windows the hub cannot tell that a window has stopped reading.** A loopback write is taken whole by the system there, so nothing is left waiting for the hub to measure; the rule that closes a stuck window (more than 4 MB waiting and no progress for 5 seconds, or 32 MB waiting) works on Linux only. What such a window holds up is the system's memory for that connection, at the rate events arrive.
 
-### 9.5 Where the slice differs from 04
+### 9.5 Version 0.1.1: the owner's first look, 27 November
+
+The owner installed 0.1.0 in his own VS Code, ran "Set Up Collectors" there, and asked for changes while he watched it.
+
+**What his machine showed** (read from the running hub, as counts and names only):
+- The extension came up in all six open windows with no reload, and listed **eight** workspaces: two windows held a workspace file with two folders, and 0.1.0 listed folders.
+- A view of all of them drew eight live sessions (84 shapes) from the transcripts, with calls arriving live.
+- His own "Set Up Collectors" wrote the eleven entries into all three Claude account folders, and one running session was reporting through them soon after. Whether the other seven, which were running before set-up, pick the hooks up without a restart was not established.
+- Before any tab was open the status bar said "0 live sessions". It had not looked: the hub looks only while a tab is open.
+
+**What changed, and how each was checked:**
+
+| Asked for | Built | Checked |
+|---|---|---|
+| Only the windows that are open | A workspace is a window (sections 1 and 7.1). | Hub tests on Windows and Linux. In real editors: a window opened on a workspace file with two folders gave one chip, named after the file; a real Claude Code session in its second folder was counted under it. |
+| (found, not asked) the status bar's "0" | A count is shown only while the hub is looking (`watching`). | The same run: "1 open workspace. Click to open." before the tab, a count after. |
+| Labels to be transparent | No plate behind a caption; a thin outline round the letters. | Node and browser tests: the only filled rectangle in a frame, apart from the 5 px marks of written files, is the background. Screenshots of both looks. |
+| The tab's title under the agent, only on mouse-over | `title` from the CLI's session file; drawn while the pointer is on the agent. | Browser test with a real pointer: absent at rest, drawn directly under the name when pointed at, gone again after; one frame for it. |
+| Agents as icosahedrons, subagents as dodecahedrons | Both looks. | Node tests of the two solids (12 corners and 30 edges; 20 and 30). Screenshots. |
+| Agents and subagents coloured by provider | One colour for each of four providers in each look; the floor agents stand on became a neutral colour, so no provider's runs into it. | Tests: each provider's colour is at least 40 apart (in red, green and blue) from the other classes, the floor, and the "needs you" and "failed" colours, and 60 from each other. Screenshots with all four. |
+| The tile an agent stands on labelled with its workspace's title, not the code | `space` on the session; the agent's own caption is now its provider's name, and the folder's code is only in the inspector. | Browser test: each tile's label equals its agent's workspace, clear of every caption. In a real editor: "WYARDEN" under this session's agent. |
+| (found by the page's builder) a state mark hid half of a small subagent | The mark stands out from the shape's corner. | Node test on the mark's place. |
+
+**Tests:** 300 on Windows (296 pass, the same 4 skipped) and on Linux (275 pass; the 25 page tests need a browser). The finished build in a real VS Code, showing the session that built it: [screenshot](img/live/vscode-0.1.1.png).
+
+**Old and new together, in real editors:** a hub of 0.1.0 with a window of 0.1.1, and a hub of 0.1.1 with a window of 0.1.0, both ran a whole session through. With the old hub the list stays by folder; with the new hub the old window sees the list by window and is shown its own. So after an update the list is by window only once the window that runs the hub runs 0.1.1, which is certain only when every window has been reloaded.
+
+**What it cost:** a frame at 265 nodes took about 7 ms (median, on a machine at full load) where it took 4.4 to 5.7 ms before: an icosahedron has 30 edges where the octahedron had 12. The plan's budget is 8 ms at 200 nodes and 16 at 500, which is 9.7 ms at 265; the test holds the frame to that line.
+
+**Not verified for 0.1.1:** the owner's own six windows after the update (it takes effect when they are reloaded); a title on a session of a provider other than Claude Code (none exists yet); how the real editor shows a chip's hover text of several lines.
+
+### 9.6 Where the slice differs from 04
 
 | 04 says | This slice |
 |---|---|

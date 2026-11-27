@@ -3,7 +3,9 @@
 A live 3D view of the coding-agent sessions in your open workspaces. It is the simulated mock-up of [ui-concepts/monitor-3d/](../monitor-3d/README.md), wired to real sessions. The contract it was built against, and what was verified, is [docs/monitor-3d/05-working-mockup.md](../../docs/monitor-3d/05-working-mockup.md).
 
 - **What it shows:** each live Claude Code session as a column: the agent, its subagents, the tools it calls, the files, folders and addresses those calls touch, and its MCP servers. A call is a line from its start to its end.
-- **Which sessions:** only sessions whose folder is inside a workspace that is open in an editor window right now. Close the window and its workspace leaves the list.
+- **How to read it:** an agent is an icosahedron and a subagent a dodecahedron, both in their provider's colour. The tile an agent stands on carries the name of its workspace. Point at an agent to see the title of its tab under its name. Captions have no background, so they hide nothing.
+- **Which sessions:** only sessions working in a folder that an editor window has open right now. Close the window and its workspace leaves the list.
+- **A workspace is a window.** One chip for each open editor window, named as the window is titled. A window that holds several folders (a workspace file) is still one chip.
 - **Which editors:** VS Code, VSCodium and Code - OSS, on Windows and Linux. One VSIX for all of them: plain JavaScript, no package, no native code.
 - **This slice is Claude Code only.** Codex, Grok Build and Antigravity are later phases of [the wiring plan](../../docs/monitor-3d/04-wiring-plan.md).
 
@@ -11,7 +13,9 @@ A live 3D view of the coding-agent sessions in your open workspaces. It is the s
 
 1. Install the VSIX in each editor you use: **Extensions: Install from VSIX…**, or `code --install-extension <file>` (`codium --install-extension <file>` for VSCodium). To make the file: `node tools/pack.js`, which writes `dist/wyarden-monitor-3d-<version>.vsix`.
 2. Click **3D Monitor** in the status bar, or run **Wyarden 3D Monitor: Open**.
-3. Pick a workspace with the chips above the scene. "All open" shows every open workspace together.
+3. Pick a workspace with the chips above the scene: one for each open editor window. The tab opens on its own window's. "All open" shows every window's sessions together.
+
+**After an update:** a window runs the new version once it has been reloaded (**Developer: Reload Window**), and the list of workspaces comes from whichever window runs the hub. So an update is complete when every window has been reloaded, or the editor restarted. A reload restarts every extension in that window, so do it when no agent there is in the middle of something.
 
 It works at once, with nothing set up: live sessions come from Claude Code's own session files, and their calls from their transcripts. Those calls are marked *derived*.
 
@@ -32,8 +36,8 @@ In the scene: a click selects; a double-click on a file opens it in an editor be
 - **One connection per window.** Each window tells the hub its folders and keeps one loopback connection open. That connection is how a workspace counts as alive.
 - **One hub per machine.** The first window to start runs it, in a worker thread: no new process. It listens on `127.0.0.1` only. When that window closes, another window takes over at once (measured: up again within seconds); the picture is rebuilt from the session files and the transcripts.
 - **One small file of its own:** `~/.wyarden-monitor/hub.json`, with the port and two random tokens. The editor also remembers, for each workspace, which workspace you chose and how you left the view. Nothing leaves the machine.
-- **No work while no tab is open.** The hub reads session files every 3 seconds and transcripts every 0.7 seconds only while a tab is showing a workspace. The page draws only when something changes.
-- **Privacy.** A hook payload or a transcript line holds prompts, file contents and command lines. The hub keeps a fixed list of fields and drops the rest before anything is stored or drawn: tool and server names, a path relative to the session's folder (the base name alone for a file outside it), an address without its query, times and results. A name or an id that does not look like one is replaced by a stand-in made from its hash. See section 13 of [02-live-signals.md](../../docs/monitor-3d/02-live-signals.md).
+- **No work while no tab is open.** The hub reads session files every 3 seconds and transcripts every 0.7 seconds only while a tab is showing a workspace. The page draws only when something changes. So the status bar item counts live sessions only while a tab is open somewhere; with none open it names the open workspaces and gives no count.
+- **Privacy.** A hook payload or a transcript line holds prompts, file contents and command lines. The hub keeps a fixed list of fields and drops the rest before anything is stored or drawn: tool and server names, a path relative to the session's folder (the base name alone for a file outside it), an address without its query, times and results. A name or an id that does not look like one is replaced by a stand-in made from its hash. One text is kept that is the owner's own words: a session's title, as its tab shows it (it is held in memory and shown in the view; it is written nowhere). See section 13 of [02-live-signals.md](../../docs/monitor-3d/02-live-signals.md).
 - **Collectors change your Claude Code settings**, in every account folder (`~/.claude`, each folder in `~/.claude-accounts`, and `$CLAUDE_CONFIG_DIR`). Only on the command, only after the diff and one confirmation, and never a backup copy (a settings file can hold secrets).
 
 To remove everything: run **Remove Collectors**, uninstall the extension, and delete `~/.wyarden-monitor`.

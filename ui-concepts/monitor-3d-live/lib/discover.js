@@ -78,7 +78,7 @@ const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
 /**
  * The live sessions in these config folders, in folder order:
- * [{agent, session, key, cwd, pid, status, waitingFor, updatedAt, statusUpdatedAt, procStart, configDir, transcript}]
+ * [{agent, session, key, cwd, pid, status, waitingFor, updatedAt, statusUpdatedAt, procStart, title, configDir, transcript}]
  *
  * A pid can be reused by another program after a session crashed and left its file behind. The
  * file's `procStart` names the process exactly, but checking it needs the system's process table,
@@ -111,6 +111,9 @@ function liveClaudeSessions(dirs, { alive = pidAlive } = {}) {
         updatedAt: num(s.updatedAt),
         statusUpdatedAt: num(s.statusUpdatedAt),
         procStart: typeof s.procStart === 'string' && /^\d{1,40}$/.test(s.procStart) ? s.procStart : undefined,
+        // The session's name is what its tab is titled. "derived" is the CLI's placeholder before a title exists
+        // (the folder's name and two hex digits): that is not a title, so none is given.
+        title: typeof s.name === 'string' && s.nameSource !== 'derived' && cleanText(s.name, 80) ? cleanText(s.name, 80) : undefined,
         configDir: dir,
         transcript: transcriptPath(dir, s.cwd, s.sessionId)
       };
