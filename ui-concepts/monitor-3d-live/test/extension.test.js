@@ -261,4 +261,7 @@ test('activated in a window: a hook payload reaches the tab, a double-click open
   const printed = vscode.output.join('\n');
   assert.match(printed, /Hub: up/);
   assert.ok(!printed.includes(hub.ingest) && !printed.includes(hub.control), 'no token in the output channel');
+  // The hub client catches what its listeners throw and logs it. Up to 0.1.3 the first state arrived before the
+  // status bar item was made, so every start-up logged "onState failed: ReferenceError".
+  assert.deepEqual(vscode.output.filter(line => /onState failed|onMessage failed/.test(line)), [], 'no listener of the hub client throws');
 });
