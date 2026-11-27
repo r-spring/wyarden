@@ -1,0 +1,68 @@
+{
+  "browser": "msedge.exe",
+  "looks": {
+    "nexus": {
+      "clickSelects": true,
+      "keyMovesSelection": true,
+      "listRowsMatchScene": true,
+      "inspectorListsVsCodeLabels": true,
+      "formControls": 0,
+      "errors": [],
+      "fits800x600": true,
+      "atRest": {
+        "seconds": 3,
+        "framesDrawn": 0,
+        "animationFramesAskedFor": 0,
+        "strokes": 0
+      },
+      "running12Busy": {
+        "seconds": 5,
+        "eventsPerSecond": 12.6,
+        "framesPerSecond": 7.2,
+        "frameMsMedian": 1.3,
+        "frameMsWorst": 3.1,
+        "scriptMsPerSecond": 14,
+        "nodes": 190,
+        "captions": 19,
+        "overlappingCaptionPairs": 0
+      }
+    },
+    "glasshouse": {
+      "clickSelects": true,
+      "keyMovesSelection": true,
+      "listRowsMatchScene": true,
+      "inspectorListsVsCodeLabels": true,
+      "formControls": 0,
+      "errors": [],
+      "fits800x600": true,
+      "atRest": {
+        "seconds": 3,
+        "framesDrawn": 0,
+        "animationFramesAskedFor": 0,
+        "strokes": 0
+      },
+      "running12Busy": {
+        "seconds": 5,
+        "eventsPerSecond": 12.6,
+        "framesPerSecond": 7,
+        "frameMsMedian": 1.7,
+        "frameMsWorst": 5.5,
+        "scriptMsPerSecond": 18,
+        "nodes": 190,
+        "captions": 19,
+        "overlappingCaptionPairs": 0
+      }
+    }
+  },
+  "opensFromFile": {
+    "ok": true,
+    "errors": []
+  },
+  "everyButton": {
+    "pressed": 15,
+    "of": 15,
+    "errors": [],
+    "nodesAfter": 171,
+    "agentSeen": true
+  }
+}
