@@ -324,6 +324,25 @@ describe('the live page in a headless browser', () => {
     await sleep(200);
     assert.equal(await h.eval('document.querySelectorAll("input, select, textarea, form, [contenteditable]").length'), 0);
     assert.equal(await h.eval('document.querySelectorAll("#inspector button, #inspector a").length'), 0, 'the inspector has labels, not controls');
+    // A session's "In VS Code" section: its heading, its hint, and one label with its text for each thing that is wired or not.
+    const wired = await h.eval(`(() => {
+      const heads = [...document.querySelectorAll('#inspector h3')].filter(e => e.textContent === 'In VS Code');
+      const hint = heads[0] && heads[0].nextElementSibling, list = hint && hint.nextElementSibling;
+      if (!list) return { heads: heads.length };
+      return {
+        heads: heads.length, hint: hint.tagName + '.' + hint.className + ': ' + hint.textContent, list: list.tagName + '.' + list.className,
+        rows: [...list.children].map(li => [...li.children].map(e => e.tagName + ': ' + e.textContent)),
+        shown: [heads[0], hint, list].every(e => e.getClientRects().length > 0)
+      };
+    })()`);
+    assert.deepEqual(wired, {
+      heads: 1, hint: 'P.hint: What is wired now. These are labels, not controls.', list: 'UL.actions',
+      rows: [
+        ['B: A click selects it', 'SPAN: The selection stays in this view. Nothing else happens.'],
+        ['B: Nothing is wired for a session yet', 'SPAN: Focusing its terminal or chat panel comes in a later step.']
+      ],
+      shown: true
+    }, 'a session\'s "In VS Code" section says what is wired now, as text');
     const facts = await h.eval("[...document.querySelectorAll('#inspector .facts dt')].map(d => d.textContent + ': ' + d.nextElementSibling.textContent)");
     assert.ok(facts.some(f => /^Folder: /.test(f)), facts.join(' | '));
     assert.ok(facts.some(f => /^Session id: /.test(f)), facts.join(' | '));
