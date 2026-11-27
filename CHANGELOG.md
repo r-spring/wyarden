@@ -1,5 +1,9 @@
 # Wyarden changelog
 
+## Unreleased
+
+- 0.1.4: the output channel no longer logs "onState failed: ReferenceError" each time the extension starts. Nothing else was affected.
+
 ## 0.1.3 preview
 
 - First public preview of the standalone Wyarden 3D Monitor.
