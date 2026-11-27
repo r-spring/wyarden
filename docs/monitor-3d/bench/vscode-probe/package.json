@@ -1,0 +1,11 @@
+{
+  "name": "monitor3d-webview-probe",
+  "displayName": "monitor-3d webview probe (bench only, never packaged)",
+  "version": "0.0.1",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "engines": { "vscode": "^1.88.0" },
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {}
+}
