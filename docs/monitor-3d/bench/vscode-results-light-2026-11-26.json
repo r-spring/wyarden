@@ -1,0 +1,203 @@
+{
+  "date": "2026-11-26",
+  "mode": "light: panel drawn once, no benchmarks",
+  "sampleSeconds": 10,
+  "phases": {
+    "baseline": {
+      "processes": 12,
+      "workingSetMB": 2066.4,
+      "privateMB": 1290.7,
+      "byKind": {
+        "main": {
+          "count": 3,
+          "privateMB": 340
+        },
+        "crashpad-handler": {
+          "count": 1,
+          "privateMB": 9.3
+        },
+        "gpu-process": {
+          "count": 1,
+          "privateMB": 127.5
+        },
+        "utility:network.mojom.NetworkService": {
+          "count": 1,
+          "privateMB": 13.1
+        },
+        "renderer": {
+          "count": 1,
+          "privateMB": 237.3
+        },
+        "utility:node.mojom.NodeService": {
+          "count": 4,
+          "privateMB": 495.4
+        },
+        "file": {
+          "count": 1,
+          "privateMB": 68
+        }
+      },
+      "cpuSecondsPer10s": 0.094
+    },
+    "rest": {
+      "processes": 13,
+      "workingSetMB": 2199.8,
+      "privateMB": 1319.1,
+      "byKind": {
+        "main": {
+          "count": 3,
+          "privateMB": 340.9
+        },
+        "crashpad-handler": {
+          "count": 1,
+          "privateMB": 9.3
+        },
+        "gpu-process": {
+          "count": 1,
+          "privateMB": 139
+        },
+        "utility:network.mojom.NetworkService": {
+          "count": 1,
+          "privateMB": 13
+        },
+        "renderer": {
+          "count": 2,
+          "privateMB": 268
+        },
+        "utility:node.mojom.NodeService": {
+          "count": 4,
+          "privateMB": 480.9
+        },
+        "file": {
+          "count": 1,
+          "privateMB": 68
+        }
+      },
+      "cpuSecondsPer10s": 0.188
+    },
+    "loop": {
+      "processes": 13,
+      "workingSetMB": 2249.8,
+      "privateMB": 1349.1,
+      "byKind": {
+        "main": {
+          "count": 3,
+          "privateMB": 340.9
+        },
+        "crashpad-handler": {
+          "count": 1,
+          "privateMB": 9.3
+        },
+        "gpu-process": {
+          "count": 1,
+          "privateMB": 152.6
+        },
+        "utility:network.mojom.NetworkService": {
+          "count": 1,
+          "privateMB": 13
+        },
+        "renderer": {
+          "count": 2,
+          "privateMB": 284.3
+        },
+        "utility:node.mojom.NodeService": {
+          "count": 4,
+          "privateMB": 481.1
+        },
+        "file": {
+          "count": 1,
+          "privateMB": 68
+        }
+      },
+      "cpuSecondsPer10s": 24.25
+    },
+    "move": {
+      "processes": 13,
+      "workingSetMB": 2217.3,
+      "privateMB": 1321.9,
+      "byKind": {
+        "main": {
+          "count": 3,
+          "privateMB": 342.8
+        },
+        "crashpad-handler": {
+          "count": 1,
+          "privateMB": 9.3
+        },
+        "gpu-process": {
+          "count": 1,
+          "privateMB": 145.7
+        },
+        "utility:network.mojom.NetworkService": {
+          "count": 1,
+          "privateMB": 12.9
+        },
+        "renderer": {
+          "count": 2,
+          "privateMB": 262
+        },
+        "utility:node.mojom.NodeService": {
+          "count": 4,
+          "privateMB": 481.2
+        },
+        "file": {
+          "count": 1,
+          "privateMB": 68
+        }
+      },
+      "cpuSecondsPer10s": 0.063
+    }
+  },
+  "webview": {
+    "vscode": "1.148.0",
+    "loads": [
+      {
+        "type": "loaded",
+        "at": 1795740581040,
+        "hadState": false,
+        "size": [
+          786,
+          799
+        ],
+        "dpr": 1
+      },
+      {
+        "type": "loaded",
+        "at": 1795740639756,
+        "hadState": true,
+        "size": [
+          1024,
+          679
+        ],
+        "dpr": 1
+      }
+    ],
+    "messages": [],
+    "gpu": {
+      "type": "reply",
+      "id": 1,
+      "value": {
+        "webgl2": true,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "vendor": "Google Inc. (NVIDIA)"
+      }
+    },
+    "canvas": [],
+    "three": [],
+    "loopFrames": {
+      "type": "reply",
+      "id": 4,
+      "value": 2144
+    },
+    "moveCommand": "ran",
+    "loadsAfterMove": 1,
+    "afterMove": {
+      "type": "reply",
+      "id": 5,
+      "value": {
+        "alive": true,
+        "hasBench": true
+      }
+    }
+  }
+}
