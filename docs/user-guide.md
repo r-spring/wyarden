@@ -1,6 +1,6 @@
 # Entomatical user guide
 
-This guide covers Entomatical 0.8.24. Availability and native verification vary by provider, editor and operating system. Start with the [README](https://github.com/r-spring/wyarden#readme) for prerequisites and VSIX installation.
+This guide covers Entomatical 0.8.25. Availability and native verification vary by provider, editor and operating system. Start with the [README](https://github.com/r-spring/wyarden#readme) for prerequisites and VSIX installation.
 
 ## Set up the workspace
 
