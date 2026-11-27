@@ -81,7 +81,7 @@
   },
   "monitor-live-tests": {
     "run": "node --test \"ui-concepts/monitor-3d-live/test/*.test.js\"",
-    "what": "Every test of the 3D Monitor working mock-up (ui-concepts/monitor-3d-live), run from the repository's top folder. Needs no build and no package. The page tests need Edge or Chrome and skip without one, so read the skip count. Measured on Windows 11, Node 26.7.0, 27 November 2026: 300 tests, 296 pass, 4 skipped, 61 s.",
+    "what": "Every test of the 3D Monitor working mock-up (ui-concepts/monitor-3d-live), run from the repository's top folder. Needs no build and no package. The page tests need Edge or Chrome and skip without one, so read the skip count. Measured on Windows 11, Node 26.7.0, 27 November 2026, at version 0.1.3: 344 tests, 340 pass, 4 skipped, 58 s.",
     "minutes": 4
   }
 }
