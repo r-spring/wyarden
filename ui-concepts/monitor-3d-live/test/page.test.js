@@ -158,7 +158,7 @@ describe('the live page in a headless browser', () => {
     assert.equal(await h.eval('Monitor3D.model.sessions.size'), 3);
   });
 
-  it('5. a click posts one "select"; a double-click or Ctrl+Enter on a file posts one "act"; on an agent, none', T, async () => {
+  it('5. a click posts one "select"; a double-click or Ctrl+Enter posts one "act": "open" on a file, "focus" on an agent', T, async () => {
     await h.open();
     const scene = S.scene({ agents: 4 });
     await h.deliver(scene.message);
@@ -189,8 +189,11 @@ describe('the live page in a headless browser', () => {
     await h.dblclick(agent.x, agent.y);
     await sleep(400);
     posted = await h.posted();
-    assert.equal(posted.filter(m => m.type === 'act').length, 0, 'a double-click on an agent asks for nothing');
-    assert.deepEqual(posted, [{ v: 1, type: 'select', target: { class: 'agent', id: agent.id } }]);
+    // A session is only shown: one "focus" that names its own agent node.
+    const focus = [{ v: 1, type: 'act', action: 'focus', target: { class: 'agent', id: agent.id } }];
+    assert.deepEqual(posted.filter(m => m.type === 'act'), focus, 'a double-click on an agent asks to show its session, once');
+    assert.ok(posted.filter(m => m.type === 'select').length <= 1, 'one select for the two clicks of a double-click');
+    assert.equal(posted.filter(m => m.type !== 'act' && m.type !== 'select').length, 0);
 
     await h.click(file.x, file.y);
     await sleep(200);
@@ -204,10 +207,18 @@ describe('the live page in a headless browser', () => {
     assert.ok(actions.includes('Double-click, or Ctrl+Enter: open it in the editor'), actions.join(' | '));
 
     await h.eval(`Monitor3D.select(${JSON.stringify(agent.id)}, 'model')`);
+    await h.eval("document.getElementById('scene').focus()");
+    assert.equal(await h.eval('document.activeElement.id'), 'scene', 'the keys go to the scene');
     await h.clearPosted();
     await h.key('Enter', 'Enter', 13, 2);
     await sleep(200);
-    assert.deepEqual(await h.posted(), [], 'Ctrl+Enter on an agent posts nothing');
+    assert.deepEqual(await h.posted(), focus, 'Ctrl+Enter on an agent asks to show its session, once');
+    assert.equal(await h.eval('Monitor3D.view.isolated'), null, 'Ctrl+Enter on an agent does not isolate its column');
+    // Enter alone, on the same agent and the same focus, does isolate it: the line above is not empty.
+    await h.key('Enter', 'Enter', 13);
+    await sleep(200);
+    assert.equal(await h.eval('Monitor3D.view.isolated'), await h.eval(`Monitor3D.model.nodes.get(${JSON.stringify(agent.id)}).col`), 'Enter alone isolates the column');
+    assert.deepEqual(await h.posted(), focus, 'and posts nothing');
     assert.deepEqual(h.errors, []);
   });
 
@@ -318,8 +329,9 @@ describe('the live page in a headless browser', () => {
     await h.deliver(S.workspaces({}));
     await h.deliver(S.scene({ agents: 4 }).message);
     await h.deliver(S.hub('up', 'hub', { state: 'partly', folders: 2, installed: 1 }));
-    await sleep(300);
+    await sleep(800);                 // as test 5 waits: in a cold browser the first frame is not drawn after 300 ms
     const agent = await h.eval(findNode("n => n.cls === 'agent'"));
+    assert.ok(agent, 'an agent to click');
     await h.click(agent.x, agent.y);
     await sleep(200);
     assert.equal(await h.eval('document.querySelectorAll("input, select, textarea, form, [contenteditable]").length'), 0);
@@ -338,8 +350,8 @@ describe('the live page in a headless browser', () => {
     assert.deepEqual(wired, {
       heads: 1, hint: 'P.hint: What is wired now. These are labels, not controls.', list: 'UL.actions',
       rows: [
-        ['B: A click selects it', 'SPAN: The selection stays in this view. Nothing else happens.'],
-        ['B: Nothing is wired for a session yet', 'SPAN: Focusing its terminal or chat panel comes in a later step.']
+        ['B: Double-click, or Ctrl+Enter: show its terminal or chat panel', 'SPAN: For a session in a terminal of this window, or in this window\'s Claude Code chat panel. For any other, a message says so and nothing is opened.'],
+        ['B: A click selects it', 'SPAN: The selection stays in this view. Nothing else happens.']
       ],
       shown: true
     }, 'a session\'s "In VS Code" section says what is wired now, as text');
@@ -762,6 +774,99 @@ describe('the live page in a headless browser', () => {
     assert.match(await row(), /^Agent: Claude, “Ship the new invoice page”, in Billing Desk, /);
     assert.ok((await h.eval('[...document.querySelectorAll("#twin .twin-title")].map(t => t.textContent)')).includes('Column ' + (s.col + 1) + ': Claude in Billing Desk'), 'the column names its new workspace');
     assert.ok((await h.eval('Monitor3D.view.tileLabels.map(t => t.text)')).includes('BILLING DESK'), 'the tile is relabelled');
+    assert.deepEqual(h.errors, []);
+  });
+
+  it('25. a subagent shows its own session; the list\'s double-click and Ctrl+Enter do as the scene\'s; a tool asks for nothing; the help says so', T, async () => {
+    await h.open();
+    const scene = S.scene({ agents: 4 });
+    await h.deliver(scene.message);
+    await sleep(700);
+    const focus = id => [{ v: 1, type: 'act', action: 'focus', target: { class: 'agent', id } }];
+    const sessionAgent = id => scene.model.sessions.get(scene.model.nodes.get(id).owner).agentId;
+    const keysTo = async id => { await h.eval(`document.getElementById(${JSON.stringify(id)}).focus()`); assert.equal(await h.eval('document.activeElement.id'), id, 'the keys go to #' + id); };
+    const actionRows = "[...document.querySelectorAll('#inspector .actions li')].map(li => [...li.children].map(e => e.textContent))";
+
+    // A subagent asks to show the session that started it, named by that session's agent node (the host knows no subagent).
+    const sub = [...scene.model.nodes.values()].find(n => n.cls === 'subagent' && !n.folded);
+    assert.ok(sub, 'the scene has a standing subagent');
+    const owner = sessionAgent(sub.id);
+    assert.notEqual(owner, sub.id);
+    assert.equal(await h.eval(`Monitor3D.model.nodes.has(${JSON.stringify(sub.id)})`), true);
+    await h.eval(`Monitor3D.select(${JSON.stringify(sub.id)}, 'model')`);
+    await keysTo('scene');
+    await h.clearPosted();
+    await h.key('Enter', 'Enter', 13, 2);
+    await sleep(200);
+    assert.deepEqual(await h.posted(), focus(owner), 'Ctrl+Enter on a subagent asks to show its session, once');
+    assert.equal(await h.eval('Monitor3D.view.isolated'), null, 'Ctrl+Enter does not isolate');
+    assert.deepEqual(await h.eval(actionRows), [
+      ['Double-click, or Ctrl+Enter: show its session', 'The terminal or chat panel of the session that started it, as for an agent.'],
+      ['A click selects it', 'The selection stays in this view. Nothing else happens.']
+    ], 'a subagent\'s "In VS Code" labels, the wired one first');
+
+    const picked = await h.eval(findNode("n => n.cls === 'subagent'"));
+    assert.ok(picked, 'a subagent to double-click');
+    await h.clearPosted();
+    await h.dblclick(picked.x, picked.y);
+    await sleep(400);
+    let posted = await h.posted();
+    assert.deepEqual(posted.filter(m => m.type === 'act'), focus(sessionAgent(picked.id)), 'a double-click on a subagent asks to show its session, once');
+    assert.ok(posted.filter(m => m.type === 'select').length <= 1, 'one select for the two clicks of a double-click');
+    assert.equal(posted.filter(m => m.type !== 'act' && m.type !== 'select').length, 0);
+
+    // What the page posts comes from nav.act. A subagent whose session, or whose session's agent node, is not in the model asks for nothing.
+    assert.deepEqual(await h.eval(`(() => {
+      const N = MonitorNav, m = Monitor3D.model, sub = m.nodes.get(${JSON.stringify(sub.id)});
+      return [
+        N.act(sub, m),
+        N.act(Object.assign({}, sub, { owner: 'claude:no-such-session' }), m),
+        N.act(sub, { sessions: new Map([[sub.owner, { agentId: 'a:claude:no-such-agent' }]]), nodes: new Map() }),
+        N.act(sub, null),
+        N.act(undefined, m)
+      ];
+    })()`), [{ action: 'focus', class: 'agent', id: owner }, null, null, null, null]);
+
+    // The list: a double-click on an agent's row, then Ctrl+Enter with the focus on the list.
+    const agentId = [...scene.model.sessions.values()][0].agentId;
+    const row = await h.eval(`(() => {
+      const r = document.querySelector('#twin .twin-row[data-node=${JSON.stringify(agentId)}]');
+      if (!r) return null;
+      r.scrollIntoView({ block: 'center' });        // not 'nearest': a group's title sticks to the top of the list and can cover the row
+      const b = r.getBoundingClientRect(), x = b.left + Math.min(40, b.width / 2), y = b.top + b.height / 2, at = document.elementFromPoint(x, y);
+      return at && at.closest('.twin-row') === r ? { x, y } : null;
+    })()`);
+    assert.ok(row, 'the agent\'s row can be pointed at');
+    await h.clearPosted();
+    await h.dblclick(row.x, row.y);
+    await sleep(400);
+    posted = await h.posted();
+    assert.deepEqual(posted.filter(m => m.type === 'act'), focus(agentId), 'a double-click on an agent\'s row asks to show its session, once');
+    assert.deepEqual(posted.filter(m => m.type === 'select'), [{ v: 1, type: 'select', target: { class: 'agent', id: agentId } }]);
+    assert.equal(posted.length, 2);
+    await h.eval(`Monitor3D.select(${JSON.stringify(sub.id)}, 'model')`);
+    await keysTo('twin');
+    await h.clearPosted();
+    await h.key('Enter', 'Enter', 13, 2);
+    await sleep(200);
+    assert.deepEqual(await h.posted(), focus(owner), 'Ctrl+Enter in the list on a subagent asks to show its session, once');
+
+    // A tool: a double-click selects it, and neither it nor Ctrl+Enter asks the host for anything.
+    const tool = await h.eval(findNode("n => n.cls === 'tool'"));
+    assert.ok(tool, 'a tool to double-click');
+    await h.clearPosted();
+    await h.dblclick(tool.x, tool.y);
+    await sleep(400);
+    assert.deepEqual(await h.posted(), [{ v: 1, type: 'select', target: { class: 'tool', id: tool.id } }], 'a double-click on a tool asks for nothing');
+    await keysTo('scene');
+    await h.clearPosted();
+    await h.key('Enter', 'Enter', 13, 2);
+    await sleep(200);
+    assert.deepEqual(await h.posted(), [], 'Ctrl+Enter on a tool asks for nothing');
+
+    // The help for the list and for the scene says what Ctrl+Enter does now.
+    assert.equal(await h.eval(text('#twin-help')), 'The scene as text. Up and Down move the selection; Ctrl+Enter opens a file or address, or shows a session.');
+    assert.equal(await h.eval(text('#scene-help')), 'Arrow keys move the selection: Left and Right along a floor, Up and Down between floors. Page Up and Page Down step through everything, Home and End jump to the ends, Escape clears the selection, Enter shows the selected agent\'s column alone, Ctrl+Enter opens the selected file or address, or shows the selected session. Shift with an arrow key turns the camera, plus and minus zoom, F frames everything, R resets the camera. The list next to the scene holds the same items as text.');
     assert.deepEqual(h.errors, []);
   });
 
