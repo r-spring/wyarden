@@ -1,6 +1,6 @@
-# Wyarden 3D Monitor: the working mock-up
+# Wyarden 3D Monitor
 
-A live 3D view of the coding-agent sessions in your open workspaces. It is the simulated mock-up of [ui-concepts/monitor-3d/](../monitor-3d/README.md), wired to real sessions. The contract it was built against, and what was verified, is [docs/monitor-3d/05-working-mockup.md](../../docs/monitor-3d/05-working-mockup.md).
+A live 3D view of the Claude Code sessions in your open workspaces. The preview connects the simulated monitor to real sessions. [Install 0.1.3](https://github.com/r-spring/wyarden/releases/tag/v0.1.3) · [User guide](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md) · [Design and verification](https://github.com/r-spring/wyarden/blob/main/docs/monitor-3d/05-working-mockup.md)
 
 - **What it shows:** each live Claude Code session as a column: the agent, its subagents, the tools it calls, the files, folders and addresses those calls touch, and its MCP servers. A call is a line from its start to its end.
 - **How to read it:** an agent is an icosahedron and a subagent a dodecahedron, both in their provider's colour: Claude orange, Codex blue, Antigravity purple, Grok green. The tile an agent stands on carries the name of its workspace. Point at an agent to see the title of its tab under its name. Captions have no background, so they hide nothing.
@@ -11,9 +11,9 @@ A live 3D view of the coding-agent sessions in your open workspaces. It is the s
 
 ## Use it
 
-1. Install the VSIX in each editor you use: **Extensions: Install from VSIX…**, or `code --install-extension <file>` (`codium --install-extension <file>` for VSCodium). To make the file: `node tools/pack.js`, which writes `dist/wyarden-monitor-3d-<version>.vsix`.
-2. Click **3D Monitor** in the status bar, or run **Wyarden 3D Monitor: Open**.
-3. Pick a workspace with the chips above the scene: one for each open editor window. The tab opens on its own window's. "All open" shows every window's sessions together.
+1. Install the downloaded VSIX in each editor you use with **Extensions: Install from VSIX…**. For a source build, run `node ui-concepts/monitor-3d-live/tools/pack.js` from the repository root.
+2. Open a local project folder and start a signed-in Claude Code session in it. Ask Claude Code to read a test file, then leave it running.
+3. Click **3D Monitor** in the status bar, or run **Wyarden 3D Monitor: Open**. Pick the current window's chip, or choose **All open** to see every window's sessions.
 
 **After an update:** a window runs the new version once it has been reloaded (**Developer: Reload Window**), and the list of workspaces comes from whichever window runs the hub. So an update is complete when every window has been reloaded, or the editor restarted. A reload restarts every extension in that window, so do it when no agent there is in the middle of something.
 

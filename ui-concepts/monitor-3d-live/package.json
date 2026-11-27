@@ -1,7 +1,7 @@
 {
   "name": "wyarden-monitor-3d",
-  "displayName": "Wyarden 3D Monitor (working mock-up)",
-  "description": "A live 3D view of the coding-agent sessions in your open workspaces: agents, tools, files and MCP calls. Claude Code first.",
+  "displayName": "Wyarden 3D Monitor",
+  "description": "Watch live Claude Code sessions, subagents, tools, files and MCP calls across your open editor windows.",
   "version": "0.1.4",
   "publisher": "r-spring",
   "license": "GPL-3.0-only",
@@ -10,7 +10,7 @@
     "url": "https://github.com/r-spring/wyarden.git",
     "directory": "ui-concepts/monitor-3d-live"
   },
-  "homepage": "https://wyarden.com",
+  "homepage": "https://github.com/r-spring/wyarden#readme",
   "bugs": {
     "url": "https://github.com/r-spring/wyarden/issues"
   },

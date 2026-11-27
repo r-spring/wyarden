@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Wyarden</title>
-  <meta name="description" content="Wyarden is a board in VS Code for coding-agent tasks. Each task gets its own Git worktree, a live session, and a review before the work comes back.">
+  <meta name="description" content="Wyarden shows live Claude Code sessions, tools, files, and MCP calls across your open editor windows.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <style>
     :root { color-scheme: light dark; }
@@ -54,35 +54,27 @@
   <main>
     <header>
       <h1>Wyarden</h1>
-      <p class="lede">A board in VS Code for work you hand to a coding agent.</p>
+      <p class="lede">A live 3D view of what Claude Code is doing across your open editor windows.</p>
     </header>
 
     <section>
-      <h2>What it is for</h2>
-      <p>Wyarden keeps coding-agent tasks on one board. Each task is a card with its prompt, its session, and its status. The edits stay in that card’s own Git worktree until you decide they belong in the project.</p>
-      <p>A small fix can stay on one card. A larger job can be split into subtasks. A coordinated run can wait until you approve its plan and its limits.</p>
+      <h2>See calls as they happen</h2>
+      <p>Wyarden connects agents and subagents to the tools, files, URLs, and MCP servers they use. Select an editor window to focus on one project or choose All open to see them together.</p>
+      <p><a href="https://github.com/r-spring/wyarden/releases/tag/v0.1.3">Download the preview</a> · <a href="https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md">Read the user guide</a></p>
     </section>
 
     <section>
-      <h2>How a task moves</h2>
+      <h2>Get started</h2>
       <ol>
-        <li>Open the repository as a saved workspace. The folder has to be the top of a Git repository, with a first commit.</li>
-        <li>Add a card with a title and a prompt. Wyarden creates a branch and a worktree for it. A subtask branches from its parent.</li>
-        <li>The card runs on Claude Code, Codex, Grok, or Antigravity, with the provider’s own CLI and the account you already signed in to. You pick the provider, and the model and effort it offers, per card.</li>
-        <li>Follow the card through Running, Needs input, and Review. Open the session to answer a question or send a follow-up. Stop the work when you want it stopped.</li>
-        <li>Read the reply, look at the changes, and look at any checks. Review means the turn ended. You decide whether the result meets the task.</li>
-        <li>Merge brings committed work back into the project locally. Finish shows a plan that can commit, integrate, push, and remove the worktree. You confirm that plan. Mark done closes the card and leaves the branch where it is.</li>
+        <li>Download the VSIX. In VS Code or a compatible VSCodium build, run Extensions: Install from VSIX and select the file.</li>
+        <li>Open a local folder and start a signed-in Claude Code session there. Ask Claude Code to read a file.</li>
+        <li>Click 3D Monitor in the status bar. Select the chip for that window to view the session.</li>
       </ol>
     </section>
 
     <section>
-      <h2>What else is on the board</h2>
-      <ul>
-        <li>The session and the review controls sit on the card, next to the task.</li>
-        <li>Saved assignments can run with dependencies and checks. A card can delegate only inside a plan and limits you approve.</li>
-        <li>You can dictate a prompt. Local Whisper and Local Parakeet run on your machine. OpenAI, Groq, and Deepgram use a speech key you set yourself.</li>
-      </ul>
-      <p>Wyarden runs in VS Code on Windows and in VSCodium on Linux. It does not install the agent, sign you in, or pay for the model.</p>
+      <h2>Explore the source</h2>
+      <p>The preview reads Claude Code session files and transcripts locally. See the <a href="https://github.com/r-spring/wyarden">Wyarden repository</a> for the live extension, simulated browser preview, and development notes.</p>
     </section>
   </main>
 </body>

@@ -1,41 +1,39 @@
-# Entomatical
+# Wyarden 3D Monitor
 
-Entomatical is a VS Code board for coding-agent work. Give each task its own Git branch and worktree, follow the agent's session, and review the changes before bringing them back into your project.
+Wyarden shows what your Claude Code sessions are doing across your open VS Code windows. The 3D view connects agents and subagents to their tools, files, URLs, and MCP servers. Pick a window to focus on one project, or choose **All open** to see them together.
 
-[Download for Windows or Linux](https://github.com/r-spring/wyarden/releases/latest) · [User guide](https://github.com/r-spring/wyarden/blob/main/docs/user-guide.md) · [Report an issue](https://github.com/r-spring/wyarden/issues)
+**0.1.3 preview** runs as a standalone editor extension. The current live feed supports Claude Code. [Download the VSIX](https://github.com/r-spring/wyarden/releases/tag/v0.1.3) · [User guide](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md)
 
-## What you can do
+![Wyarden showing a live Claude Code session in VS Code](https://raw.githubusercontent.com/r-spring/wyarden/main/docs/monitor-3d/img/live/vscode-0.1.1.png)
 
-- **Keep work separate.** Run Claude Code, Codex, Grok or Antigravity from cards in isolated worktrees. Subtasks branch from their parent. You use your own provider account and can choose models and effort where the provider exposes them.
-- **Follow a task from prompt to review.** Open its session, answer questions, send a follow-up, inspect the diff and run configured checks. The **Review** status means the turn ended. You decide whether the result meets the task.
-- **Coordinate larger jobs.** Run saved assignments with dependencies and checks, or approve a card's delegation plan and limits before it starts.
-- **Dictate a prompt.** Use local Whisper or Parakeet, or select OpenAI, Groq or Deepgram speech with your own API key. Press **F8** in a focused VS Code terminal to insert a transcript for review before sending it.
+## Install and see your first session
 
-## Install
+1. Use VS Code 1.85 or a compatible newer 1.x editor on Windows or Linux. VS Code and VSCodium are the verified editor hosts on Windows.
+2. Download **wyarden-monitor-3d-0.1.3.vsix**. In the editor, open the Command Palette, run **Extensions: Install from VSIX…**, and select the downloaded file. Reload the window if prompted.
+3. Open a local folder. Start a signed-in Claude Code session in that folder and give it a task that reads a file in the project.
+4. Click **3D Monitor** in the status bar or run **Wyarden 3D Monitor: Open**. Choose the chip for that editor window. Tool calls read from Claude Code transcripts appear as **derived**.
 
-You need VS Code or VSCodium compatible with VS Code **1.140 or later in the 1.x series**, Git, and a recent Node.js on the editor's PATH. This release provides x64 packages for Windows and Linux. Install and sign in to at least one supported coding-agent CLI separately. Claude and Codex editor modes also require their corresponding editor extensions.
+The monitor can use existing Claude Code session files and transcripts as soon as you install it. Optional collectors add direct call events after you review and approve changes to Claude Code settings. Use collectors only on a machine where you're the only user. [Collector setup and privacy](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md#optional-collectors)
 
-1. Download the Windows x64 or Linux x64 VSIX from [GitHub Releases](https://github.com/r-spring/wyarden/releases/latest).
-2. In the editor, run **Extensions: Install from VSIX…**, choose the downloaded file, and reload if prompted. [VSIX installation guide](https://code.visualstudio.com/docs/configure/extensions/extension-marketplace#_install-from-a-vsix)
-3. Open a trusted Git repository at its top folder, with at least one commit. Run **File → Save Workspace As…** to create a `.code-workspace` file and use that file to reopen the project. In a multi-root workspace, the first folder holds the board.
+## Learn and troubleshoot
 
-## Run your first task
+- Follow the [user guide](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md) for the controls, multi-window setup, updates, removal, and troubleshooting.
+- See [what is in the current preview](https://github.com/r-spring/wyarden/blob/main/ui-concepts/monitor-3d-live/README.md) and the [design and verification notes](https://github.com/r-spring/wyarden/tree/main/docs/monitor-3d).
+- Report a problem with the Wyarden version, editor version, OS, and steps to reproduce. Share only sanitized logs and screenshots. [Issues](https://github.com/r-spring/wyarden/issues) · [Private security reporting](https://github.com/r-spring/wyarden/security/advisories/new)
 
-1. Open **Entomatical** from the activity bar and select a signed-in provider account. Use **Entomatical: Open Board in Editor Tab** for a wider view.
-2. Add a title and a small, specific prompt. New cards start automatically by default. Set `entomatical.autoStart` to `false` if you want to queue them first.
-3. Follow the card and open its session when it needs input. When the card reaches **Review**, inspect the changes and check results.
-4. Use **Merge** to integrate committed work locally. **Finish** shows a plan before it commits, integrates, potentially pushes to the configured upstream, and removes the worktree. **Mark done** closes the card without integrating the branch.
+## Build or preview from source
 
-## Local data and provider access
+Clone the repository. Use a current Node.js LTS from the repository root.
 
-The board stores worktrees and task records in the workspace's Git-ignored `.entomatical/` folder. Those records and provider logs can contain prompts, replies and project paths. Remove sensitive details before sharing them. Coding tasks follow your chosen provider's account, usage limits and data handling. Cloud dictation sends recorded audio to the selected speech service. [Provider setup and data handling](https://github.com/r-spring/wyarden/blob/main/docs/user-guide.md)
+```sh
+node ui-concepts/monitor-3d-live/tools/pack.js
+node --test "ui-concepts/monitor-3d-live/test/*.test.js"
+```
 
-## About and support
+The packer writes one VSIX for all supported hosts under `ui-concepts/monitor-3d-live/dist/`. Install it using the same VSIX command above. The browser-dependent tests use Edge or Chrome when available.
 
-The extension appears as **Entomatical** in your editor. Wyarden is its GitHub repository and project website. Robert Spring maintains the project. [Wyarden website](https://wyarden.com) · [Robert Spring on GitHub](https://github.com/r-spring)
+To explore the simulated view with sample activity, run `node ui-concepts/monitor-3d/serve.js` and open `http://127.0.0.1:4330/`. The editor extension reads live sessions. [Simulated preview](https://github.com/r-spring/wyarden/tree/main/ui-concepts/monitor-3d)
 
-Entomatical is under active development. Available session modes and resume behavior vary by provider and editor. See the [release notes](https://github.com/r-spring/wyarden/releases/latest) and [changelog](https://github.com/r-spring/wyarden/blob/main/CHANGELOG.md) for version details.
+## About
 
-- [Build from source](https://github.com/r-spring/wyarden/blob/main/docs/development.md) or [contribute a change](https://github.com/r-spring/wyarden/blob/main/CONTRIBUTING.md).
-- [Ask a question or report a bug](https://github.com/r-spring/wyarden/issues). For a suspected vulnerability, follow the [private reporting instructions](https://github.com/r-spring/wyarden/blob/main/SECURITY.md).
-- Entomatical is licensed under the GNU General Public License v3. [License](https://github.com/r-spring/wyarden/blob/main/LICENSE) · [Third-party notices](https://github.com/r-spring/wyarden/blob/main/THIRD_PARTY_NOTICES.md)
+Wyarden is maintained by Robert Spring and licensed under the GNU General Public License v3. Entomatical, the separate VS Code task board, has its own source and release guides. [Maintainer](https://github.com/r-spring) · [Changelog](https://github.com/r-spring/wyarden/blob/main/CHANGELOG.md) · [License](https://github.com/r-spring/wyarden/blob/main/LICENSE) · [Entomatical](https://github.com/r-spring/entomatical-public)
