@@ -1,0 +1,180 @@
+/* Monitor 3D mock-up: everything about a node that is not drawing.
+ *
+ * - the reading order and the keyboard moves from node to node;
+ * - the list twin of the scene (the same nodes as rows of text, for screen readers);
+ * - the inspector's facts and its "In VS Code" list, which names what the wiring would do.
+ *
+ * Pure functions of the model: no DOM here, so check.js can test them in Node.
+ */
+(function (root) {
+  'use strict';
+  const inNode = typeof module !== 'undefined' && module.exports;
+  const L = inNode ? require('./layout.js') : root.MonitorLayout;
+  const M = inNode ? require('./model.js') : root.MonitorModel;
+
+  const clock = t => new Date(t).toISOString().slice(11, 19) + ' UTC';     // a clock time never needs a redraw as time passes
+  const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
+  const stateOf = n => M.STATES[n.status] || M.STATES.rest;
+  const kindName = n => (n.cls === 'resource' ? { file: 'files in a folder', url: 'URLs on a host', context: 'context' }[n.kind] : '');
+
+  /* ---------- order and keyboard ---------- */
+
+  function cellNodes(model, col, floor) {
+    const cell = model.cells.get(col + '|' + floor);
+    if (!cell) return [];
+    const slots = floor === 'agent' ? [L.AGENT_SLOT, 0, 1, 2, 3, 5, 6, 7, L.STACK_SLOT] : [0, 1, 2, 3, 4, 5, 6, 7, L.STACK_SLOT];
+    return slots.map(slot => cell.slots[slot]).filter(id => id != null && model.nodes.has(id));
+  }
+  /** Reading order: each session's column from the agent down to its resources, then the MCP servers. */
+  function order(model) {
+    const out = [];
+    for (const col of model.columnsInUse()) for (const floor of L.floorsOf(col)) out.push(...cellNodes(model, col, floor));
+    out.push(...cellNodes(model, L.DOCK, 'mcp'));
+    return out;
+  }
+  function floorRow(model, floor) {
+    const out = [];
+    for (const col of floor === 'mcp' ? [L.DOCK] : model.columnsInUse()) out.push(...cellNodes(model, col, floor));
+    return out;
+  }
+  /**
+   * Where a key takes the selection. Left and Right walk along a floor, Up and Down change floor
+   * inside a column (the MCP floor is the dock, and `memo` remembers which column to come back to),
+   * Page Up and Page Down step through everything, Home and End jump to the ends.
+   */
+  function move(model, id, key, memo) {
+    const all = order(model);
+    if (!all.length) return '';
+    const n = model.nodes.get(id);
+    if (!n || n.folded) return key === 'End' || key === 'PageUp' || key === 'ArrowLeft' || key === 'ArrowUp' ? all[all.length - 1] : all[0];
+    const at = all.indexOf(id);
+    if (key === 'Home') return all[0];
+    if (key === 'End') return all[all.length - 1];
+    if (key === 'PageDown') return all[(at + 1) % all.length];
+    if (key === 'PageUp') return all[(at - 1 + all.length) % all.length];
+    if (key === 'ArrowRight' || key === 'ArrowLeft') {
+      const row = floorRow(model, n.floor), i = row.indexOf(id) + (key === 'ArrowRight' ? 1 : -1);
+      return i >= 0 && i < row.length ? row[i] : id;
+    }
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      const dir = key === 'ArrowDown' ? 1 : -1;
+      if (memo && n.col !== L.DOCK) memo.col = n.col;
+      const home = n.col !== L.DOCK ? n.col : memo && model.columns[memo.col] != null ? memo.col : model.columnsInUse()[0];
+      for (let f = L.FLOORS.indexOf(n.floor) + dir; f >= 0 && f < L.FLOORS.length; f += dir) {
+        const floor = L.FLOORS[f], ids = floor === 'mcp' ? cellNodes(model, L.DOCK, 'mcp') : home === undefined ? [] : cellNodes(model, home, floor);
+        if (!ids.length) continue;
+        if (n.col === L.DOCK) return ids[0];             // coming back from the dock: the agent, or the first of the floor
+        return ids.slice().sort((a, b) => Math.abs(model.nodes.get(a).slot - n.slot) - Math.abs(model.nodes.get(b).slot - n.slot))[0];
+      }
+    }
+    return id;
+  }
+
+  /* ---------- the list twin ---------- */
+
+  /** One line of text that says what a node is, its state in words, and its counts. */
+  function line(n) {
+    const state = stateOf(n).name;
+    if (n.cls === 'agent') {
+      const wait = n.wait && n.wait.why !== 'idle' ? ' (' + n.wait.why + (n.wait.tool ? ' for ' + n.wait.tool : '') + ')' : '';
+      return 'Agent: ' + n.label + '. ' + state + wait + ' since ' + clock(n.since) + '. ' + plural(n.calls, 'call') + ', ' + n.open + ' open, ' + n.failed + ' failed.';
+    }
+    if (n.cls === 'subagent') return 'Subagent: ' + n.label + '. ' + state + '. ' + plural(n.calls, 'call') + '.';
+    if (n.cls === 'tool') return 'Tool: ' + n.label + '. ' + state + '. ' + plural(n.calls, 'call') + ', ' + n.open + ' open, ' + n.failed + ' failed.';
+    if (n.cls === 'mcp') return 'MCP server: ' + n.label + '. ' + state + '. ' + plural(n.calls, 'call') + ', ' + n.open + ' open, ' + plural(n.ports.size, 'tool') + '.';
+    if (n.cls === 'resource') return 'Resource, ' + kindName(n) + ': ' + n.label + '. ' + (n.open ? 'in use. ' : '') + 'read ' + n.reads + ', write ' + n.writes + (n.searches ? ', search ' + n.searches : '') + (n.unknowns ? ', unknown ' + n.unknowns : '') + '.';
+    const what = { subagent: 'subagent', tool: 'tool', resource: 'resource', mcp: 'MCP server' }[n.of];
+    return 'Stack: ' + plural(n.count, what) + ' folded' + (n.open ? ', ' + n.open + ' in use' : '') + '.';
+  }
+  /**
+   * The scene as groups of rows. Agents waiting for the owner come first, longest wait first; then
+   * each session's column; then the MCP servers. Every standing node has exactly one row in the
+   * column and server groups (`key` equals its id); an attention row repeats an agent (`key` differs).
+   */
+  function rows(model) {
+    const groups = [], waiting = [];
+    for (const n of model.nodes.values()) if (n.cls === 'agent' && n.status === 'needs') waiting.push(n);
+    waiting.sort((a, b) => a.since - b.since || (a.id < b.id ? -1 : 1));
+    if (waiting.length) groups.push({ title: 'Needs you (' + waiting.length + ')', rows: waiting.map(n => ({ key: 'attention ' + n.id, id: n.id, text: line(n, model) })) });
+    for (const col of model.columnsInUse()) {
+      const session = model.sessions.get(model.columns[col]), agent = model.nodes.get(session.agentId), list = [];
+      for (const floor of L.floorsOf(col)) for (const id of cellNodes(model, col, floor)) list.push({ key: id, id, text: line(model.nodes.get(id), model) });
+      groups.push({ title: 'Column ' + (col + 1) + ': ' + agent.label, rows: list });
+    }
+    const servers = cellNodes(model, L.DOCK, 'mcp');
+    if (servers.length) groups.push({ title: 'MCP servers, at the boundary', rows: servers.map(id => ({ key: id, id, text: line(model.nodes.get(id), model) })) });
+    return groups;
+  }
+
+  /* ---------- the inspector ---------- */
+
+  /* What the wiring would do in VS Code. In the mock-up these are labels: none of them is a control. */
+  const ACTIONS = {
+    focus: ['Focus the session', "Brings this session's terminal or chat panel to the front."],
+    call: ['Show the call', "Reveals the call in the session's call list, with its tool, result and duration."],
+    open: ['Open the file', 'Opens the file in an editor. For a folder with several files, a Quick Pick lists them first.'],
+    diff: ['Show the diff', 'Opens a diff editor: the file as it is now against the file when the session started.'],
+    url: ['Open the URL', "Opens the page through VS Code's external-link confirmation."],
+    config: ['Open the MCP configuration', "Opens the configuration file that defines this server, at the server's entry."],
+    list: ['List the folded items', 'A Quick Pick of the items in this stack. Picking one selects it in the scene.']
+  };
+  const actions = keys => keys.map(key => ({ key, label: ACTIONS[key][0], detail: ACTIONS[key][1] }));
+  const result = n => (n.lastOk == null ? 'none yet' : (n.lastOk ? 'ok' : 'failed (' + (n.lastError || 'failed') + ')') + (n.lastMs == null ? '' : ', ' + n.lastMs + ' ms'));
+  const ownerLabel = (n, model) => { const s = model.sessions.get(n.owner); const a = s && model.nodes.get(s.agentId); return a ? a.label : ''; };
+
+  /** Everything the inspector shows for a node: facts as label and value, lists, and the "In VS Code" labels. */
+  function describe(n, model) {
+    const state = stateOf(n), out = {
+      id: n.id, cls: n.cls, className: M.CLASS_NAME[n.cls], kindName: kindName(n), title: n.label, status: n.status, stateName: state.name,
+      stateLine: n.cls === 'stack' ? '' : state.name + (n.since ? ' since ' + clock(n.since) : '') + (n.grade ? ' (' + n.grade + ')' : ''),
+      facts: [], lists: [], actions: []
+    };
+    const fact = (label, value) => { if (value !== '' && value != null) out.facts.push([label, String(value)]); };
+    if (n.cls === 'agent') {
+      const s = model.sessions.get(n.owner);
+      fact('Agent', n.kind); fact('Session', n.session); fact('Workspace', n.ws); fact('Model', n.model); fact('Column', n.col + 1);
+      if (n.wait) fact('Waiting for', n.wait.why + (n.wait.tool ? ' for ' + n.wait.tool : '') + ', since ' + clock(n.wait.since) + ' (' + n.wait.grade + ')');
+      fact('Turn', n.turn); fact('Calls', n.calls + ', ' + n.open + ' open, ' + n.failed + ' failed');
+      fact('Subagents', [...s.nodes].filter(id => (model.nodes.get(id) || {}).cls === 'subagent').length);
+      const last = s.history.slice(-5).reverse().map(c => clock(c.t) + '  ' + c.what + '  ' + (c.ok ? 'ok' : 'failed: ' + c.error) + (c.ms == null ? '' : '  ' + c.ms + ' ms'));
+      if (last.length) out.lists.push({ title: 'Last calls', items: last });
+      out.actions = actions(['focus', 'call']);
+    } else if (n.cls === 'subagent') {
+      fact('Type', n.type); fact('Id', n.sub); fact('Agent', ownerLabel(n, model)); fact('Calls seen', n.calls);
+      if (n.reported != null) fact('Reported at stop', plural(n.reported, 'call') + (n.ms == null ? '' : ', ' + n.ms + ' ms'));
+      fact('Started by call', n.parentCall);
+      out.actions = actions(['focus', 'call']);
+    } else if (n.cls === 'tool') {
+      fact('Tool', n.tool); fact('Kind of call', n.toolClass); fact('Agent', ownerLabel(n, model));
+      fact('Calls', n.calls + ', ' + n.open + ' open, ' + n.failed + ' failed'); fact('Last call', result(n));
+      out.actions = actions(['call', 'focus']);
+    } else if (n.cls === 'mcp') {
+      fact('Server', n.server); fact('Configured in', n.source ? n.source + ' settings' : '');
+      fact('Calls', n.calls + ', ' + n.open + ' open, ' + n.failed + ' failed'); fact('Last call', result(n));
+      fact('Used by', [...n.usedBy].map(key => { const s = model.sessions.get(key); return s ? model.nodes.get(s.agentId).label : ''; }).filter(Boolean).join(', '));
+      out.lists.push({ title: 'Tools (' + (n.ports.size + n.morePorts) + ')', items: [...n.ports.values()].map(p => p.name + '  ' + plural(p.calls, 'call') + (p.open ? ', ' + p.open + ' open' : '') + (p.failed ? ', ' + p.failed + ' failed' : '')) });
+      out.actions = actions(['config', 'call']);
+    } else if (n.cls === 'resource') {
+      fact('Kind', kindName(n)); fact(n.kind === 'url' ? 'Host' : n.kind === 'file' ? 'Folder' : 'Item', n.group); fact('Agent', ownerLabel(n, model));
+      fact('Touches', n.touches + ': read ' + n.reads + ', write ' + n.writes + ', search ' + n.searches + ', unknown ' + n.unknowns);
+      const members = [...n.members.entries()].sort((a, b) => b[1].last - a[1].last);
+      if (members.length) out.lists.push({
+        title: (n.kind === 'url' ? 'Pages' : n.kind === 'file' ? 'Files' : 'Parts') + ' (' + (members.length + n.more) + ')',
+        items: members.slice(0, 8).map(([name, m]) => name + '  read ' + m.reads + ', write ' + m.writes + (m.unknowns ? ', unknown ' + m.unknowns : '')).concat(members.length + n.more > 8 ? ['and ' + (members.length + n.more - 8) + ' more'] : [])
+      });
+      const clashes = [...model.arcs.values()].filter(a => a.a === n.id || a.b === n.id);
+      if (clashes.length) out.lists.push({ title: 'Also written by', items: clashes.map(a => ownerLabel(model.nodes.get(a.a === n.id ? a.b : a.a), model) + ': ' + a.paths.join(', ')) });
+      out.actions = actions(n.kind === 'file' ? (n.writes ? ['open', 'diff', 'call'] : ['open', 'call']) : n.kind === 'url' ? ['url', 'call'] : ['call']);
+    } else {
+      const folded = model.foldedIn(n), cell = model.cell(n.col, n.floor);
+      fact('Holds', plural(n.count, 'item') + ' with no slot'); fact('In use now', n.open || '');
+      if (n.col !== L.DOCK) fact('Agent', (model.nodes.get('a:' + model.columns[n.col]) || {}).label);
+      out.lists.push({ title: 'Folded', items: folded.slice(-12).reverse().map(f => f.label).concat(n.count > 12 ? ['and ' + (n.count - Math.min(12, folded.length)) + ' more' + (cell.dropped ? ' (' + cell.dropped + ' no longer remembered)' : '')] : []) });
+      out.actions = actions(['list']);
+    }
+    return out;
+  }
+
+  const api = { order, move, rows, line, describe, clock, ACTIONS };
+  if (inNode) module.exports = api; else root.MonitorNav = api;
+})(typeof window === 'undefined' ? globalThis : window);

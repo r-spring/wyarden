@@ -1,0 +1,614 @@
+{
+  "date": "2026-11-26",
+  "method": {
+    "draws": 50,
+    "warm": 10,
+    "idleSeconds": 10,
+    "viewport": "1280x720 at device scale 1",
+    "sizes": [
+      40,
+      200,
+      1000
+    ]
+  },
+  "cpu": "AMD Ryzen 9 9950X 16-Core Processor            ",
+  "logicalCpus": 32,
+  "platform": "win32 10.0.26300",
+  "node": "v26.7.0",
+  "runs": [
+    {
+      "gpuFlag": "--disable-gpu",
+      "browser": "Edg/158.0.4370.33",
+      "gpu": {
+        "webgl2": true,
+        "renderer": "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "vendor": "Google Inc. (Microsoft)"
+      },
+      "canvas": [
+        {
+          "nodes": 40,
+          "edges": 52,
+          "glow": true,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 1.4,
+            "p90": 1.8,
+            "min": 1.2,
+            "max": 1.9,
+            "n": 50
+          },
+          "flushed": {
+            "median": 4.6,
+            "p90": 5.4,
+            "min": 4.3,
+            "max": 6.1,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 200,
+          "edges": 260,
+          "glow": true,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 6.1,
+            "p90": 6.8,
+            "min": 5.6,
+            "max": 7.4,
+            "n": 50
+          },
+          "flushed": {
+            "median": 19.8,
+            "p90": 22.2,
+            "min": 19.2,
+            "max": 23.2,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 1000,
+          "edges": 1300,
+          "glow": true,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 94.6,
+            "p90": 101,
+            "min": 90.8,
+            "max": 130.8,
+            "n": 50
+          },
+          "flushed": {
+            "median": 101.65,
+            "p90": 106.2,
+            "min": 99,
+            "max": 116.4,
+            "n": 50
+          }
+        }
+      ],
+      "three": [
+        {
+          "nodes": 40,
+          "edges": 52,
+          "revision": "187",
+          "buildMs": 56.7,
+          "info": {
+            "calls": 82,
+            "lines": 1502,
+            "textures": 40,
+            "geometries": 43
+          },
+          "js": {
+            "median": 0.2,
+            "p90": 0.4,
+            "min": 0.1,
+            "max": 0.6,
+            "n": 50
+          },
+          "flushed": {
+            "median": 4.2,
+            "p90": 4.5,
+            "min": 3.9,
+            "max": 159.3,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 200,
+          "edges": 260,
+          "revision": "187",
+          "buildMs": 98.2,
+          "info": {
+            "calls": 402,
+            "lines": 7362,
+            "textures": 200,
+            "geometries": 203
+          },
+          "js": {
+            "median": 5.4,
+            "p90": 9.3,
+            "min": 0.5,
+            "max": 11.3,
+            "n": 50
+          },
+          "flushed": {
+            "median": 9.3,
+            "p90": 10.5,
+            "min": 8.1,
+            "max": 159.9,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 1000,
+          "edges": 1300,
+          "revision": "187",
+          "buildMs": 404,
+          "info": {
+            "calls": 2002,
+            "lines": 35810,
+            "textures": 1000,
+            "geometries": 1003
+          },
+          "js": {
+            "median": 30.05,
+            "p90": 36.5,
+            "min": 6,
+            "max": 43.1,
+            "n": 50
+          },
+          "flushed": {
+            "median": 33.95,
+            "p90": 40.1,
+            "min": 30.7,
+            "max": 117.2,
+            "n": 50
+          }
+        }
+      ],
+      "canvasNoGlow": [
+        {
+          "nodes": 40,
+          "edges": 52,
+          "glow": false,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 1,
+            "p90": 1.1,
+            "min": 0.9,
+            "max": 1.4,
+            "n": 50
+          },
+          "flushed": {
+            "median": 2.9,
+            "p90": 3.1,
+            "min": 2.8,
+            "max": 3.5,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 200,
+          "edges": 260,
+          "glow": false,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 6.9,
+            "p90": 7.4,
+            "min": 6.4,
+            "max": 9.3,
+            "n": 50
+          },
+          "flushed": {
+            "median": 14.5,
+            "p90": 15.1,
+            "min": 14.1,
+            "max": 15.7,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 1000,
+          "edges": 1300,
+          "glow": false,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 57.85,
+            "p90": 58.9,
+            "min": 56.2,
+            "max": 62.6,
+            "n": 50
+          },
+          "flushed": {
+            "median": 74,
+            "p90": 84.4,
+            "min": 72,
+            "max": 89.3,
+            "n": 50
+          }
+        }
+      ],
+      "domLabels": [
+        {
+          "nodes": 40,
+          "js": {
+            "median": 0,
+            "p90": 0.1,
+            "min": 0,
+            "max": 0.1,
+            "n": 50
+          },
+          "layout": {
+            "median": 0.05,
+            "p90": 0.1,
+            "min": 0,
+            "max": 0.2,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 200,
+          "js": {
+            "median": 0.1,
+            "p90": 0.2,
+            "min": 0,
+            "max": 0.2,
+            "n": 50
+          },
+          "layout": {
+            "median": 0.3,
+            "p90": 0.3,
+            "min": 0.2,
+            "max": 0.4,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 1000,
+          "js": {
+            "median": 0.4,
+            "p90": 0.5,
+            "min": 0.3,
+            "max": 3.2,
+            "n": 50
+          },
+          "layout": {
+            "median": 1.3,
+            "p90": 1.7,
+            "min": 1.2,
+            "max": 1.9,
+            "n": 50
+          }
+        }
+      ],
+      "idle": {
+        "rest": {
+          "seconds": 10,
+          "mainThreadBusyMs": 41.5,
+          "frames": 0
+        },
+        "rafLoop40": {
+          "seconds": 10,
+          "mainThreadBusyMs": 3411.8,
+          "framesIncludingWarmup": 662
+        },
+        "jsHeapUsedMB": 6.3
+      }
+    },
+    {
+      "gpuFlag": "GPU allowed",
+      "browser": "Edg/158.0.4370.33",
+      "gpu": {
+        "webgl2": true,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "vendor": "Google Inc. (NVIDIA)"
+      },
+      "canvas": [
+        {
+          "nodes": 40,
+          "edges": 52,
+          "glow": true,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 1.4,
+            "p90": 1.7,
+            "min": 1.2,
+            "max": 2.1,
+            "n": 50
+          },
+          "flushed": {
+            "median": 4.75,
+            "p90": 5.6,
+            "min": 4.4,
+            "max": 6.2,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 200,
+          "edges": 260,
+          "glow": true,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 6.65,
+            "p90": 8.3,
+            "min": 5.8,
+            "max": 9.4,
+            "n": 50
+          },
+          "flushed": {
+            "median": 20.5,
+            "p90": 22.2,
+            "min": 19,
+            "max": 24.2,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 1000,
+          "edges": 1300,
+          "glow": true,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 92.25,
+            "p90": 95.5,
+            "min": 90.1,
+            "max": 111.1,
+            "n": 50
+          },
+          "flushed": {
+            "median": 103.2,
+            "p90": 110.1,
+            "min": 98.8,
+            "max": 122.2,
+            "n": 50
+          }
+        }
+      ],
+      "three": [
+        {
+          "nodes": 40,
+          "edges": 52,
+          "revision": "187",
+          "buildMs": 65.3,
+          "info": {
+            "calls": 82,
+            "lines": 1502,
+            "textures": 40,
+            "geometries": 43
+          },
+          "js": {
+            "median": 0.1,
+            "p90": 0.2,
+            "min": 0,
+            "max": 0.2,
+            "n": 50
+          },
+          "flushed": {
+            "median": 1.2,
+            "p90": 1.5,
+            "min": 0.5,
+            "max": 9.3,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 200,
+          "edges": 260,
+          "revision": "187",
+          "buildMs": 130.1,
+          "info": {
+            "calls": 402,
+            "lines": 7362,
+            "textures": 200,
+            "geometries": 203
+          },
+          "js": {
+            "median": 0.5,
+            "p90": 0.8,
+            "min": 0.4,
+            "max": 4.3,
+            "n": 50
+          },
+          "flushed": {
+            "median": 1.9,
+            "p90": 2.6,
+            "min": 1.6,
+            "max": 4.7,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 1000,
+          "edges": 1300,
+          "revision": "187",
+          "buildMs": 541.9,
+          "info": {
+            "calls": 2002,
+            "lines": 35810,
+            "textures": 1000,
+            "geometries": 1003
+          },
+          "js": {
+            "median": 3.4,
+            "p90": 4.7,
+            "min": 2.4,
+            "max": 5.7,
+            "n": 50
+          },
+          "flushed": {
+            "median": 7.75,
+            "p90": 11.7,
+            "min": 5.2,
+            "max": 15.5,
+            "n": 50
+          }
+        }
+      ],
+      "canvasNoGlow": [
+        {
+          "nodes": 40,
+          "edges": 52,
+          "glow": false,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 1,
+            "p90": 1.1,
+            "min": 0.9,
+            "max": 1.4,
+            "n": 50
+          },
+          "flushed": {
+            "median": 2.9,
+            "p90": 3.1,
+            "min": 2.8,
+            "max": 3.8,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 200,
+          "edges": 260,
+          "glow": false,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 7,
+            "p90": 7.5,
+            "min": 6.6,
+            "max": 7.8,
+            "n": 50
+          },
+          "flushed": {
+            "median": 14.5,
+            "p90": 15.2,
+            "min": 14.2,
+            "max": 17.6,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 1000,
+          "edges": 1300,
+          "glow": false,
+          "canvasPx": [
+            1280,
+            720
+          ],
+          "js": {
+            "median": 58.3,
+            "p90": 60.8,
+            "min": 56.5,
+            "max": 71.9,
+            "n": 50
+          },
+          "flushed": {
+            "median": 74,
+            "p90": 76.6,
+            "min": 72.4,
+            "max": 83.4,
+            "n": 50
+          }
+        }
+      ],
+      "domLabels": [
+        {
+          "nodes": 40,
+          "js": {
+            "median": 0,
+            "p90": 0.1,
+            "min": 0,
+            "max": 0.1,
+            "n": 50
+          },
+          "layout": {
+            "median": 0,
+            "p90": 0.1,
+            "min": 0,
+            "max": 0.2,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 200,
+          "js": {
+            "median": 0.1,
+            "p90": 0.2,
+            "min": 0,
+            "max": 0.2,
+            "n": 50
+          },
+          "layout": {
+            "median": 0.3,
+            "p90": 0.4,
+            "min": 0.2,
+            "max": 0.6,
+            "n": 50
+          }
+        },
+        {
+          "nodes": 1000,
+          "js": {
+            "median": 0.5,
+            "p90": 0.7,
+            "min": 0.3,
+            "max": 6.5,
+            "n": 50
+          },
+          "layout": {
+            "median": 1.3,
+            "p90": 1.4,
+            "min": 1.2,
+            "max": 1.4,
+            "n": 50
+          }
+        }
+      ],
+      "idle": {
+        "rest": {
+          "seconds": 10,
+          "mainThreadBusyMs": 1.6,
+          "frames": 0
+        },
+        "rafLoop40": {
+          "seconds": 10,
+          "mainThreadBusyMs": 945.1,
+          "framesIncludingWarmup": 489
+        },
+        "jsHeapUsedMB": 12.6
+      }
+    }
+  ]
+}
