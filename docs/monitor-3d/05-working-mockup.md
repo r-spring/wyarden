@@ -36,7 +36,7 @@ This document is the contract the parts were built against. Sections 1 to 8 say 
    v
  extension host of a window          lib/hub-client.js   bind or connect, reconnect, take over
    extension.js, lib/view.js         the tab, its HTML and policy, the messages
-   lib/actions.js                    a double-click becomes a VS Code command
+   lib/actions.js                    a double-click becomes a VS Code call
    lib/procs.js                      a process and its ancestors: where a session runs
    lib/install.js                    collectors: plan, show, write, remove
    |  postMessage
@@ -129,7 +129,7 @@ liveClaudeSessions(dirs, { alive })       // [{agent: 'claude', session, key, cw
 ```
 
 - `entry` (since 0.1.3) is the file's `entrypoint` when it is one this slice knows: `claude-vscode` (a session in Claude Code's chat panel), `cli` (one started in a terminal) or `sdk-cli` (one that runs with no terminal). Any other value is not given.
-- `procStart` is a string of digits. On Windows it is the process's creation time as a FILETIME (measured, 9.7): that is what tells the session's own process from another program that was later given its process id.
+- `procStart` is a string of digits. On Windows it is the process's creation time as a FILETIME (measured, 9.7): that is what tells the session's own process from another program that was later given its process id. What it holds on Linux was not measured (8.5).
 - `title` is the session's `name` in that file, at most 80 characters: what its tab is titled. It is absent while the CLI has only its placeholder name (`nameSource: "derived"`).
 - A session is listed when `<dir>/sessions/<file>.json` parses, has a `pid` that is a positive whole number, a `sessionId` of letters, digits, `-` and `_` (at most 128), and a string `cwd`, and the process is alive. `status` is `busy`, `idle`, `waiting` or undefined, as the file gives it. A session listed in two folders is given once, the more recently written.
 - `transcript` is `<dir>/projects/<cwd with every character outside [a-zA-Z0-9] replaced by "-">/<sessionId>.jsonl`, whether or not it exists yet.
@@ -327,35 +327,54 @@ The owner's card of 27 November: the inspector said "Nothing is wired for a sess
 
 - **The rule:** it shows something that already runs. It never starts, stops, resumes or changes a session.
 - **The page** posts `act` with `action: "focus"` and the session's agent node. A subagent sends its session's agent.
-- **The host** (`actions.focus`) asks three things, in this order:
+- **The host** (`actions.focus`) shows a terminal or runs one command, after it has asked three things, in this order:
   1. **The hub:** which session is this node? (`resolve`, 7.4.)
   2. **Claude Code's own session file:** its process id, how it was started (`entry`, section 6) and when its process started.
   3. **The system's process list:** that process and its ancestors (`procs.ancestors`).
 
 ```js
 const { ancestors, walk, MAX_DEPTH } = require('./procs.js');
-await ancestors(pid)     // -> { chain: [pid, parent, grandparent, ...], known, start }      never throws
+await ancestors(pid)     // -> { chain: [pid, parent, grandparent, ...], known, start, unit }      never throws, never rejects
 ```
 
-- `chain` is at most 16 long. `known` is false when the list could not be read; then nothing is shown. `start` is the process's own start time, on Windows only.
-- **Windows:** one run of Windows PowerShell by its full path in the system folder (`Get-CimInstance Win32_Process`), with a constant command: nothing from a session, a page or a file goes into it. **Linux:** `/proc/<pid>/stat`, step by step. Any other system: not known.
+- `chain` is at most 16 long. `known` is false only when the process list itself could not be read; then nothing is shown. A process that is not in the list just ends the chain.
+- `start` is the process's own start time, as a string of digits, and `unit` says in what: `filetime` on Windows (100 ns, UTC), `ticks` on Linux (field 22 of `/proc/<pid>/stat`).
+- **Windows:** one run of Windows PowerShell by its full path in the system folder (`Get-CimInstance Win32_Process`), with a constant command: nothing from a session, a page or a file goes into it. It is given 15 seconds. Measured from the extension's own runtime: 0.6 to 1.4 seconds. Meanwhile the status bar says "3D Monitor: looking for the session…".
+- **Linux:** `/proc/<pid>/stat`, step by step. Any other system: not known.
 - **A parent is taken only when it did not start after its child.** A process id is used again after its process ends; the start time tells a real parent from a stranger that was given the number.
 
-**What happens, the first that fits:**
+**Is the process the session's own?** The session file names a start time (`procStart`, section 6). The answer is one of three:
+
+| System | The file's start time and the system's | The answer |
+|---|---|---|
+| Windows | less than 1 ms apart | Yes. |
+| Windows | 1 ms or more apart | No: another program has the process id now. |
+| Linux | exactly equal | Yes. |
+| Linux | not equal | Not known. What Claude Code writes there was never measured, so a difference proves nothing; an exact match cannot happen by chance. |
+| either | one of the two is missing | Not known. |
+
+**What happens, the first that fits.** Every message begins "3D Monitor: ".
 
 | The session | A double-click |
 |---|---|
-| The hub does not answer | A warning. |
-| It is no longer live, or no running process is known for it, or the process list could not be read | A message that says which. |
-| Its file names a start time that is not its process's (Windows; 1 ms or more apart) | "This session has ended. Another program now runs under its process id." |
-| A terminal of this window is among its ancestors | That terminal is shown (`terminal.show()`), and the focus goes to it. |
-| Its file says chat panel (`claude-vscode`), and this window's extension host is among its ancestors | Claude Code's own command shows its tab: `claude-vscode.editor.open` with the session id. When that command is not in this window, a message says so. |
-| Its file says chat panel, in another window | "This session's chat panel is in another window." |
-| Its file says it runs with no terminal (`sdk-cli`) | "It has no terminal or chat panel to show." |
-| It runs under this window, in neither (a board card's own terminal, for one) | A message that says so. |
-| Anything else | "Its terminal is not in this window. It runs in another window, or outside the editor." |
+| The hub does not answer | A warning: "the hub did not answer." |
+| The hub does not hold it (any more) | "this session is no longer live." |
+| No session file names a process for it | "no running process is known for this session, so its terminal or chat panel cannot be found." |
+| The process list could not be read | "the process list could not be read, so this session's terminal or chat panel cannot be found." |
+| The process is not the session's own (the answer above is No) | "this session has ended. Another program now runs under its process id." |
+| A terminal of this window is among its ancestors | That terminal is shown (`terminal.show()`), and the focus goes to it. The terminals are asked for their process ids together and given 1.5 seconds; one that is still starting counts as none. |
+| Its file says chat panel (`claude-vscode`), and this window's extension host is not among its ancestors | "this session's chat panel is in another window." |
+| The same, in this window, but the answer above is not Yes | "this session's own process could not be confirmed, so its chat panel was not opened." |
+| The same, confirmed, but Claude Code's command is not in this window | "this session runs in Claude Code's chat panel, but Claude Code's command to show it is not available in this window." |
+| The same, confirmed, and the command is there | Claude Code's own command shows its tab: `claude-vscode.editor.open` with the session id. |
+| Its file says it runs with no terminal (`sdk-cli`) | "this session runs in the background. It has no terminal or chat panel to show." |
+| It runs under this window's extension host, in neither (a board card's own terminal, for one) | "this session runs in this window, but not in a terminal or chat panel that can be shown from here." |
+| Anything else | "this session's terminal is not in this window. It runs in another window, or outside the editor." |
 
-- **Why three conditions stand before the one command.** Claude Code only brings forward the tab of a session it already runs in this window. Given any other session id, the same command would start a second copy of that session. So the command runs only when the session's own file says chat panel, its process descends from this window's extension host, and its start time is the file's. A session of an older CLI whose file names no `entrypoint` is not shown in a panel at all.
+- **Anything that fails on the way** (a command that throws, say) gives the warning "that could not be shown", with the reason.
+- **Why four conditions stand before the one command.** Claude Code only brings forward the tab of a session it already runs in this window. Given any other session id, the same command would start that session again. So the command runs only when the session's own file says chat panel, its process descends from this window's extension host, that process is proved to be the session's own, and the command exists. No proof, no command: a session of an older CLI whose file names no `entrypoint` or no `procStart` is never shown in a panel.
+- **On Linux the proof may not come.** If Claude Code writes something other than the tick count there, every chat panel is refused with the "could not be confirmed" message. A terminal is shown either way: showing a terminal starts nothing.
+- **A subagent whose session is not in the page's model** posts nothing, so nothing happens. Its session's agent node stands as long as the session does, so this is a moment at most.
 - **No hub change.** How a session was started is read by the window that was asked, so a window of 0.1.3 works with a hub of 0.1.2.
 
 ## 9. Verified, and not

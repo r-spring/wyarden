@@ -4,6 +4,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 
 const { ancestors, walk, MAX_DEPTH, parseWindows, parseStat, readLinux, powershellCall } = require('../lib/procs.js');
@@ -22,15 +23,34 @@ test('walk: a plain chain, nearest first, ending where the parent is 0', () => {
   assert.deepEqual(walk(10, t), [10]);
 });
 
-test('walk: at most MAX_DEPTH long, or the depth it is given', () => {
+test('walk: at most MAX_DEPTH long, or the depth it is given when that is 1 to MAX_DEPTH', () => {
   assert.equal(MAX_DEPTH, 16);
   const t = line(30);
   assert.equal(walk(1000, t).length, MAX_DEPTH);
   assert.deepEqual(walk(1000, t), Array.from({ length: 16 }, (_, i) => 1000 + i));
   assert.deepEqual(walk(1000, t, 3), [1000, 1001, 1002]);
   assert.deepEqual(walk(1000, t, 1), [1000]);
-  assert.equal(walk(1000, t, 0).length, MAX_DEPTH, 'a depth that is not a whole number above 0 is the default');
+  assert.equal(walk(1000, t, MAX_DEPTH).length, MAX_DEPTH);
+  // Anything else, a larger whole number too, is MAX_DEPTH: no chain is ever longer.
+  for (const depth of [0, -1, 1.5, '3', 17, 1000, NaN, Infinity, null, 3n]) {
+    assert.equal(walk(1000, t, depth).length, MAX_DEPTH, 'depth ' + String(depth));
+  }
   assert.equal(walk(1000, line(5)).length, 5, 'a shorter line is not padded');
+  assert.equal(walk(1000, line(5), 1000).length, 5);
+});
+
+test('walk throws only what its table throws; ancestors catches it', async () => {
+  const hostile = new Map([[40, { parent: 30 }], [30, { parent: 0 }]]);
+  hostile.get = () => { throw new Error('invented failure'); };
+  const poisoned = new Map([[40, { get parent() { throw new Error('invented failure'); } }]]);
+  for (const t of [hostile, poisoned]) {
+    assert.throws(() => walk(40, t), /invented failure/);
+    assert.deepEqual(await ancestors(40, { platform: 'linux', readTable: () => t }), { chain: [40], known: false });
+  }
+  // Odd but harmless tables and rows do not make it throw.
+  for (const t of [null, undefined, 7, 'x', {}, [], new Map([[40, null]]), new Map([[40, 7]]), new Map([[40, { parent: {} }]])]) {
+    assert.deepEqual(walk(40, t), [40]);
+  }
 });
 
 test('walk: a cycle ends the chain before a pid repeats', () => {
@@ -135,25 +155,37 @@ test('ancestors: never rejects, whatever its table does', async () => {
   for (const [pid, options] of cases) assert.deepEqual(await ancestors(pid, options), { chain: [40], known: false });
 });
 
-test('ancestors on Windows: the chain, and the start of the pid itself as a string of digits', async () => {
+test('ancestors on Windows: the chain, and the start of the pid itself as a FILETIME string', async () => {
   const t = table([[40, 30, '133100000000000300'], [30, 20, '133100000000000200'], [20, 0, '133000000000000100']]);
   assert.deepEqual(await ancestors(40, { platform: 'win32', readTable: () => t }),
-    { chain: [40, 30, 20], known: true, start: '133100000000000300' });
+    { chain: [40, 30, 20], known: true, start: '133100000000000300', unit: 'filetime' });
   assert.deepEqual(await ancestors(30, { platform: 'win32', readTable: async () => t }),
-    { chain: [30, 20], known: true, start: '133100000000000200' });
-  // No start known for the pid, or the pid not in the table at all: the key is left out.
-  assert.deepEqual(await ancestors(40, { platform: 'win32', readTable: () => table([[40, 30], [30, 0]]) }), { chain: [40, 30], known: true });
-  assert.deepEqual(await ancestors(40, { platform: 'win32', readTable: () => table([[40, 30, 0], [30, 0]]) }), { chain: [40, 30], known: true });
-  assert.deepEqual(await ancestors(99, { platform: 'win32', readTable: () => t }), { chain: [99], known: true });
+    { chain: [30, 20], known: true, start: '133100000000000200', unit: 'filetime' });
   // A stranger that took the parent's pid after the child started.
   assert.deepEqual(await ancestors(40, { platform: 'win32', readTable: () => table([[40, 30, '200'], [30, 0, '300']]) }),
-    { chain: [40], known: true, start: '200' });
+    { chain: [40], known: true, start: '200', unit: 'filetime' });
 });
 
-test('ancestors on Linux: the chain, and never a start', async () => {
+test('ancestors on Linux: the chain, and the start of the pid itself in clock ticks', async () => {
   const t = table([[40, 30, '700'], [30, 1, '600'], [1, 0, '5']]);
-  assert.deepEqual(await ancestors(40, { platform: 'linux', readTable: () => t }), { chain: [40, 30, 1], known: true });
-  assert.deepEqual(await ancestors(40, { platform: 'linux', readTable: () => table([[40, 30, '700'], [30, 1, '900']]) }), { chain: [40], known: true });
+  assert.deepEqual(await ancestors(40, { platform: 'linux', readTable: () => t }), { chain: [40, 30, 1], known: true, start: '700', unit: 'ticks' });
+  assert.deepEqual(await ancestors(30, { platform: 'linux', readTable: () => t }), { chain: [30, 1], known: true, start: '600', unit: 'ticks' });
+  assert.deepEqual(await ancestors(40, { platform: 'linux', readTable: () => table([[40, 30, '700'], [30, 1, '900']]) }),
+    { chain: [40], known: true, start: '700', unit: 'ticks' });
+});
+
+test('ancestors: start and unit are there together or not at all; a missing process still is known', async () => {
+  for (const platform of ['win32', 'linux']) {
+    // No start for the pid (none, 0, not digits), or the pid not in the list: both keys are left out, and known stays true.
+    for (const start of [undefined, 0, '0', 'x1', 1.5]) {
+      const r = await ancestors(40, { platform, readTable: () => table([[40, 30, start], [30, 0, '100']]) });
+      assert.deepEqual(r, { chain: [40, 30], known: true }, platform + ' start ' + String(start));
+      assert.equal('start' in r || 'unit' in r, false);
+    }
+    assert.deepEqual(await ancestors(99, { platform, readTable: () => table([[40, 30, '100']]) }), { chain: [99], known: true }, platform + ': not in the list');
+    // Not known at all: neither key.
+    assert.deepEqual(await ancestors(40, { platform, readTable: () => new Map() }), { chain: [40], known: false });
+  }
 });
 
 /* ---------- Windows: the PowerShell call and its output ---------- */
@@ -185,7 +217,7 @@ test('Windows output: three numbers per line; other lines are skipped; CRLF; an 
 test('Windows output into ancestors: CRLF lines give a chain; an empty output is not known', async () => {
   const out = '7303 7202 133100000000000200\r\n7202 11 133100000000000100\r\n11 0 133000000000000010\r\n';
   assert.deepEqual(await ancestors(7303, { platform: 'win32', readTable: () => parseWindows(out) }),
-    { chain: [7303, 7202, 11], known: true, start: '133100000000000200' });
+    { chain: [7303, 7202, 11], known: true, start: '133100000000000200', unit: 'filetime' });
   for (const empty of ['', '\r\n', 'not three numbers\r\n']) {
     assert.deepEqual(await ancestors(7303, { platform: 'win32', readTable: () => parseWindows(empty) }), { chain: [7303], known: false });
   }
@@ -237,8 +269,11 @@ test('Linux reader: one file per step, this process\'s own row, null with no /pr
   const t = readLinux(40, read);
   assert.deepEqual(asked, ['/proc/self/stat', '/proc/40/stat', '/proc/30/stat', '/proc/1/stat'], 'self is read once, as /proc/self');
   assert.deepEqual(walk(40, t), [40, 30, 900, 1]);
-  assert.deepEqual(await ancestors(40, { platform: 'linux', readTable: p => readLinux(p, read) }), { chain: [40, 30, 900, 1], known: true });
-  // A pid that has ended: /proc is there, so the answer is known, and the chain is the pid alone.
+  // The start is field 22 of the pid's own file (700), not its parent's or this process's.
+  assert.deepEqual(await ancestors(40, { platform: 'linux', readTable: p => readLinux(p, read) }),
+    { chain: [40, 30, 900, 1], known: true, start: '700', unit: 'ticks' });
+  // A pid whose own stat file cannot be read (it has ended): /proc is there, so the answer is
+  // known, the chain is the pid alone, and there is no start.
   assert.deepEqual(await ancestors(55, { platform: 'linux', readTable: p => readLinux(p, read) }), { chain: [55], known: true });
   // No /proc at all.
   assert.equal(readLinux(40, () => null), null);
@@ -283,12 +318,18 @@ test('real processes: a grandchild, its parent and this test, nearest first', {
   const r = await ancestors(grandchild);
   assert.equal(r.known, true);
   assert.deepEqual(r.chain.slice(0, 3), [grandchild, child.pid, process.pid]);
+  assert.match(String(r.start), /^\d+$/);
   if (process.platform === 'win32') {
-    assert.match(String(r.start), /^\d+$/);
+    assert.equal(r.unit, 'filetime');
     // FILETIME: 100 ns units since 1601. 11644473600000 ms lie between 1601 and 1970.
     const started = Number(BigInt(r.start) / 10000n - 11644473600000n);
     assert.ok(started <= before + 1000 && started >= before - 120000, 'started ' + (before - started) + ' ms ago');
   } else {
-    assert.equal('start' in r, false);
+    assert.equal(r.unit, 'ticks');
+    // Read by the test itself: field 22 of the grandchild's own stat file, counted after the last ")".
+    const stat = fs.readFileSync('/proc/' + grandchild + '/stat', 'utf8');
+    const field22 = stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19];
+    assert.match(field22, /^\d+$/);
+    assert.equal(r.start, field22);
   }
 });

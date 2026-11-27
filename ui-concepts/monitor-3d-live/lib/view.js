@@ -137,9 +137,15 @@ class MonitorView {
           ancestors: typeof d.ancestors === 'function' ? d.ancestors : async () => ({ chain: [], known: false }),
           hostPid: d.hostPid
         };
-        actions.focus(this.vscode, deps, request).catch(error => {
+        const running = actions.focus(this.vscode, deps, request);
+        running.catch(error => {
           void this.vscode.window.showWarningMessage('3D Monitor: that could not be shown (' + error.message + ').');
         });
+        // Reading the process list can take a second or more; with nothing on screen a double-click looks broken.
+        // The message goes when the look is over, however it ended: the thenable it is given never rejects.
+        if (typeof this.vscode.window.setStatusBarMessage === 'function') {
+          this.vscode.window.setStatusBarMessage('$(sync~spin) 3D Monitor: looking for the session…', running.then(() => undefined, () => undefined));
+        }
         return;
       }
       const deps = { resolve, folders: () => this.deps.folders().map(f => f.path) };

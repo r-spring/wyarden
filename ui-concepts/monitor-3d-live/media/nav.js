@@ -145,7 +145,7 @@
     url: ['Double-click, or Ctrl+Enter: open the address', 'VS Code shows the address and asks before it opens your browser.'],
     select: ['A click selects it', 'The selection stays in this view. Nothing else happens.'],
     context: ['Nothing is wired for this kind of resource yet', 'A web search or an MCP resource keeps no address that could be opened.'],
-    agent: ['Double-click, or Ctrl+Enter: show its terminal or chat panel', 'For a session that runs in this window. For any other, a message says so and nothing is opened.'],
+    agent: ['Double-click, or Ctrl+Enter: show its terminal or chat panel', 'For a session in a terminal of this window, or in this window\'s Claude Code chat panel. For any other, a message says so and nothing is opened.'],
     subagent: ['Double-click, or Ctrl+Enter: show its session', 'The terminal or chat panel of the session that started it, as for an agent.'],
     tool: ['Nothing is wired for a tool yet', 'A list of its last calls comes in a later step.'],
     mcp: ['Nothing is wired for an MCP server yet', 'Opening its configuration comes in a later step.'],

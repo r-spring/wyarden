@@ -8,8 +8,16 @@
  * The answer decides whether a command runs, so the error to avoid is a stranger taken for a
  * parent. A process id is reused once its process ends: a child whose parent has ended still names
  * the old parent's number, and another program may hold that number now. So a parent is taken only
- * when it did not start after its child. Anything that cannot be read gives `known: false`, never a
- * guess, and nothing here throws or rejects.
+ * when it did not start after its child.
+ *
+ * `known` is false only when the process list itself cannot be read (another system, the query
+ * failed, or it gave nothing). A process that is not in the list, or on Linux one whose own stat
+ * file cannot be read, is not a failure: the chain just ends there, with `known: true`. The start
+ * time of the process itself comes back too, so the caller can tell a session's process from a
+ * later one that took its id.
+ *
+ * `ancestors` never throws and never rejects. `walk` is pure and throws only when the table it is
+ * given throws (its own `get`, or a getter on a row); `ancestors` catches that.
  */
 'use strict';
 const fs = require('node:fs');
@@ -40,15 +48,16 @@ function startedAfter(parentStart, childStart) {
 const rowOf = (table, pid) => { const row = table.get(pid); return row && typeof row === 'object' ? row : null; };
 
 /**
- * `pid`, then its parent, grandparent and so on, at most `depth` long. Pure: `table` is a Map of
- * pid -> { parent, start? }. A parent is taken only when it is in the table, is above 0, is not
- * already in the chain, and did not start after its child (when both start times are known).
+ * `pid`, then its parent, grandparent and so on. Pure: `table` is a Map of pid -> { parent, start? }.
+ * A parent is taken only when it is in the table, is above 0, is not already in the chain, and did
+ * not start after its child (when both start times are known). The chain is at most `depth` long
+ * when that is a whole number from 1 to MAX_DEPTH, else MAX_DEPTH: never longer.
  */
 function walk(pid, table, depth = MAX_DEPTH) {
   if (!isPid(pid)) return [];
   const chain = [pid];
   if (!table || typeof table.get !== 'function') return chain;
-  const limit = Number.isInteger(depth) && depth >= 1 ? depth : MAX_DEPTH;
+  const limit = Number.isInteger(depth) && depth >= 1 && depth <= MAX_DEPTH ? depth : MAX_DEPTH;
   const seen = new Set(chain);
   while (chain.length < limit) {
     const child = rowOf(table, chain[chain.length - 1]);
@@ -162,10 +171,12 @@ function readLinux(pid, read = readText) {
 const unknown = pid => ({ chain: isPid(pid) ? [pid] : [], known: false });
 
 /**
- * { chain, known, start? }: see the file's opening comment and `walk`. `start` is Windows only: the
- * FILETIME of `pid` itself as a string of digits; the key is left out when it is not known.
- * `options` are for tests: `platform` (default: this system's) and `readTable(pid)`, which gives
- * the table (or a promise of it) in place of the system's own process list.
+ * { chain, known, start?, unit? }: see the file's opening comment and `walk`.
+ * `start` is the start time of `pid` itself as a string of digits: on Windows its FILETIME in UTC
+ * (`unit: 'filetime'`), on Linux field 22 of its own `/proc/<pid>/stat`, clock ticks since boot
+ * (`unit: 'ticks'`). Both keys are left out together when the start is not known, and a start of 0
+ * is not known. `options` are for tests: `platform` (default: this system's) and `readTable(pid)`,
+ * which gives the table (or a promise of it) in place of the system's own process list.
  */
 async function ancestors(pid, options) {
   if (!isPid(pid)) return { chain: [], known: false };
@@ -177,9 +188,10 @@ async function ancestors(pid, options) {
     const table = await read(pid);
     if (!(table instanceof Map) || table.size === 0) return unknown(pid);
     const result = { chain: walk(pid, table), known: true };
-    if (platform === 'win32') {
-      const row = rowOf(table, pid), start = row ? startValue(row.start) : undefined;
-      if (start !== undefined) result.start = start.toString();
+    const row = rowOf(table, pid), start = row ? startValue(row.start) : undefined;
+    if (start !== undefined) {
+      result.start = start.toString();
+      result.unit = platform === 'win32' ? 'filetime' : 'ticks';
     }
     return result;
   } catch {

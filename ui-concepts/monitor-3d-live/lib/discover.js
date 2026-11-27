@@ -84,8 +84,8 @@ const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
  *
  * A pid can be reused by another program after a session crashed and left its file behind. The
  * file's `procStart` names the process exactly, but checking it needs the system's process table,
- * which this file does not read: it is passed through, and a double-click on a session checks it
- * (lib/actions.js).
+ * which this file does not read: it is passed through, and a double-click on a session compares it
+ * with the system's start time for that process before any chat panel is opened (lib/actions.js).
  */
 function liveClaudeSessions(dirs, { alive = pidAlive } = {}) {
   const byId = new Map();

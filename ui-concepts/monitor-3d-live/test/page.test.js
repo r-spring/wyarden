@@ -329,8 +329,9 @@ describe('the live page in a headless browser', () => {
     await h.deliver(S.workspaces({}));
     await h.deliver(S.scene({ agents: 4 }).message);
     await h.deliver(S.hub('up', 'hub', { state: 'partly', folders: 2, installed: 1 }));
-    await sleep(300);
+    await sleep(800);                 // as test 5 waits: in a cold browser the first frame is not drawn after 300 ms
     const agent = await h.eval(findNode("n => n.cls === 'agent'"));
+    assert.ok(agent, 'an agent to click');
     await h.click(agent.x, agent.y);
     await sleep(200);
     assert.equal(await h.eval('document.querySelectorAll("input, select, textarea, form, [contenteditable]").length'), 0);
@@ -349,7 +350,7 @@ describe('the live page in a headless browser', () => {
     assert.deepEqual(wired, {
       heads: 1, hint: 'P.hint: What is wired now. These are labels, not controls.', list: 'UL.actions',
       rows: [
-        ['B: Double-click, or Ctrl+Enter: show its terminal or chat panel', 'SPAN: For a session that runs in this window. For any other, a message says so and nothing is opened.'],
+        ['B: Double-click, or Ctrl+Enter: show its terminal or chat panel', 'SPAN: For a session in a terminal of this window, or in this window\'s Claude Code chat panel. For any other, a message says so and nothing is opened.'],
         ['B: A click selects it', 'SPAN: The selection stays in this view. Nothing else happens.']
       ],
       shown: true
