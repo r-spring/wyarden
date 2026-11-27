@@ -1,10 +1,10 @@
 # 3D agent monitor: start here
 
-**What this is:** the results of the plan "3D agent monitor: critique, approach, wiring plan". Five documents and two mock-ups. Nothing is wired.
-**What you need to do:** make the seven decisions at the bottom of this page. Each has a recommended answer.
-**What happens after:** phase 1 of the wiring plan can start. It takes four sessions and ends with Claude Code's calls live in a VS Code tab.
+**What this is:** the results of the plan "3D agent monitor: critique, approach, wiring plan": five documents and two simulated mock-ups, and since then one **working mock-up** (section 6).
+**The working mock-up:** real Claude Code sessions, live in a VS Code or VSCodium tab, with a chip for each open workspace. It is its own small extension; nothing in the main extension changed.
+**What you need to do:** install its VSIX and open it (section 6). The seven decisions at the bottom of this page still stand for the full build; the mock-up took the recommended answer to each, except where section 6 says so.
 
-Written 26 November 2026.
+Written 26 November 2026. Section 6 was added the same day.
 
 ## The results
 
@@ -57,6 +57,23 @@ Written 26 November 2026.
 - **It works in any window,** with or without a board. The board's own workspace rule is not loosened.
 - **It carries a budget:** 0 frames at rest, at most 5 ms added per tool-call event, 50 ms from event to pixel. Each is measured before and after.
 - **It disagrees with the recommendation on two points** (its section 12): three.js may not be needed yet, and the hub cannot be files alone.
+
+### 6. The working mock-up
+
+[05-working-mockup.md](05-working-mockup.md) · the extension: [ui-concepts/monitor-3d-live/](../../ui-concepts/monitor-3d-live/README.md) · screenshots from real editors: [VS Code](img/live/vscode-live-session.png), [VSCodium](img/live/vscodium-hooks.png)
+
+- **To use it:** run `node ui-concepts/monitor-3d-live/tools/pack.js`, install the VSIX it writes (`code --install-extension <file>`, or `codium --install-extension <file>`), then click **3D Monitor** in the status bar.
+- **It works with nothing set up.** Live sessions come from Claude Code's own session files, their calls from their transcripts (marked derived). "Set Up Collectors…" adds hooks for exact calls, after showing each change as a diff.
+- **You choose the workspace** with a chip. Only folders open in an editor window right now are listed; a window that closes takes its workspace with it. A session that ends leaves after 20 seconds.
+- **One build for every editor and system:** plain JavaScript, no package, no native code.
+- **Verified:** 259 tests on Windows and on Linux (the page tests need a browser and ran on Windows only); the real extension in VS Code 1.148 and VSCodium 1.143 side by side on Windows, sharing one hub, with a real Claude Code session posting to it, and the hub handed over when its window closed.
+- **Reviewed:** four independent reviewers tried to break its privacy rule, its hub, its installer and its page. What they found is fixed; section 9.4 of the document lists it, and what was left as it is.
+- **Not verified:** any editor on Linux; Code - OSS; a remote window; a screen reader. Section 9.3 of the document has the full list.
+- **Not on a shared machine:** do not set up collectors where other people log in. While no editor is open, another user's program could listen on the hub's port and receive what the hooks post.
+- **Claude Code only.** Codex, Grok Build and Antigravity, the three.js renderer, the tree view and the native menu are the later phases of the wiring plan.
+- **Measured on the way** (section 9.2): Claude Code never sends SessionStart to an HTTP hook, and a refused SessionEnd hook prints on the session's stderr. So the collector registers neither; a session's start and end come from its session file.
+
+**The seven decisions, as the mock-up took them:** 1 the worker thread. 2 `settings.json`, shown as a diff, one confirmation. 3 no recording with no window open. 4 the Canvas renderer; three.js not built. 5 this window's folder first, every open workspace one chip away. 6 it differs: as its own extension it also runs in a restricted window, because it runs nothing from a workspace. 7 not touched.
 
 ## The decisions you must make
 

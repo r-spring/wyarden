@@ -1,0 +1,21 @@
+{
+  "session_id": "11111111-2222-4333-8444-555555555555",
+  "transcript_path": "/home/example/.claude/projects/-home-example-proj/11111111-2222-4333-8444-555555555555.jsonl",
+  "cwd": "/home/example/proj",
+  "scratchpad_dir": "/tmp/claude/example/scratchpad",
+  "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "hook_event_name": "PostToolUseFailure",
+  "permission_mode": "default",
+  "effort": {
+    "level": "high"
+  },
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/home/example/proj/src/b.js",
+    "content": "example content"
+  },
+  "tool_use_id": "toolu_010000000000000000000002",
+  "error": "Example error text.",
+  "is_interrupt": false,
+  "duration_ms": 7
+}

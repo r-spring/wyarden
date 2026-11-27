@@ -1,0 +1,73 @@
+{
+  "name": "wyarden-monitor-3d",
+  "displayName": "Wyarden 3D Monitor (working mock-up)",
+  "description": "A live 3D view of the coding-agent sessions in your open workspaces: agents, tools, files and MCP calls. Claude Code first.",
+  "version": "0.1.0",
+  "publisher": "r-spring",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/r-spring/wyarden.git",
+    "directory": "ui-concepts/monitor-3d-live"
+  },
+  "homepage": "https://wyarden.com",
+  "bugs": {
+    "url": "https://github.com/r-spring/wyarden/issues"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "coding agents",
+    "claude code",
+    "monitor",
+    "3d",
+    "mcp"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onWebviewPanel:wyardenMonitor.view"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": {
+      "supported": "limited",
+      "description": "Only folders on a disk are shown as workspaces."
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "wyardenMonitor.open",
+        "title": "Wyarden 3D Monitor: Open"
+      },
+      {
+        "command": "wyardenMonitor.chooseWorkspace",
+        "title": "Wyarden 3D Monitor: Choose Workspace"
+      },
+      {
+        "command": "wyardenMonitor.setupCollectors",
+        "title": "Wyarden 3D Monitor: Set Up Collectors…"
+      },
+      {
+        "command": "wyardenMonitor.removeCollectors",
+        "title": "Wyarden 3D Monitor: Remove Collectors"
+      },
+      {
+        "command": "wyardenMonitor.status",
+        "title": "Wyarden 3D Monitor: Status"
+      }
+    ]
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "package": "node tools/pack.js"
+  }
+}

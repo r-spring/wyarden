@@ -1,0 +1,126 @@
+/* Wyarden 3D monitor, working mock-up: the page around the canvas. Every colour is a variable that
+   the look sets (page.js copies the look's palette here), so this file has no look of its own.
+   Copied from ui-concepts/monitor-3d/style.css. Added for the live page: the workspace chips under
+   the top bar, the sentence over an empty scene, and the status line under the scene. They are rows
+   of the page, not overlays, so they can never cover the canvas. */
+:root {
+  --bg: #040b12; --panel: #07121b; --line: #28566b; --ink: #e8fcff; --text: #c3dde4; --muted: #86a7b6; --accent: #61e5f5; --needs: #ffcf5a;
+  --font: Consolas, monospace;
+  --ui: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--text); font: 12px/1.45 var(--ui); }
+h2, h3, p, dl, dd, ul { margin: 0; padding: 0; }
+ul { list-style: none; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip { position: absolute; left: 8px; top: -60px; z-index: 30; padding: 6px 10px; background: var(--accent); color: var(--bg); }
+.skip:focus { top: 6px; }
+
+button { font: inherit; color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: 3px; min-height: 26px; padding: 2px 9px; cursor: pointer; }
+button:hover { border-color: var(--accent); color: var(--ink); }
+button[aria-pressed="true"], button.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { display: flex; flex-direction: column; margin-right: auto; min-width: 0; }
+.brand strong { font: 600 14px/1.2 var(--ui); letter-spacing: 3px; color: var(--ink); }
+.brand span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.group { display: flex; align-items: center; gap: 6px; }
+.group-name { font-size: 11px; color: var(--muted); }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 3px 0 0 3px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 3px 3px 0; }
+
+/* The workspace chips: a filter on what is shown. Many workspaces wrap to a second row and then scroll. */
+.scopes { flex: none; display: flex; align-items: center; gap: 4px 10px; padding: 3px 12px; border-bottom: 1px solid var(--line); background: var(--panel); min-width: 0; }
+.scopes .group-name { flex: none; }
+/* Exactly two rows of 24 px show (2 x 24 + the 4 px gap + 2 x 2 px padding), so a third row never peeks in half cut. */
+#chips { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; max-height: 56px; overflow-y: auto; padding: 2px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.chip { display: inline-flex; align-items: center; gap: 6px; max-width: 260px; height: 24px; min-height: 0; padding: 1px 8px; font-size: 11px; }
+.chip:focus-visible { outline-offset: 0; }
+.chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-count { flex: none; min-width: 18px; padding: 0 5px; border-radius: 8px; background: color-mix(in srgb, var(--line) 45%, transparent); color: var(--ink); text-align: center; font-variant-numeric: tabular-nums; }
+.chip-needs { flex: none; color: var(--needs); font-weight: 600; white-space: nowrap; }
+.chip-note { flex: none; color: var(--muted); font-style: italic; white-space: nowrap; }
+
+.work { flex: 1; min-height: 0; display: grid; grid-template-columns: 224px minmax(0, 1fr) 276px; }
+.twin-panel, .side { background: var(--panel); min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.twin-panel { border-right: 1px solid var(--line); padding: 10px 0 0; display: flex; flex-direction: column; }
+.twin-panel h2, .side h2 { font: 600 12px/1.3 var(--ui); color: var(--ink); }
+.twin-panel h2, .twin-panel .hint { padding: 0 12px; }
+.hint { font-size: 11px; color: var(--muted); }
+#twin { flex: 1; min-height: 0; overflow: auto; margin-top: 8px; padding-bottom: 12px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.twin-title { padding: 8px 12px 3px; font-size: 11px; font-weight: 600; color: var(--muted); position: sticky; top: 0; background: var(--panel); }
+.twin-row { padding: 2px 12px 2px 20px; font-size: 11px; cursor: pointer; overflow-wrap: anywhere; border-left: 2px solid transparent; }
+.twin-row:hover { color: var(--ink); }
+.twin-row[aria-selected="true"] { color: var(--ink); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+.stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
+canvas#scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+canvas#scene.pointing { cursor: pointer; }
+canvas#scene.dragging { cursor: grabbing; }
+canvas#scene:focus-visible { outline-offset: -3px; }
+.view-buttons { position: absolute; top: 8px; right: 8px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: calc(100% - 16px); }
+.view-buttons button { background: color-mix(in srgb, var(--panel) 88%, transparent); font-size: 11px; min-height: 24px; padding: 1px 7px; }
+.hud { position: absolute; left: 8px; bottom: 8px; display: flex; flex-wrap: wrap; gap: 2px 10px; max-width: calc(100% - 16px); padding: 3px 8px; border: 1px solid var(--line); border-radius: 3px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent); font: 11px/1.5 var(--font); color: var(--muted); pointer-events: none; }
+.hud b { font-weight: 600; color: var(--ink); }
+/* One sentence over the empty floors when nothing is live. It never takes a click. */
+.empty-scene { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); max-width: calc(100% - 32px); padding: 8px 14px; border: 1px solid var(--line); border-radius: 3px;
+  background: color-mix(in srgb, var(--panel) 90%, transparent); color: var(--ink); font-size: 13px; text-align: center; pointer-events: none; }
+
+/* The status line: hub, counts and collector, as text. */
+.status-bar { flex: none; padding: 3px 12px; border-top: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 11px; }
+
+/* Two parts that scroll on their own, so the top of the legend is always in view. */
+.side { border-left: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+#inspector { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px 12px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.insp-head { display: flex; align-items: center; gap: 10px; }
+.insp-head canvas { flex: none; }
+.insp-class { font-size: 11px; color: var(--muted); }
+.insp-head h2 { font-size: 14px; overflow-wrap: anywhere; }
+.insp-state { display: flex; align-items: center; gap: 6px; margin: 8px 0 2px; color: var(--ink); }
+.insp-state canvas { flex: none; }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 10px; margin-top: 8px; }
+.facts dt { color: var(--muted); }
+.facts dd { color: var(--ink); overflow-wrap: anywhere; }
+.side h3 { margin: 12px 0 4px; font: 600 11px/1.3 var(--ui); color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+.plain li { font: 11px/1.5 var(--font); overflow-wrap: anywhere; }
+/* The "In VS Code" list is a list of labels. It is styled not to look like buttons. */
+.actions li { margin-top: 5px; padding-left: 10px; border-left: 2px dotted var(--line); }
+.actions b { display: block; font-weight: 600; color: var(--ink); }
+.actions span { font-size: 11px; color: var(--muted); }
+.empty { color: var(--muted); }
+
+#legend { flex: none; max-height: 46%; overflow: auto; border-top: 1px solid var(--line); padding: 7px 12px 10px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+#legend h3 { margin-top: 7px; }
+#legend summary { cursor: pointer; font: 600 12px/1.3 var(--ui); color: var(--ink); }
+.legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; }
+.legend-item { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; }
+.legend-item canvas { flex: none; }
+.legend-item span { min-width: 0; overflow-wrap: anywhere; }
+.legend-item i { font-style: normal; color: var(--muted); }
+.legend-wide { grid-template-columns: 1fr; }
+
+@media (max-width: 1100px) {
+  .work { grid-template-columns: minmax(0, 1fr) 244px; }
+  /* The list stays in the page for screen readers and the keyboard; "List" shows it over the scene. */
+  .twin-panel { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+  body.show-list .twin-panel { position: fixed; z-index: 20; left: 0; bottom: 0; top: var(--bar-height, 44px); width: 240px; height: auto; margin: 0; clip-path: none; overflow: auto; box-shadow: 4px 0 18px #0006; }
+  .brand span { display: none; }
+}
+/* A narrow tab: the monitor beside an editor, which is where a file opened from the scene goes. The scene keeps the
+   whole width; the inspector goes under it; the legend, which is reference and not live, waits for a wider tab. */
+@media (max-width: 640px) {
+  .work { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 32%); }
+  .side { border-left: 0; border-top: 1px solid var(--line); }
+  #legend { display: none; }
+  .bar { gap: 4px 10px; padding: 4px 8px; }
+  .scopes { padding: 3px 8px; }
+}
+@media (min-width: 1101px) { #list-toggle { display: none; } }
+@media (forced-colors: active) { canvas#scene { forced-color-adjust: none; } button { border: 1px solid ButtonText; } }

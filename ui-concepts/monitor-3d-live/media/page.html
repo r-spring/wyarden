@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  Wyarden 3D monitor, working mock-up: the page's markup, a template the extension host fills.
+  It is ui-concepts/monitor-3d/index.html with the simulated-feed controls taken out and a workspace
+  toolbar and a status line put in (docs/monitor-3d/05-working-mockup.md section 8.2).
+  The host replaces three placeholders by plain text: the policy, the nonce and the address of the
+  media folder (no trailing slash). No inline script, no inline style and no "on" attribute, so the
+  policy needs neither 'unsafe-inline' nor 'unsafe-eval'.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="{{csp}}">
+<title>3D Monitor</title>
+<link rel="stylesheet" nonce="{{nonce}}" href="{{base}}/style.css">
+</head>
+<body>
+<a class="skip" href="#twin">Skip to the list of everything in the scene</a>
+
+<header class="bar">
+  <div class="brand"><strong>MONITOR 3D</strong><span>Working mock-up. Live Claude Code sessions in the open workspaces. A click selects; nothing here edits.</span></div>
+  <div class="group" role="group" aria-label="Look">
+    <span class="group-name">Look</span>
+    <span class="seg">
+      <button type="button" data-look="nexus">NEXUS</button><button type="button" data-look="glasshouse">Glasshouse</button>
+    </span>
+    <button type="button" id="motion" aria-pressed="false">Motion off</button>
+  </div>
+</header>
+
+<div class="scopes">
+  <span class="group-name" id="scopes-name">Workspace</span>
+  <div id="chips" role="toolbar" aria-labelledby="scopes-name" aria-describedby="scopes-help"></div>
+  <p id="scopes-help" class="sr-only">Chooses which open workspace the scene shows. Left and Right move between the workspaces.</p>
+</div>
+
+<main class="work">
+  <nav class="twin-panel" aria-label="Everything in the scene, as a list">
+    <h2>List</h2>
+    <p class="hint" id="twin-help">The scene as text. Up and Down move the selection; Ctrl+Enter opens a file or address.</p>
+    <div id="twin" role="listbox" tabindex="0" aria-label="Everything in the scene" aria-describedby="twin-help"></div>
+  </nav>
+
+  <section class="stage" aria-label="Scene">
+    <canvas id="scene" tabindex="0" role="application" aria-label="3D scene: agents, tools, resources and MCP servers" aria-describedby="scene-help"></canvas>
+    <p id="scene-help" class="sr-only">Arrow keys move the selection: Left and Right along a floor, Up and Down between floors. Page Up and Page Down step through everything, Home and End jump to the ends, Escape clears the selection, Enter shows the selected agent's column alone, Ctrl+Enter opens the selected file or address. Shift with an arrow key turns the camera, plus and minus zoom, F frames everything, R resets the camera. The list next to the scene holds the same items as text.</p>
+    <p id="empty" class="empty-scene" role="note">Waiting for the hub…</p>
+    <div class="view-buttons" id="view-buttons" role="group" aria-label="View">
+      <button type="button" id="frame">Frame all</button>
+      <button type="button" id="spread" aria-pressed="false">Separate floors</button>
+      <button type="button" id="isolate" aria-pressed="false">Isolate</button>
+      <button type="button" id="tidy">Tidy</button>
+      <button type="button" id="list-toggle" aria-pressed="false">List</button>
+    </div>
+    <div class="hud" id="hud" aria-hidden="true"></div>
+    <p id="live" class="sr-only" role="status" aria-live="polite"></p>
+  </section>
+
+  <aside class="side" aria-label="Details">
+    <section id="inspector" aria-label="Inspector"></section>
+    <details id="legend" open>
+      <summary>Legend</summary>
+      <div id="legend-body"></div>
+    </details>
+  </aside>
+</main>
+
+<footer class="status-bar">
+  <p id="status">Hub: starting…</p>
+  <p id="status-live" class="sr-only" role="status" aria-live="polite"></p>
+</footer>
+
+<script nonce="{{nonce}}" src="{{base}}/layout.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/model.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/engine.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-nexus.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-glasshouse.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/nav.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/host-feed.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/page.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "session_id": "11111111-2222-4333-8444-555555555555",
+  "transcript_path": "/home/example/.claude/projects/-home-example-proj/11111111-2222-4333-8444-555555555555.jsonl",
+  "cwd": "/home/example/proj",
+  "scratchpad_dir": "/tmp/claude/example/scratchpad",
+  "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "hook_event_name": "PostToolUse",
+  "permission_mode": "default",
+  "effort": {
+    "level": "high"
+  },
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo example",
+    "description": "Say example"
+  },
+  "tool_use_id": "toolu_010000000000000000000005",
+  "tool_response": {
+    "stdout": "example",
+    "stderr": "",
+    "interrupted": false
+  },
+  "duration_ms": 40
+}

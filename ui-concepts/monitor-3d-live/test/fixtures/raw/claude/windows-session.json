@@ -1,0 +1,495 @@
+[
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "hook_event_name": "SessionStart",
+    "source": "startup",
+    "model": "claude-example-1"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "UserPromptSubmit",
+    "permission_mode": "default",
+    "prompt": "Please read the example file."
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PreToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "C:\\Users\\example\\proj\\src\\a.js"
+    },
+    "tool_use_id": "toolu_010000000000000000000001"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PostToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "C:\\Users\\example\\proj\\src\\a.js"
+    },
+    "tool_use_id": "toolu_010000000000000000000001",
+    "tool_response": {
+      "type": "text",
+      "file": {
+        "filePath": "C:\\Users\\example\\proj\\src\\a.js",
+        "content": "example",
+        "numLines": 1
+      }
+    },
+    "duration_ms": 12
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PreToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "C:\\Users\\example\\proj\\src\\b.js",
+      "content": "example content"
+    },
+    "tool_use_id": "toolu_010000000000000000000002"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PostToolUseFailure",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "C:\\Users\\example\\proj\\src\\b.js",
+      "content": "example content"
+    },
+    "tool_use_id": "toolu_010000000000000000000002",
+    "error": "Example error text.",
+    "is_interrupt": false,
+    "duration_ms": 7
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PreToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Glob",
+    "tool_input": {
+      "pattern": "**/*.js",
+      "path": "C:\\Users\\example\\proj\\src"
+    },
+    "tool_use_id": "toolu_010000000000000000000003"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PreToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "mcp__example_srv__echo",
+    "tool_input": {
+      "text": "hello"
+    },
+    "tool_use_id": "toolu_010000000000000000000004",
+    "mcp_server": {
+      "name": "example_srv",
+      "source": "dynamic"
+    }
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PostToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "mcp__example_srv__echo",
+    "tool_input": {
+      "text": "hello"
+    },
+    "tool_use_id": "toolu_010000000000000000000004",
+    "mcp_server": {
+      "name": "example_srv",
+      "source": "dynamic"
+    },
+    "tool_response": [
+      {
+        "type": "text",
+        "text": "hello"
+      }
+    ],
+    "duration_ms": 30
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PreToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "echo example",
+      "description": "Say example"
+    },
+    "tool_use_id": "toolu_010000000000000000000005"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PermissionRequest",
+    "permission_mode": "default",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "echo example",
+      "description": "Say example"
+    },
+    "permission_suggestions": []
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "Notification",
+    "permission_mode": "default",
+    "message": "Claude needs your permission to use Bash",
+    "title": "Permission",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PostToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "echo example",
+      "description": "Say example"
+    },
+    "tool_use_id": "toolu_010000000000000000000005",
+    "tool_response": {
+      "stdout": "example",
+      "stderr": "",
+      "interrupted": false
+    },
+    "duration_ms": 40
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PreToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "WebFetch",
+    "tool_input": {
+      "url": "https://docs.example.com/guide/start?key=abc#top",
+      "prompt": "Summarise"
+    },
+    "tool_use_id": "toolu_010000000000000000000006"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PermissionDenied",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "WebFetch",
+    "tool_input": {
+      "url": "https://docs.example.com/guide/start?key=abc#top",
+      "prompt": "Summarise"
+    },
+    "tool_use_id": "toolu_010000000000000000000006",
+    "reason": "Example reason."
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PreToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Agent",
+    "tool_input": {
+      "description": "Look around",
+      "prompt": "Explore the example",
+      "subagent_type": "general-purpose",
+      "run_in_background": false
+    },
+    "tool_use_id": "toolu_010000000000000000000007"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "SubagentStart",
+    "permission_mode": "default",
+    "agent_id": "a0123456789abcdef",
+    "agent_type": "general-purpose"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PreToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Grep",
+    "tool_input": {
+      "pattern": "example"
+    },
+    "tool_use_id": "toolu_010000000000000000000008",
+    "agent_id": "a0123456789abcdef",
+    "agent_type": "general-purpose"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PostToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Grep",
+    "tool_input": {
+      "pattern": "example"
+    },
+    "tool_use_id": "toolu_010000000000000000000008",
+    "agent_id": "a0123456789abcdef",
+    "agent_type": "general-purpose",
+    "tool_response": {
+      "filenames": [
+        "C:\\Users\\example\\proj\\src\\a.js"
+      ]
+    },
+    "duration_ms": 5
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "SubagentStop",
+    "permission_mode": "default",
+    "agent_id": "a0123456789abcdef",
+    "agent_type": "general-purpose",
+    "stop_hook_active": false,
+    "agent_transcript_path": "C:\\Users\\example\\proj\\..\\agent.jsonl",
+    "last_assistant_message": "Done looking.",
+    "background_tasks": [],
+    "session_crons": []
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PostToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "Agent",
+    "tool_input": {
+      "description": "Look around",
+      "prompt": "Explore the example",
+      "subagent_type": "general-purpose",
+      "run_in_background": false
+    },
+    "tool_use_id": "toolu_010000000000000000000007",
+    "tool_response": {
+      "agentId": "a0123456789abcdef",
+      "content": [
+        {
+          "type": "text",
+          "text": "Done looking."
+        }
+      ]
+    },
+    "duration_ms": 900
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PreToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "AskUserQuestion",
+    "tool_input": {
+      "questions": [
+        {
+          "question": "Which file?",
+          "options": []
+        }
+      ]
+    },
+    "tool_use_id": "toolu_010000000000000000000009"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "PostToolUse",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "tool_name": "AskUserQuestion",
+    "tool_input": {
+      "questions": [
+        {
+          "question": "Which file?",
+          "options": []
+        }
+      ]
+    },
+    "tool_use_id": "toolu_010000000000000000000009",
+    "tool_response": {
+      "answers": {
+        "Which file?": "a.js"
+      }
+    },
+    "duration_ms": 3000
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "Notification",
+    "permission_mode": "default",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "Stop",
+    "permission_mode": "default",
+    "effort": {
+      "level": "high"
+    },
+    "stop_hook_active": false,
+    "last_assistant_message": "Shall I go on?",
+    "background_tasks": [],
+    "session_crons": []
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "StopFailure",
+    "permission_mode": "default",
+    "error": "Example API error.",
+    "error_details": "Example details."
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "C:\\Users\\example\\.claude\\projects\\C--Users-example-proj\\11111111-2222-4333-8444-555555555555.jsonl",
+    "cwd": "C:\\Users\\example\\proj",
+    "scratchpad_dir": "C:\\Users\\example\\AppData\\Local\\Temp\\claude\\scratchpad",
+    "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "hook_event_name": "SessionEnd",
+    "permission_mode": "default",
+    "reason": "other"
+  }
+]

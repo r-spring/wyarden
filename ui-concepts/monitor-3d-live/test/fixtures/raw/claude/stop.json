@@ -1,0 +1,16 @@
+{
+  "session_id": "11111111-2222-4333-8444-555555555555",
+  "transcript_path": "/home/example/.claude/projects/-home-example-proj/11111111-2222-4333-8444-555555555555.jsonl",
+  "cwd": "/home/example/proj",
+  "scratchpad_dir": "/tmp/claude/example/scratchpad",
+  "prompt_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "hook_event_name": "Stop",
+  "permission_mode": "default",
+  "effort": {
+    "level": "high"
+  },
+  "stop_hook_active": false,
+  "last_assistant_message": "Shall I go on?",
+  "background_tasks": [],
+  "session_crons": []
+}
