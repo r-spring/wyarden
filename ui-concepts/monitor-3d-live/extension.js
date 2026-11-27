@@ -4,7 +4,9 @@
  *   1. It tells the hub which folders this window has open, over one connection that stays open.
  *      That connection is how the hub knows the workspace is alive; when the window closes, it drops.
  *      If no hub is running, this window starts it (a worker thread; no new process).
- *   2. It offers the tab ("Wyarden 3D Monitor: Open", or the item in the status bar).
+ *   2. It offers the tab ("Wyarden 3D Monitor: Open", or the item in the status bar). A double-click on
+ *      a session there reads this machine's process list once, to find that session's terminal or chat
+ *      panel; on Windows that is one run of Windows PowerShell from the system folder.
  *   3. It offers set-up and removal of Claude Code's collector. Nothing is installed on activation.
  *
  * It reads no workspace setting and runs nothing from a workspace, so it also works in a
@@ -20,6 +22,7 @@ const C = require('./lib/contract.js');
 const { createHubClient } = require('./lib/hub-client.js');
 const discover = require('./lib/discover.js');
 const install = require('./lib/install.js');
+const procs = require('./lib/procs.js');
 const { MonitorView, VIEW_TYPE } = require('./lib/view.js');
 
 const DIFF_SCHEME = 'wyarden-monitor-change';
@@ -56,7 +59,13 @@ function activate(context) {
     catch (error) { log('collectors: ' + error.message); }
     return collectorsNow;
   };
-  const view = new MonitorView(vscode, context, { client, folders, collectors: () => collectorsNow, log: message => log('view', message) });
+  const view = new MonitorView(vscode, context, {
+    client, folders, collectors: () => collectorsNow, log: message => log('view', message),
+    // For a double-click on a session: its own file, then its process's ancestors, read only then.
+    session: id => discover.liveClaudeSessions(discover.claudeConfigDirs()).find(s => s.session === id) || null,
+    ancestors: pid => procs.ancestors(pid),
+    hostPid: process.pid
+  });
 
   client.onState = state => { log('hub', state + (client.role ? ' (' + client.role + ')' : '')); view.setHubState(state); showBar(); };
   client.onMessage = message => { view.fromHub(message); if (message && message.type === 'workspaces') showBar(); };

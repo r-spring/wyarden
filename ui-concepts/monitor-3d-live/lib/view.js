@@ -2,7 +2,7 @@
  *
  * One webview panel per window. This file builds its HTML from media/page.html, sets the content
  * security policy, and carries messages both ways: records, workspaces and hub state to the page;
- * the chosen scope, a selection and a request to open something from the page.
+ * the chosen scope, a selection and a request to open something, or to show a session, from the page.
  *
  * A hidden tab has no page (VS Code destroys it), so while the tab is hidden the window asks the
  * hub for no scope and receives no records. When the page loads again it says "ready" and gets a
@@ -42,6 +42,10 @@ class MonitorView {
    * deps.folders()     this window's folders: [{path, name}]
    * deps.collectors()  {claude: {state, folders, installed}} for the status line
    * deps.log(message)
+   * deps.session(id)    a live session's entry from discover.liveClaudeSessions, or null
+   * deps.ancestors(pid) a process and its ancestors (lib/procs.js)
+   * deps.hostPid        this window's extension host
+   * The last three are for a double-click on a session; without them no session is shown.
    */
   constructor(vscode, context, deps) {
     this.vscode = vscode; this.context = context; this.deps = deps;
@@ -123,7 +127,22 @@ class MonitorView {
     } else if (message.type === 'act') {
       const request = actions.checkAct(message);
       if (!request) return;
-      const deps = { resolve: target => this.deps.client.resolve(target), folders: () => this.deps.folders().map(f => f.path) };
+      const resolve = target => this.deps.client.resolve(target);
+      if (request.action === 'focus') {
+        // A view built without a way to find a session's process finds none: the owner is told, and nothing runs.
+        const d = this.deps;
+        const deps = {
+          resolve,
+          session: typeof d.session === 'function' ? d.session : () => null,
+          ancestors: typeof d.ancestors === 'function' ? d.ancestors : async () => ({ chain: [], known: false }),
+          hostPid: d.hostPid
+        };
+        actions.focus(this.vscode, deps, request).catch(error => {
+          void this.vscode.window.showWarningMessage('3D Monitor: that could not be shown (' + error.message + ').');
+        });
+        return;
+      }
+      const deps = { resolve, folders: () => this.deps.folders().map(f => f.path) };
       actions.open(this.vscode, deps, request).catch(error => {
         void this.vscode.window.showWarningMessage('3D Monitor: that could not be opened (' + error.message + ').');
       });

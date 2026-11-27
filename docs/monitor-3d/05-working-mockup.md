@@ -37,6 +37,7 @@ This document is the contract the parts were built against. Sections 1 to 8 say 
  extension host of a window          lib/hub-client.js   bind or connect, reconnect, take over
    extension.js, lib/view.js         the tab, its HTML and policy, the messages
    lib/actions.js                    a double-click becomes a VS Code command
+   lib/procs.js                      a process and its ancestors: where a session runs
    lib/install.js                    collectors: plan, show, write, remove
    |  postMessage
    v
@@ -124,9 +125,11 @@ n.size();                                           // sessions remembered (at m
 ```js
 const { claudeConfigDirs, liveClaudeSessions, pidAlive } = require('./discover.js');
 claudeConfigDirs({ home, env })          // existing folders: ~/.claude, each folder in ~/.claude-accounts (not *.lock), $CLAUDE_CONFIG_DIR; no folder twice
-liveClaudeSessions(dirs, { alive })       // [{agent: 'claude', session, key, cwd, pid, status, waitingFor, updatedAt, statusUpdatedAt, procStart, title, configDir, transcript}]
+liveClaudeSessions(dirs, { alive })       // [{agent: 'claude', session, key, cwd, pid, status, waitingFor, updatedAt, statusUpdatedAt, procStart, entry, title, configDir, transcript}]
 ```
 
+- `entry` (since 0.1.3) is the file's `entrypoint` when it is one this slice knows: `claude-vscode` (a session in Claude Code's chat panel), `cli` (one started in a terminal) or `sdk-cli` (one that runs with no terminal). Any other value is not given.
+- `procStart` is a string of digits. On Windows it is the process's creation time as a FILETIME (measured, 9.7): that is what tells the session's own process from another program that was later given its process id.
 - `title` is the session's `name` in that file, at most 80 characters: what its tab is titled. It is absent while the CLI has only its placeholder name (`nameSource: "derived"`).
 - A session is listed when `<dir>/sessions/<file>.json` parses, has a `pid` that is a positive whole number, a `sessionId` of letters, digits, `-` and `_` (at most 128), and a string `cwd`, and the process is alive. `status` is `busy`, `idle`, `waiting` or undefined, as the file gives it. A session listed in two folders is given once, the more recently written.
 - `transcript` is `<dir>/projects/<cwd with every character outside [a-zA-Z0-9] replaced by "-">/<sessionId>.jsonl`, whether or not it exists yet.
@@ -257,9 +260,9 @@ Every message has `v: 1` and a `type`.
 | host to page | `{type: "look", look}` | `nexus` for a dark theme, `glasshouse` for a light one. |
 | page to host | `{type: "scope", scope}` | A chip was chosen: `all` or a workspace key. |
 | page to host | `{type: "select", target: {class, id}}` | A click. Nothing else happens. |
-| page to host | `{type: "act", action, target: {class, id}, member}` | A double-click, or Ctrl+Enter on the selection. `action`: `open`. |
+| page to host | `{type: "act", action, target: {class, id}, member}` | A double-click, or Ctrl+Enter on the selection. `action`: `open` for a file group or a URL group; `focus` for a session (since 0.1.3), with the session's agent node as the target, also when a subagent was double-clicked. |
 
-- **The page never names a path, a command or a window.** The host asks the hub to resolve the node.
+- **The page never names a path, a command, a process or a window.** The host asks the hub to resolve the node.
 - **The host checks** every message's shape, and refuses an id that does not resolve.
 
 ### 8.2 The page
@@ -289,7 +292,8 @@ Every message has `v: 1` and a `type`.
 |---|---|
 | `extension.js` | `activate`: the hub client for this window, the commands, the tab and its serializer, folder changes. |
 | `lib/view.js` | The tab: `createWebviewPanel`, the HTML from `page.html`, the messages of 8.1, and the policy: `default-src 'none'`, scripts and the stylesheet by this page's nonce only, `img-src data:`, `connect-src 'none'`. No host is named, not even the editor's own. |
-| `lib/actions.js` | `open`: resolve, then `showTextDocument` beside the monitor (a covered tab has no page); a Quick Pick first when the group holds more than one file; for a searched folder `revealInExplorer` when it is in this window, else `revealFileInOS`; for a URL a modal confirmation that shows it, then `openExternal`. |
+| `lib/actions.js` | `open`: resolve, then `showTextDocument` beside the monitor (a covered tab has no page); a Quick Pick first when the group holds more than one file; for a searched folder `revealInExplorer` when it is in this window, else `revealFileInOS`; for a URL a modal confirmation that shows it, then `openExternal`. `focus`: section 8.5. |
+| `lib/procs.js` | `ancestors(pid)`: the process and its ancestors, nearest first. Section 8.5. |
 | `lib/install.js` | Section 8.4. |
 | `package.json` | Commands: "Wyarden 3D Monitor: Open", "…: Choose Workspace", "…: Set Up Collectors…", "…: Remove Collectors", "…: Status". |
 
@@ -316,6 +320,43 @@ install.EVENTS                 // the hook events registered: [{name, matcher}]
 - **No backup copy is made:** a settings file can hold secrets.
 - **The command** shows the first change in a diff editor and asks, naming every file. "Show every change" opens the others and asks again. Only then does it write. Nothing is installed on activation.
 - **One case does not come back exactly:** a `hooks` object, or a registered event's list, that was already empty before set-up is gone after removal, because nothing tells it from one that set-up made.
+
+### 8.5 A double-click on a session (since 0.1.3)
+
+The owner's card of 27 November: the inspector said "Nothing is wired for a session yet", and he asked for it to be wired. This is steps 2 and 3 of 04 section 6.2, for the window the monitor is in.
+
+- **The rule:** it shows something that already runs. It never starts, stops, resumes or changes a session.
+- **The page** posts `act` with `action: "focus"` and the session's agent node. A subagent sends its session's agent.
+- **The host** (`actions.focus`) asks three things, in this order:
+  1. **The hub:** which session is this node? (`resolve`, 7.4.)
+  2. **Claude Code's own session file:** its process id, how it was started (`entry`, section 6) and when its process started.
+  3. **The system's process list:** that process and its ancestors (`procs.ancestors`).
+
+```js
+const { ancestors, walk, MAX_DEPTH } = require('./procs.js');
+await ancestors(pid)     // -> { chain: [pid, parent, grandparent, ...], known, start }      never throws
+```
+
+- `chain` is at most 16 long. `known` is false when the list could not be read; then nothing is shown. `start` is the process's own start time, on Windows only.
+- **Windows:** one run of Windows PowerShell by its full path in the system folder (`Get-CimInstance Win32_Process`), with a constant command: nothing from a session, a page or a file goes into it. **Linux:** `/proc/<pid>/stat`, step by step. Any other system: not known.
+- **A parent is taken only when it did not start after its child.** A process id is used again after its process ends; the start time tells a real parent from a stranger that was given the number.
+
+**What happens, the first that fits:**
+
+| The session | A double-click |
+|---|---|
+| The hub does not answer | A warning. |
+| It is no longer live, or no running process is known for it, or the process list could not be read | A message that says which. |
+| Its file names a start time that is not its process's (Windows; 1 ms or more apart) | "This session has ended. Another program now runs under its process id." |
+| A terminal of this window is among its ancestors | That terminal is shown (`terminal.show()`), and the focus goes to it. |
+| Its file says chat panel (`claude-vscode`), and this window's extension host is among its ancestors | Claude Code's own command shows its tab: `claude-vscode.editor.open` with the session id. When that command is not in this window, a message says so. |
+| Its file says chat panel, in another window | "This session's chat panel is in another window." |
+| Its file says it runs with no terminal (`sdk-cli`) | "It has no terminal or chat panel to show." |
+| It runs under this window, in neither (a board card's own terminal, for one) | A message that says so. |
+| Anything else | "Its terminal is not in this window. It runs in another window, or outside the editor." |
+
+- **Why three conditions stand before the one command.** Claude Code only brings forward the tab of a session it already runs in this window. Given any other session id, the same command would start a second copy of that session. So the command runs only when the session's own file says chat panel, its process descends from this window's extension host, and its start time is the file's. A session of an older CLI whose file names no `entrypoint` is not shown in a panel at all.
+- **No hub change.** How a session was started is read by the window that was asked, so a window of 0.1.3 works with a hub of 0.1.2.
 
 ## 9. Verified, and not
 
@@ -432,4 +473,5 @@ The owner installed 0.1.0 in his own VS Code, ran "Set Up Collectors" there, and
 | Collectors are the only source of calls. | A session with no collector is read from its transcript (`derived`), so the view works before any set-up. |
 | SessionStart and SessionEnd hooks. | Neither (9.2). |
 | A checkpoint file carries the picture across a hand-over. | None. The new hub rebuilds from session files and transcripts; open calls of collector sessions are lost. |
+| "Focus the session" in five steps: the board's card, a terminal, the chat panel, another window through the hub, no window (6.2). | Since 0.1.3: the terminal and the chat panel, for the window the monitor is in (8.5). A session anywhere else gets a message. How a session was started is read from its session file, which 04 did not know of. |
 | three.js, the tree view, the native menu, actions routed between windows, the cost command, Codex, Grok Build, Antigravity. | Not built. |

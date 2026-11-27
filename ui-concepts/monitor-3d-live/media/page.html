@@ -38,13 +38,13 @@
 <main class="work">
   <nav class="twin-panel" aria-label="Everything in the scene, as a list">
     <h2>List</h2>
-    <p class="hint" id="twin-help">The scene as text. Up and Down move the selection; Ctrl+Enter opens a file or address.</p>
+    <p class="hint" id="twin-help">The scene as text. Up and Down move the selection; Ctrl+Enter opens a file or address, or shows a session.</p>
     <div id="twin" role="listbox" tabindex="0" aria-label="Everything in the scene" aria-describedby="twin-help"></div>
   </nav>
 
   <section class="stage" aria-label="Scene">
     <canvas id="scene" tabindex="0" role="application" aria-label="3D scene: agents, tools, resources and MCP servers" aria-describedby="scene-help"></canvas>
-    <p id="scene-help" class="sr-only">Arrow keys move the selection: Left and Right along a floor, Up and Down between floors. Page Up and Page Down step through everything, Home and End jump to the ends, Escape clears the selection, Enter shows the selected agent's column alone, Ctrl+Enter opens the selected file or address. Shift with an arrow key turns the camera, plus and minus zoom, F frames everything, R resets the camera. The list next to the scene holds the same items as text.</p>
+    <p id="scene-help" class="sr-only">Arrow keys move the selection: Left and Right along a floor, Up and Down between floors. Page Up and Page Down step through everything, Home and End jump to the ends, Escape clears the selection, Enter shows the selected agent's column alone, Ctrl+Enter opens the selected file or address, or shows the selected session. Shift with an arrow key turns the camera, plus and minus zoom, F frames everything, R resets the camera. The list next to the scene holds the same items as text.</p>
     <p id="empty" class="empty-scene" role="note">Waiting for the hub…</p>
     <div class="view-buttons" id="view-buttons" role="group" aria-label="View">
       <button type="button" id="frame">Frame all</button>

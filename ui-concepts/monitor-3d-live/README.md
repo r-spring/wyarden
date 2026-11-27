@@ -29,13 +29,22 @@ For *exact* calls, run **Wyarden 3D Monitor: Set Up Collectors…**. It shows th
 | Wyarden 3D Monitor: Remove Collectors | Takes it out. |
 | Wyarden 3D Monitor: Status | Prints the hub's figures to the Output panel. |
 
-In the scene: a click selects; a double-click on a file opens it in an editor beside the monitor (Ctrl+Enter does the same); a folder group with several files asks which one; a searched folder is revealed; an address opens in the browser after it has been shown and confirmed. The keys, the list for screen readers, the two looks and the view buttons are the mock-up's. A session that starts is framed into view, unless you have moved the camera: then it stays where you put it.
+In the scene: a click selects; a double-click on a file opens it in an editor beside the monitor (Ctrl+Enter does the same); a folder group with several files asks which one; a searched folder is revealed; an address opens in the browser after it has been shown and confirmed.
+
+**A double-click on an agent shows its session** (since 0.1.3; Ctrl+Enter does the same, and a subagent shows the session that started it):
+
+- **Its terminal,** when the session runs in a terminal of this window.
+- **Its Claude Code chat panel,** when the session is this window's own.
+- **Anything else gets one message and nothing is opened:** a session in another window, one with no terminal (it runs in the background), one that has ended. Nothing is ever started, stopped or resumed.
+
+The keys, the list for screen readers, the two looks and the view buttons are the mock-up's. A session that starts is framed into view, unless you have moved the camera: then it stays where you put it.
 
 ## What it does on your machine
 
 - **One connection per window.** Each window tells the hub its folders and keeps one loopback connection open. That connection is how a workspace counts as alive.
 - **One hub per machine.** The first window to start runs it, in a worker thread: no new process. It listens on `127.0.0.1` only. When that window closes, another window takes over at once (measured: up again within seconds); the picture is rebuilt from the session files and the transcripts.
 - **One small file of its own:** `~/.wyarden-monitor/hub.json`, with the port and two random tokens. The editor also remembers, for each workspace, which workspace you chose and how you left the view. Nothing leaves the machine.
+- **A double-click on an agent reads the process list once,** to find which terminal or which window runs that session. On Windows that is one run of Windows PowerShell, from the system folder; on Linux a few reads of `/proc`. Nothing of it is kept.
 - **No work while no tab is open.** The hub reads session files every 3 seconds and transcripts every 0.7 seconds only while a tab is showing a workspace. The page draws only when something changes. So the status bar item counts live sessions only while a tab is open somewhere; with none open it names the open workspaces and gives no count.
 - **Privacy.** A hook payload or a transcript line holds prompts, file contents and command lines. The hub keeps a fixed list of fields and drops the rest before anything is stored or drawn: tool and server names, a path relative to the session's folder (the base name alone for a file outside it), an address without its query, times and results. A name or an id that does not look like one is replaced by a stand-in made from its hash. One text is kept that is the owner's own words: a session's title, as its tab shows it (it is held in memory and shown in the view; it is written nowhere). See section 13 of [02-live-signals.md](../../docs/monitor-3d/02-live-signals.md).
 - **Collectors change your Claude Code settings**, in every account folder (`~/.claude`, each folder in `~/.claude-accounts`, and `$CLAUDE_CONFIG_DIR`). Only on the command, only after the diff and one confirmation, and never a backup copy (a settings file can hold secrets).
@@ -51,7 +60,9 @@ To remove everything: run **Remove Collectors**, uninstall the extension, and de
 - A session's end comes from its session file (its process is gone), a few seconds after the fact, then the session stays for 20 seconds and leaves.
 - A crashed session whose process id was taken by another program can stay listed as alive.
 - A remote window (WSL, SSH, a container) runs the extension on the remote side, so it has its own hub and shows that machine's sessions.
-- Routing an action to the window that owns the file, the tree view, the native context menu, and the three.js renderer are later phases.
+- **A session is shown only from the window that runs it.** From any other window a double-click says so. Routing an action to the window that owns the session or the file is a later phase.
+- **A session in a board card's own terminal** is not a terminal the editor lists, so it cannot be shown from here; a message says so.
+- The tree view, the native context menu, and the three.js renderer are later phases.
 
 ## The parts
 
@@ -64,6 +75,7 @@ To remove everything: run **Remove Collectors**, uninstall the extension, and de
 | `lib/discover.js`, `transcript.js` | Live sessions from the CLI's session files; a session's calls from its transcript. |
 | `lib/install.js` | Collectors: plan, write, remove. |
 | `lib/view.js`, `actions.js` | The tab and its policy; what a double-click does. |
+| `lib/procs.js` | A process and its ancestors: which terminal, or which window, runs a session. |
 | `media/` | The page: `page.html`, `page.js`, `host-feed.js`, and the mock-up's `model.js`, `layout.js`, `engine.js`, `nav.js`, the two looks and `style.css`. |
 | `test/` | `node --test "test/*.test.js"` runs everything; the page tests need Edge or Chrome and skip without one. |
 | `tools/pack.js` | Makes the VSIX with Node's own zlib. |

@@ -5,8 +5,9 @@
  *   - the source is host-feed.js, not the simulator: a snapshot replaces the model, an event is
  *     applied to it, a drop removes one session; the simulated-feed buttons are gone;
  *   - the workspace chips and the status line are new, and both only show what the host says;
- *   - a double-click or Ctrl+Enter on a file or an address asks the host to open it; a click tells
- *     the host what was selected and does nothing else;
+ *   - a double-click or Ctrl+Enter on a file or an address asks the host to open it, and on a session
+ *     or one of its subagents asks the host to show that session's terminal or chat panel (only to show
+ *     it: nothing is started or changed); a click tells the host what was selected and does nothing else;
  *   - the camera, the look, the pressed view buttons and the selection survive a reload through
  *     the webview's state, because VS Code destroys a hidden tab's page.
  *
@@ -123,11 +124,12 @@
     const next = n ? model.stackId(n.col, n.floor) : model.nodes.has('a:' + state.owner) ? 'a:' + state.owner : '';
     select(next, 'model');
   }
-  /** A double-click or Ctrl+Enter: only a file group or a URL group has an action in this slice. */
+  /** A double-click or Ctrl+Enter: a file group or a URL group is opened, a session (or a subagent's
+      session) is shown. nav.js decides which, so the "In VS Code" labels and this can never disagree. */
   function act(id) {
-    const n = model.nodes.get(id);
-    if (!N.opens(n)) return false;
-    feed.post({ type: 'act', action: 'open', target: { class: n.cls, id: n.id } });
+    const a = N.act(model.nodes.get(id), model);
+    if (!a) return false;
+    feed.post({ type: 'act', action: a.action, target: { class: a.class, id: a.id } });
     return true;
   }
   function onKey(e) {

@@ -20,6 +20,8 @@ const MAX_SESSION_FILE = 256 * 1024;
 /** Real session ids are UUIDs. The id becomes a file name, so a value that could climb out of the folder is refused. */
 const SESSION_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const STATUSES = new Set(['busy', 'idle', 'waiting']);
+/** Where a session runs, as its file says (Claude Code 2.1.332): the chat panel, a terminal, or no terminal at all. */
+const ENTRIES = new Set(['claude-vscode', 'cli', 'sdk-cli']);
 
 const isDir = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
 
@@ -78,11 +80,12 @@ const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
 /**
  * The live sessions in these config folders, in folder order:
- * [{agent, session, key, cwd, pid, status, waitingFor, updatedAt, statusUpdatedAt, procStart, title, configDir, transcript}]
+ * [{agent, session, key, cwd, pid, status, waitingFor, updatedAt, statusUpdatedAt, procStart, entry, title, configDir, transcript}]
  *
  * A pid can be reused by another program after a session crashed and left its file behind. The
  * file's `procStart` names the process exactly, but checking it needs the system's process table,
- * which this slice does not read: it is passed through for a later check.
+ * which this file does not read: it is passed through, and a double-click on a session checks it
+ * (lib/actions.js).
  */
 function liveClaudeSessions(dirs, { alive = pidAlive } = {}) {
   const byId = new Map();
@@ -111,6 +114,7 @@ function liveClaudeSessions(dirs, { alive = pidAlive } = {}) {
         updatedAt: num(s.updatedAt),
         statusUpdatedAt: num(s.statusUpdatedAt),
         procStart: typeof s.procStart === 'string' && /^\d{1,40}$/.test(s.procStart) ? s.procStart : undefined,
+        entry: ENTRIES.has(s.entrypoint) ? s.entrypoint : undefined,
         // The session's name is what its tab is titled. "derived" is the CLI's placeholder before a title exists
         // (the folder's name and two hex digits): that is not a title, so none is given.
         title: typeof s.name === 'string' && s.nameSource !== 'derived' && cleanText(s.name, 80) ? cleanText(s.name, 80) : undefined,

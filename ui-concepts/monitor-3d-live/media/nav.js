@@ -7,7 +7,8 @@
  * Copied from ui-concepts/monitor-3d/nav.js. Changed for live data: an agent shows its folder and
  * where its calls come from (Claude Code's hooks, exact, or the transcript, derived), and the
  * "In VS Code" list names only what is wired in this slice (a double-click or Ctrl+Enter opens a
- * file or an address) and says so plainly for every other class.
+ * file or an address, and shows a session's terminal or chat panel, also from one of its subagents)
+ * and says so plainly for every other class.
  * Changed again at the owner's word: an agent is named by its provider (the scene's caption says
  * "CLAUDE"), so the list and the inspector name the provider, its tab's title and its workspace.
  * In the scene the title shows only under the pointer; here it is always written out.
@@ -136,14 +137,16 @@
   /* ---------- the inspector ---------- */
 
   /* What VS Code does for each class in this slice. These are labels, not controls: the double-click
-     and Ctrl+Enter are the only ways in, and only a file or an address has anything behind them yet. */
+     and Ctrl+Enter are the only ways in. A file or an address is opened; a session, or the session a
+     subagent belongs to, is only shown (never started, stopped or changed). Nothing else has anything
+     behind them yet. */
   const ACTIONS = {
     open: ['Double-click, or Ctrl+Enter: open it in the editor', 'A folder with several files lists them first; a searched folder is shown in the Explorer.'],
     url: ['Double-click, or Ctrl+Enter: open the address', 'VS Code shows the address and asks before it opens your browser.'],
     select: ['A click selects it', 'The selection stays in this view. Nothing else happens.'],
     context: ['Nothing is wired for this kind of resource yet', 'A web search or an MCP resource keeps no address that could be opened.'],
-    agent: ['Nothing is wired for a session yet', 'Focusing its terminal or chat panel comes in a later step.'],
-    subagent: ['Nothing is wired for a subagent yet', 'Focusing its parent session comes in a later step.'],
+    agent: ['Double-click, or Ctrl+Enter: show its terminal or chat panel', 'For a session that runs in this window. For any other, a message says so and nothing is opened.'],
+    subagent: ['Double-click, or Ctrl+Enter: show its session', 'The terminal or chat panel of the session that started it, as for an agent.'],
     tool: ['Nothing is wired for a tool yet', 'A list of its last calls comes in a later step.'],
     mcp: ['Nothing is wired for an MCP server yet', 'Opening its configuration comes in a later step.'],
     stack: ['Nothing is wired for a stack yet', 'Tidy unfolds it when there is room.']
@@ -151,6 +154,20 @@
   const actions = keys => keys.map(key => ({ key, label: ACTIONS[key][0], detail: ACTIONS[key][1] }));
   /** Whether a double-click or Ctrl+Enter on this node asks the host to open something. */
   const opens = n => !!n && n.cls === 'resource' && (n.kind === 'file' || n.kind === 'url');
+  /**
+   * What a double-click or Ctrl+Enter on this node asks the host for, or null when it asks for nothing.
+   * A file group or a URL group is opened. An agent is shown (its terminal or chat panel), and a subagent
+   * shows the agent of its own session: the host knows a session by its agent node, not by a subagent.
+   * A subagent whose session or agent node is not in the model asks for nothing.
+   */
+  function act(n, model) {
+    if (opens(n)) return { action: 'open', class: n.cls, id: n.id };
+    if (!n) return null;
+    if (n.cls === 'agent') return { action: 'focus', class: 'agent', id: n.id };
+    if (n.cls !== 'subagent' || !model) return null;
+    const s = model.sessions.get(n.owner);
+    return s && model.nodes.has(s.agentId) ? { action: 'focus', class: 'agent', id: s.agentId } : null;
+  }
   /** Where an agent's calls come from, in plain words. The grade is named, as everywhere else. */
   const sourceOf = n => (n.collector
     ? 'exact, from ' + (n.kind === 'claude' ? "Claude Code's" : "the agent's") + ' hooks'
@@ -178,12 +195,12 @@
       fact('Subagents', [...s.nodes].filter(id => (model.nodes.get(id) || {}).cls === 'subagent').length);
       const last = s.history.slice(-5).reverse().map(c => clock(c.t) + '  ' + c.what + '  ' + (c.ok ? 'ok' : 'failed: ' + c.error) + (c.ms == null ? '' : '  ' + c.ms + ' ms' + (c.msGrade ? ' (' + c.msGrade + ')' : '')));
       if (last.length) out.lists.push({ title: 'Last calls', items: last });
-      out.actions = actions(['select', 'agent']);
+      out.actions = actions(['agent', 'select']);
     } else if (n.cls === 'subagent') {
       fact('Provider', providerName(providerOf(n, model))); fact('Type', n.type); fact('Id', n.sub); fact('Agent', ownerLabel(n, model)); fact('Calls seen', n.calls);
       if (n.reported != null) fact('Reported at stop', plural(n.reported, 'call') + (n.ms == null ? '' : ', ' + n.ms + ' ms'));
       fact('Started by call', n.parentCall);
-      out.actions = actions(['select', 'subagent']);
+      out.actions = actions(['subagent', 'select']);
     } else if (n.cls === 'tool') {
       fact('Tool', n.tool); fact('Kind of call', n.toolClass); fact('Agent', ownerLabel(n, model));
       fact('Calls', n.calls + ', ' + n.open + ' open, ' + n.failed + ' failed'); fact('Last call', result(n));
@@ -215,6 +232,6 @@
     return out;
   }
 
-  const api = { order, move, rows, line, describe, clock, opens, sourceOf, providerName, providerOf, agentName, columnTitle, ACTIONS };
+  const api = { order, move, rows, line, describe, clock, opens, act, sourceOf, providerName, providerOf, agentName, columnTitle, ACTIONS };
   if (inNode) module.exports = api; else root.MonitorNav = api;
 })(typeof window === 'undefined' ? globalThis : window);
