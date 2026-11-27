@@ -494,3 +494,43 @@ The owner installed 0.1.0 in his own VS Code, ran "Set Up Collectors" there, and
 | A checkpoint file carries the picture across a hand-over. | None. The new hub rebuilds from session files and transcripts; open calls of collector sessions are lost. |
 | "Focus the session" in five steps: the board's card, a terminal, the chat panel, another window through the hub, no window (6.2). | Since 0.1.3: the terminal and the chat panel, for the window the monitor is in (8.5). A session anywhere else gets a message. How a session was started is read from its session file, which 04 did not know of. |
 | three.js, the tree view, the native menu, actions routed between windows, the cost command, Codex, Grok Build, Antigravity. | Not built. |
+
+### 9.7 Version 0.1.3: a double-click on a session, 27 November
+
+The owner made a card of what the inspector said for a session ("Nothing is wired for a session yet. Focusing its terminal or chat panel comes in a later step.") and chose to have it wired. Section 8.5 is what was built. The work was split among subagents, each with its own files and one written contract: the page, the host, the process walk; then two reviewers who were given claims and no reasoning.
+
+**Measured first, on the owner's machine** (Claude Code 2.1.332; numbers and names only):
+
+- **A session's file says how it was started.** `entrypoint` was `claude-vscode`, `cli` or `sdk-cli` in every one of the 12 to 15 files read.
+- **`procStart` is the process's creation time.** For 11 of 11 running sessions it equalled `Win32_Process.CreationDate`, as a FILETIME, to within one microsecond. One leftover file named a process id that a browser process held by then: the two start times were 119 seconds apart.
+- **Where a session's process sits.** A chat panel session: the CLI, a Node process, the board's wrapper, then its window's extension host. Five open windows had five extension hosts. A headless session hangs under an extension host too, which is why the file's `entrypoint` is asked and not the chain alone.
+- **The process list:** about 570 processes. Read in 0.3 s inside a running PowerShell, and in 0.6 to 1.4 s from the extension's runtime, where PowerShell has to start first.
+
+**What ran:**
+
+| What | Where | Result |
+|---|---|---|
+| The tests, `node --test "test/*.test.js"` | Windows 11, Node 26.7.0, headless Edge | 344 tests: 340 pass, 0 fail, 4 skipped (the same four as before). |
+| The process walk's tests | the same, and Linux (WSL 2, Ubuntu), Node 24.21.0 | 22 of 22 on both. One of them starts real processes: a grandchild, its parent and the test itself come back in that order; on Linux the start time equals field 22 of the process's own `stat` file, on Windows it is a FILETIME of the last two minutes. |
+| The page tests | headless Edge | 26 of 26, none skipped. A real double-click on an agent, and Ctrl+Enter, each post one `act` with `focus`; a subagent posts it for its session's agent; the list twin does the same; a tool posts nothing. |
+| Deliberate breaks | each new group of assertions | 83 changes made on purpose in the action, the view, the process walk and the page. 82 made a test fail. The one that did not (leaving odd values in the copied chain) cannot change any outcome. |
+| The whole action against real sessions, as a dry run | this machine: 12 live sessions, 5 editor windows; the real session files and the real process list, with a stand-in for `vscode` that only records | Each of the 8 chat panel sessions was confirmed as its file's own process and would be shown under its own window only. Under the other four windows: "in another window". The 2 headless sessions: no command under any window. 60 pairs, the command 8 times. |
+
+**What the two reviews found:**
+
+| Found | Fixed by |
+|---|---|
+| The start-time check before the panel command was skipped whenever a start time was missing, and on Linux it always was. A leftover file whose process id another program under this extension host held could then start that session again. | No proof, no command (8.5). The process walk gives the start time on Linux too. |
+| `focus` asked the answer's own array whether it held a process id, and read the session id twice: once to check it, once to use it. Neither can be reached from a page or a file, only from inside the extension's own process. | Each answer is read once, and the chain is copied before it is looked into. |
+| The process walk took a depth above 16 when one was given. | It never goes past 16. |
+| The agent's label promised to show "a session that runs in this window". One in a board card's own terminal runs in this window and cannot be shown. | It names the two cases that are shown. |
+| In this document and the README: three messages not quoted as they are; the 1.5 seconds for terminals and the 15 seconds for the process list not named; "never throws" said of the whole file where only `ancestors` promises it. | Corrected. |
+
+**Not verified for 0.1.3:**
+
+- **The chat panel in a real editor.** Claude Code's command was never run by this extension: it is run for the first time when the owner double-clicks a session after reloading. It is the same command the board uses to bring a found session forward (`openFound`, `src/extension.ts`), and the conditions before it were checked against the real sessions. A session shown in Claude Code's side bar, not in a tab, was not looked at.
+- **A real double-click in a real editor's tab.**
+- **What Claude Code writes as `procStart` on Linux.** There was no CLI on the Linux at hand. If it is not the tick count, a chat panel is refused there (8.5).
+- **A process id that was really used again,** end to end: only the one leftover file's numbers, and invented tables.
+- **The 15 seconds and the 16 MB** for the process list, as real limits.
+- **The owner's own windows after the update:** it takes effect when they are reloaded.
