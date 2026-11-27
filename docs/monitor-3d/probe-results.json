@@ -1,0 +1,25 @@
+{
+  "_about": "Output of probe/shoot.js and probe/stability.js on 2026-11-26, headless Edge, 1600x1000 viewport, device scale 1. Per-second figures are 3-second averages. 'playing' = default state (replay running, motion on). 'pausedMotionOff' = replay paused and Motion/Packets switched off, so nothing in the data changes. labelsOneFrame counts text drawn in one frame with alpha > 0.2 (node captions plus the world's own signs) and the pairs whose boxes overlap by more than 2 px each way.",
+  "pages": {
+    "lattice": {"nodeCount": 40, "playing": {"framesPerSec": 40, "strokesPerSec": 129179, "scriptMsPerSec": 72, "taskMsPerSec": 113}, "pausedMotionOff": {"framesPerSec": 31.7, "strokesPerSec": 88350, "scriptMsPerSec": 60, "taskMsPerSec": 93}, "labelsOneFrame": {"labels": 52, "overlappingPairs": 13, "labelsInvolved": 20}},
+    "city": {"nodeCount": 40, "playing": {"framesPerSec": 27, "strokesPerSec": 63628, "scriptMsPerSec": 48, "taskMsPerSec": 74}, "pausedMotionOff": {"framesPerSec": 29.7, "strokesPerSec": 56634, "scriptMsPerSec": 46, "taskMsPerSec": 68}, "labelsOneFrame": {"labels": 55, "overlappingPairs": 9, "labelsInvolved": 15}},
+    "orbit": {"nodeCount": 40, "playing": {"framesPerSec": 16.3, "strokesPerSec": 55876, "scriptMsPerSec": 40, "taskMsPerSec": 59}, "pausedMotionOff": {"framesPerSec": 14.3, "strokesPerSec": 42613, "scriptMsPerSec": 35, "taskMsPerSec": 52}, "labelsOneFrame": {"labels": 50, "overlappingPairs": 14, "labelsInvolved": 22}},
+    "glass": {"nodeCount": 40, "playing": {"framesPerSec": 20.7, "strokesPerSec": 48174, "scriptMsPerSec": 43, "taskMsPerSec": 70}, "pausedMotionOff": {"framesPerSec": 17, "strokesPerSec": 32011, "scriptMsPerSec": 38, "taskMsPerSec": 61}, "labelsOneFrame": {"labels": 55, "overlappingPairs": 24, "labelsInvolved": 33}},
+    "synapse": {"nodeCount": 40, "playing": {"framesPerSec": 13.7, "strokesPerSec": 44458, "scriptMsPerSec": 47, "taskMsPerSec": 72}, "pausedMotionOff": {"framesPerSec": 11.3, "strokesPerSec": 31790, "scriptMsPerSec": 36, "taskMsPerSec": 59}, "labelsOneFrame": {"labels": 50, "overlappingPairs": 11, "labelsInvolved": 20}},
+    "horizon": {"nodeCount": 40, "playing": {"framesPerSec": 22, "strokesPerSec": 89035, "scriptMsPerSec": 55, "taskMsPerSec": 82}, "pausedMotionOff": {"framesPerSec": 23.7, "strokesPerSec": 85200, "scriptMsPerSec": 53, "taskMsPerSec": 77}, "labelsOneFrame": {"labels": 51, "overlappingPairs": 6, "labelsInvolved": 12}},
+    "terrain": {"nodeCount": 40, "playing": {"framesPerSec": 36, "strokesPerSec": 102131, "scriptMsPerSec": 138, "taskMsPerSec": 186}, "pausedMotionOff": {"framesPerSec": 50.3, "strokesPerSec": 120196, "scriptMsPerSec": 148, "taskMsPerSec": 197}, "labelsOneFrame": {"labels": 52, "overlappingPairs": 8, "labelsInvolved": 12}},
+    "lattice-80-nodes": {"nodeCount": 80, "playing": {"framesPerSec": 17, "strokesPerSec": 103587, "scriptMsPerSec": 55, "taskMsPerSec": 82}, "pausedMotionOff": {"framesPerSec": 16.3, "strokesPerSec": 84901, "scriptMsPerSec": 49, "taskMsPerSec": 73}, "labelsOneFrame": {"labels": 92, "overlappingPairs": 27, "labelsInvolved": 37}},
+    "city-80-nodes": {"nodeCount": 80, "playing": {"framesPerSec": 13.3, "strokesPerSec": 55213, "scriptMsPerSec": 41, "taskMsPerSec": 61}, "pausedMotionOff": {"framesPerSec": 13.3, "strokesPerSec": 43267, "scriptMsPerSec": 35, "taskMsPerSec": 54}, "labelsOneFrame": {"labels": 95, "overlappingPairs": 600, "labelsInvolved": 90}},
+    "glass-80-nodes": {"nodeCount": 80, "playing": {"framesPerSec": 7, "strokesPerSec": 29298, "scriptMsPerSec": 36, "taskMsPerSec": 59}, "pausedMotionOff": {"framesPerSec": 9, "strokesPerSec": 29619, "scriptMsPerSec": 33, "taskMsPerSec": 54}, "labelsOneFrame": {"labels": 95, "overlappingPairs": 43, "labelsInvolved": 50}}
+  },
+  "layoutStability": {
+    "_about": "probe/stability.js: layout(graph, 34 s) on the unreplayed seed. movedBy* = existing nodes whose position changed by more than 0.5 units. Insert1 puts one tool at index 25 of the node list; Append adds at the end.",
+    "model": {"nodes": 40, "edges": 52, "events": 32, "types": 12, "perType": {"workspace": 1, "orchestrator": 1, "subagent": 4, "agent": 4, "task": 6, "account": 5, "context": 3, "tool": 6, "worktree": 4, "check": 4, "main": 1, "remote": 1}},
+    "city": {"movedByAppend1": 0, "movedByInsert1": 11, "movedByAppend10": 0, "movedByOneSecond": 0},
+    "orbit": {"movedByAppend1": 0, "movedByInsert1": 12, "movedByAppend10": 0, "movedByOneSecond": 20},
+    "glass": {"movedByAppend1": 0, "movedByInsert1": 12, "movedByAppend10": 13, "movedByOneSecond": 0},
+    "synapse": {"movedByAppend1": 5, "movedByInsert1": 5, "movedByAppend10": 5, "movedByOneSecond": 0},
+    "horizon": {"movedByAppend1": 0, "movedByInsert1": 15, "movedByAppend10": 0, "movedByOneSecond": 39},
+    "terrain": {"movedByAppend1": 0, "movedByInsert1": 0, "movedByAppend10": 0, "movedByOneSecond": 0, "note": "Terrain has no layout of its own: it scales each node's hand-written fixture position, so new nodes go wherever the data says (all ten test tools landed on one point)."}
+  }
+}
