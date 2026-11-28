@@ -37,8 +37,8 @@
     // Neither rule: as in the original, a subagent is the agent's octahedron made smaller, and an MCP server and a
     // resource share the ring, told apart by size and colour. Every class has its own colour; no provider has one.
     claims: {},
-    // scene.js draws its labels in Consolas; style.css --mono names Cascadia Code first, but Cascadia is wider and the
-    // page's status line would wrap at 800 px and shrink the scene. Consolas first, then the rest of --mono.
+    // scene.js draws its labels in Consolas; style.css --mono names Cascadia Code first, but Cascadia is wider and with it a row of the
+    // page (most likely the status line) wraps at 800 px and the scene shrinks by 16 px. Consolas first, then the rest of --mono.
     font: "Consolas, 'Cascadia Code', 'SFMono-Regular', 'Liberation Mono', monospace",
     lineWidth: 1,                                         // the original's edges: 1 px with a 3 px glow
     glow: true,
@@ -108,7 +108,7 @@
         { lines: [ring(100)], color: '#61e5f5', alpha: .12, width: .7 },
         { lines: [ring(260)], color: '#28566b', alpha: .18, width: .7 },
         zone('CONTEXT / INPUT', min[0] - 130, cz),
-        zone('TOOLS / CAPABILITIES', cx, max[2] + 150),
+        zone('TOOLS / CAPABILITIES', min[0] + 230, min[2] - 70),
         zone('ISOLATED WORKTREES', max[0] + 30, cz - 40, 'right'),
         zone('INTEGRATION GATE', max[0] - 40, max[2] + 150, 'right')
       ];
