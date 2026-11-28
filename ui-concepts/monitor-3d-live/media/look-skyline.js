@@ -19,7 +19,7 @@
  * - The arrangement is not carried: the four floors and the columns stay. A tower's height and roof no longer
  *   follow its state; each class has one.
  * - The original's slabs are white over the ground; a floor here has one colour for its tint and its outline, so
- *   the slab is the ground's colour with an ink outline. The stage's soft gradient is one colour. A shape has one
+ *   the slab is the ground's colour with an ink outline. A shape has one
  *   fill, so the original's solid roof over tinted glass walls is one even tint, at .6.
  * - The backdrop is the street round the blocks: a kerb round each column's ground block and the street's centre
  *   line, in faint ink. Nothing moves.
@@ -60,6 +60,9 @@
       // The marks: colours no class has. Needs you the original's violet, failed its ink, working its title teal.
       state: { needs: O.violet, failed: O.ink, working: O.title, unclear: O.muted, idle: O.muted, done: O.muted },
       clash: O.clash,
+      // skyline.gd line 44: stage_inner #fbfaf6 to stage_outer #e4e2d8 round stage_center (0.5, 0.45), stage_reach 0.95.
+      // The reach is taken as the place of the outer colour, as synapse.gd's 0.75 is the 75% of its page's own gradient.
+      ground: { shape: 'round', at: [.5, .45], stops: [[0, '#fbfaf6'], [.95, '#e4e2d8']] },
       outline: O.ink,
       fill: .6, solid: 1, floorFill: 0, floorLine: .6, post: .35, captionBack: 0, captionHalo: .9
     },

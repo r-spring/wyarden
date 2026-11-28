@@ -98,7 +98,10 @@
       ui: "Consolas, 'Liberation Mono', monospace",
       titleFont: "Georgia, 'Times New Roman', serif", titleStyle: 'italic', titleWeight: '400', titleSize: '20px',
       titleSpacing: '0px', titleCase: 'none', titleColor: '#f1c9ee',
-      headFont: "Consolas, 'Liberation Mono', monospace", labelSpacing: '1px', labelCase: 'uppercase', radius: '14px'
+      // The inspector's heading: .synapse .node-title, italic 26px Georgia (a heading here takes the family, not the
+      // slant). The small labels: .panel-label, the page's --mono.
+      headFont: "Georgia, 'Times New Roman', serif", labelFont: "Consolas, 'Liberation Mono', monospace",
+      labelSpacing: '1px', labelCase: 'uppercase', radius: '14px'
     },
     /**
      * The nervous system, standing still: a root ring and roots under the lowest floor; a trunk rising behind the

@@ -73,7 +73,9 @@
       ui: "'Segoe UI', Arial, sans-serif",
       titleFont: "Georgia, 'Times New Roman', serif", titleStyle: 'normal', titleWeight: '400', titleSize: '20px',
       titleSpacing: '0px', titleCase: 'none', titleColor: O.text,
-      headFont: "Consolas, 'Liberation Mono', monospace", labelSpacing: '.8px', labelCase: 'uppercase', radius: '3px'
+      // The inspector's heading: .glass .node-title, 29px Georgia. The small labels: .glass .panel-label, 8px --mono.
+      headFont: "Georgia, 'Times New Roman', serif", labelFont: "Consolas, 'Liberation Mono', monospace",
+      labelSpacing: '.8px', labelCase: 'uppercase', radius: '3px'
     },
     /**
      * The section: one glass slab under each floor, wider than the columns, with its fine grid, a fainter slab just
