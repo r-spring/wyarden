@@ -13,7 +13,9 @@
  * a slot; colours are the picture's (cyan for agents and resources, amber for the rest) and never a state's;
  * the districts are the columns, numbered, not providers; the grid lies under the floors, not round a
  * downtown. Left out: the road traffic and every other thing that moves, the skybridges (they would cross
- * the floors), the downtown rings, the viewport's radial glow and scan lines (a look has one background colour).
+ * the floors), the downtown rings, and the viewport's scan lines. Kept since the contract's second round: the
+ * viewport's radial glow (palette.ground), each node's label in its own colour (palette.captionNode), and the
+ * panels' small labels in the page's Consolas under Segoe UI headings (page.labelFont).
  *
  * A look is palette, meshes, lettering and a still backdrop. It has no say in where a node stands.
  */
@@ -57,11 +59,16 @@
       // The source's own: amber for "waiting", its alert for "blocked", its text and quiet text for the rest.
       state: { needs: C.secondary, failed: C.alert, working: C.text, unclear: C.muted, idle: C.muted, done: C.muted },
       clash: C.alert,
+      // worlds.css .city .viewport: radial-gradient(ellipse at 50% 75%, #103143, var(--bg) 75%).
+      ground: { shape: 'round', at: [.5, .75], stops: [[0, '#103143'], [.75, C.bg]] },
+      // The source's engine.js line 75: a node's label is in the node's own colour (the selected one in the text colour).
+      captionNode: true,
       fill: .06, solid: .6, floorFill: .03, floorLine: .4, post: .35, captionBack: 0, captionHalo: .85
     },
     page: {
       ui: "Consolas, 'Liberation Mono', monospace",
       headFont: "'Segoe UI', Arial, sans-serif",
+      labelFont: "Consolas, 'Liberation Mono', monospace",   // worlds.css .panel-label: the body's --mono, 7px, spaced 1.3px
       titleFont: "'Segoe UI', Arial, sans-serif", titleStyle: 'normal', titleWeight: '300', titleSize: '20px',
       titleSpacing: '3px', titleCase: 'uppercase', titleColor: C.text,
       labelSpacing: '1.3px', labelCase: 'uppercase', radius: '3px'

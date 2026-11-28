@@ -16,8 +16,10 @@
  * - The original had no MCP server, URL or folded pile: an MCP server takes the original's integration slab
  *   (main / remote), a URL a smaller one, a file and a context the original's context chip, a pile the
  *   original's worktree plates.
- * - The title is 20 px, the most the bar holds (46 px in the original); the stage is one colour where the
- *   original had a faint gradient from #f5f7f1 to #e5ede4.
+ * - The title is 20 px, the most the bar holds (46 px in the original).
+ * - The original lettered each node in its own colour. Here every caption keeps the page's dark teal: on this pale
+ *   ground the original's two colours have a contrast of 4.1 and 2.2 to 1, under the 4.5 a caption must have
+ *   (LOOKS.md), so palette.captionNode would change nothing and is left out.
  *
  * Kept apart from its two relatives (`glasshouse`, `glasshouse-mockup`): two colours only, the original's flat
  * chips (an agent is a three-step chip, not a solid or a tower with a mast), lift shafts, the salmon floor,
@@ -60,6 +62,8 @@
       // have (it had one alert colour, and the two marks must be told apart by more than shape on a pale floor).
       state: { needs: '#b87700', failed: O.alert, working: O.text, unclear: O.muted, idle: O.muted, done: O.secondary },
       clash: O.alert,
+      // worlds.css line 8, .glass .viewport: linear-gradient(#f5f7f1, #e5ede4): daylight from above.
+      ground: { shape: 'straight', from: [.5, 0], to: [.5, 1], stops: [[0, '#f5f7f1'], [1, '#e5ede4']] },
       // Flat chips over clear glass. The original's labels stood on a soft shadow of the background: a halo.
       fill: .24, solid: .9, floorFill: .035, floorLine: .42, post: .3, captionBack: 0, captionHalo: .9
     },
