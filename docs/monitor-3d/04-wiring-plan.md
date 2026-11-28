@@ -371,7 +371,7 @@ For a session the board started, the board holds a live stream that a hook canno
 | **Tokens are never** | logged, sent to the page, written into a workspace, or put on a command line (`curl -K`). |
 | **A wrong token** | gets a plain 404, the same as an unknown path. |
 | **Browsers are refused** | Any request with an `Origin` or `Sec-Fetch-Site` header is refused. The `Host` header must be exactly `127.0.0.1:<port>`, which stops DNS rebinding. Ingest takes POST with `application/json` only. |
-| **Events are untrusted** | Every field is checked against the contract, cut to its limit and stripped of control characters. The page writes text with `textContent` only. Added 28 November 2026: the working mock-up's 0.1.5 also shows the selected agent's thinking, which its window reads from the transcript and not from the hub; that text is written with `textContent` only too (05 section 8.6). |
+| **Events are untrusted** | Every field is checked against the contract, cut to its limit and stripped of control characters. The page writes text with `textContent` only. Added 28 November 2026: the working mock-up's 0.1.7 also shows the selected agent's thinking, which its window reads from the transcript and not from the hub; that text is written with `textContent` only too (05 section 8.6). |
 | **Actions are resolved, not obeyed** | An "open" names a node id. The host turns it into a file only if the path stays inside a folder a window owns (no `..`, no link out of it). A URL opens only as `http` or `https`, and only after a modal confirmation that shows it. |
 | **Limits** | Body size, events per second and connection count (section 2.8). A hub that is overrun drops and counts; it never stalls the agent. |
 | **A taken port** | A window that cannot bind asks `/v1/hello` with the control token. No valid answer means another program holds the port; the view says so, and set-up offers to pick a new one and rewrite the collectors. |
@@ -386,7 +386,7 @@ For a session the board started, the board holds a live stream that a hook canno
 - **Absolute paths** stay in the hub's memory, to route and to locate. A stored or forwarded record carries `ws` and a relative path. A path outside the root is `{outside: true, name}`.
 - **The checkpoint** holds the redacted model only: no absolute path, no `cwd`, no token.
 - **A test proves it** (section 9.2): marker strings planted in every field that must be dropped may not appear in any output.
-- **Added 28 November 2026.** The working mock-up's 0.1.5 makes one exception, on the host side: the window that was asked reads the selected agent's thinking from its transcript and shows it on its own page only (05 sections 4 and 8.6). The hub's rule here is unchanged. Its tests are in `ui-concepts/monitor-3d-live/test/`: `thinking.test.js`, `thinking-watch.test.js`, `thinking-page.test.js`, `thinking-privacy.test.js`.
+- **Added 28 November 2026.** The working mock-up's 0.1.7 makes one exception, on the host side: the editor window whose monitor asked reads the selected agent's thinking from its transcript and shows it on that monitor's page only (05 sections 4 and 8.6). The hub's rule here is unchanged. Its tests are in `ui-concepts/monitor-3d-live/test/`: `thinking.test.js`, `thinking-watch.test.js`, `thinking-page.test.js`, `thinking-privacy.test.js`.
 
 ---
 
@@ -626,7 +626,7 @@ All are plain `node --test` files under `test/`, run through `test/run.js` as th
 - Every raw payload carries a marker string in each field 02 §13 says is never kept: a command line, file content, a tool result, a prompt, a reply, a URL's query, an absolute path, a home folder, a user name.
 - After the payloads pass through the hub, **no marker may appear** in any event, snapshot, checkpoint, spool file, log line, error or message to the page.
 - A second assertion: no stored record holds an absolute path of either system's form.
-- **Added 28 November 2026.** In the working mock-up's 0.1.5 the page also gets the selected agent's thinking, which can repeat a prompt or a file. It does not pass through the hub, so the assertions above still hold for everything that does; its own tests are `test/thinking.test.js`, `test/thinking-watch.test.js`, `test/thinking-page.test.js` and `test/thinking-privacy.test.js`, under `ui-concepts/monitor-3d-live/` (05 section 8.6).
+- **Added 28 November 2026.** In the working mock-up's 0.1.7 the page also gets the selected agent's thinking, which can repeat a prompt or a file. It does not pass through the hub, so the assertions above still hold for everything that does; its own tests are `test/thinking.test.js`, `test/thinking-watch.test.js`, `test/thinking-page.test.js` and `test/thinking-privacy.test.js`, under `ui-concepts/monitor-3d-live/` (05 section 8.6).
 
 ### 9.3 Hub and installer, without VS Code
 

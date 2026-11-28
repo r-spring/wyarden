@@ -4,9 +4,9 @@
  * else. This file asks the hub what the node stands for, finds the session's transcript itself (the page
  * never names a path), reads its thinking with lib/thinking.js, and posts the answer to the page that
  * asked. While the agent stays selected it looks again every few seconds, and reads again only when the
- * file changed. The watch ends only when it is stopped or replaced, or when the transcript's path is one
- * this window may not look at: a hub that does not answer, or a session file caught half-written, is
- * looked at again, so the view recovers by itself.
+ * file changed. The watch ends only when it is stopped or replaced, when the transcript's path is one
+ * this window may not look at, or when the hub names another provider's session: a hub that does not
+ * answer, or a session file caught half-written, is looked at again, so the view recovers by itself.
  *
  * A look that fails is not taken at its word. A negative ("gone", "ended", "unreadable", and a "none",
  * "unrecorded" or "not-yet" that would take back thoughts already shown) is said only when the next look

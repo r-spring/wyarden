@@ -44,7 +44,7 @@ Run **Wyarden 3D Monitor: Choose Workspace** if you prefer a list. A chip repres
 - An agent is an icosahedron, and a subagent is a dodecahedron. The workspace name appears on the tile beneath the agent. Point to an agent to see its session title.
 - The view arranges each session's activity in a column with related tool, MCP server, and resource nodes. Lines show calls between nodes. The preview draws up to 12 sessions per view and reports how many are left out.
 - Select a node to see its details. Double-click a file or press **Ctrl+Enter** on it to open it beside the monitor. For a grouped set of files Wyarden offers a picker. It asks before opening a URL in your browser.
-- Since 0.1.5, select a Claude Code agent to see the thinking its session has done, newest first, in the **Thinking** section under its details. It stays current while the agent is selected. In the sessions measured, most showed only a count: Claude Code wrote thinking text only for a session started with the hidden `--thinking-display summarized` flag. For a session that has thought without that flag, the section counts the thoughts and says no text was recorded. A subagent's thinking is not shown.
+- Since 0.1.7, select a Claude Code agent to see the thinking its session has done, newest first, in the **Thinking** section under its details. It stays current while the agent is selected. In the 14 transcripts measured, most thinking left only a count. In six probe sessions, Claude Code wrote thinking text only when the session was started with the hidden `--thinking-display summarized` flag. For a session that has thought without that flag, the section counts the thoughts and says no text was recorded. A subagent's thinking is not shown.
 - Double-click an agent or press **Ctrl+Enter** to show its terminal or Claude Code panel when Wyarden can confirm the session is in this editor window. A subagent opens its parent session. For a session in another window, switch to that window first.
 - Switch between **NEXUS** and **Glasshouse** to change the appearance while keeping the layout. New sessions are framed automatically until you move the camera.
 
@@ -64,7 +64,7 @@ The hub keeps connection details in `~/.wyarden-monitor/hub.json`. The editor re
 
 When you open a session from its agent node, the monitor checks the local process list to match the session to this window. It keeps that information in memory only for the lookup.
 
-Since 0.1.5, when you select a Claude Code agent, the window you selected it in reads that session's thinking from its Claude Code transcript and shows it in that window only. Thinking is the model's own text, not yours, and it can repeat a prompt, a file's contents, or a command line. Wyarden sends it neither to another window nor to the shared hub, writes it nowhere, and clears it when you select something else. Check the **Thinking** section before you share a screenshot or paste it into a bug report.
+Since 0.1.7, when you select a Claude Code agent, the editor window that opened the monitor reads that session's thinking from its Claude Code transcript and shows it in that monitor only. Thinking is the model's own text, not yours, and it can repeat a prompt, a file's contents, or a command line. Wyarden sends it neither to another window nor to the shared hub, writes it nowhere, and clears it when you select something else. Check the **Thinking** section before you share a screenshot or paste it into a bug report.
 
 ## Troubleshoot
 

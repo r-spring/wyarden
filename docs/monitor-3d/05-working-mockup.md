@@ -16,7 +16,7 @@ This document is the contract the parts were built against. Sections 1 to 8 say 
 | "No dead workspaces." | A workspace is listed only while a window holds its connection. When the window closes, the connection drops and the workspace leaves the list at once. |
 | "Only what is alive." | A session is drawn only when its folder is inside an open workspace. An ended session leaves the scene 20 seconds after its end. A session whose process is gone is ended. |
 | "VS Code and the open-source builds, Windows and Linux." | Plain JavaScript, no package, no native code, no build step. Only stable `vscode` API. One VSIX for every system and editor. Paths are handled by their own form (Windows or POSIX), so both forms are tested on both systems. |
-| "I want to be able to see the thinking that it's done." (27 November, a card) | Since 0.1.5, a selected Claude Code agent shows the thinking its session has done, newest first, in a "Thinking" section under the inspector, kept current while it stays selected. The window it was selected in reads it from the transcript, shows it on its own page and writes it nowhere. This is an exception to the privacy rule, and the owner chose it knowing that (sections 4 and 8.6). |
+| "I want to be able to see the thinking that it's done." (27 November, a card) | Since 0.1.7, a selected Claude Code agent shows the thinking its session has done, newest first, in a "Thinking" section under the inspector, kept current while it stays selected. The extension host of the editor window that opened the monitor reads it from the transcript, shows it on that monitor's page and writes it nowhere. This is an exception to the privacy rule, and the owner chose it knowing that (sections 4 and 8.6). |
 
 ## 2. The parts
 
@@ -39,8 +39,8 @@ This document is the contract the parts were built against. Sections 1 to 8 say 
    extension.js, lib/view.js         the tab, its HTML and policy, the messages
    lib/actions.js                    a double-click becomes a VS Code call
    lib/procs.js                      a process and its ancestors: where a session runs
-   lib/thinking.js                   the selected agent's thinking, from its transcript (0.1.5)
-   lib/thinking-watch.js             reads it again while the transcript changes (0.1.5)
+   lib/thinking.js                   the selected agent's thinking, from its transcript (0.1.7)
+   lib/thinking-watch.js             reads it again while the transcript changes (0.1.7)
    lib/install.js                    collectors: plan, show, write, remove
    |  postMessage
    v
@@ -76,7 +76,7 @@ The vocabulary is [02-live-signals.md](02-live-signals.md) section 11, and `medi
   - `title`: the title of the session's tab, from the CLI's session file (`name`, unless it is the CLI's placeholder). The scene shows it under the agent only while the pointer is on the agent; the inspector and the list always have it.
   - `space`: the name of the workspace the session works in, which is its window's title. The tile the agent stands on is labelled with it.
 - **The title is an addition to what may be kept** (02 section 13 lists no session title). The owner asked for it on 27 November. It is the text the editor already shows on the tab; it is cleaned and cut like every other text, held in memory, sent only to the windows of this machine's editors, and written nowhere.
-- **Thinking is an exception to what may be kept** (since 0.1.5; 02 section 13 keeps no assistant text). The owner asked for it in a card on 27 November ("I want to be able to see the thinking that it's done.") and the same day chose this monitor as its place, told that it changes this rule. `CONTRIBUTING.md` asks that a privacy change be discussed in an issue first; this one was the maintainer's own decision, and this document is its record. It is not like the title: the title is the owner's own words and goes through the hub, while thinking is the model's own text and can repeat a prompt, a file's content or a command line. So it takes the path of the 0.1.3 double-click, a read by the one window that was asked: read from the transcript by that window, for the one selected session; held in that window's memory for one answer; posted to that window's page only; shown as text. It is sent to no hub and to no other window, and written nowhere: not to a file, a log, the output channel, a notification, the status bar, the editor's saved state or the page's saved state. It is gone from the page when the selection moves. It is not an event or a record of this section (8.6). So: check the Thinking section before sharing a screenshot or pasting it into a bug report.
+- **Thinking is an exception to what may be kept** (since 0.1.7; 02 section 13 keeps no assistant text). The owner asked for it in a card on 27 November ("I want to be able to see the thinking that it's done.") and the same day chose this monitor as its place, told that it changes this rule. `CONTRIBUTING.md` asks that a privacy change be discussed in an issue first; this one was the maintainer's own decision, and this document is its record. It is not like the title: the title is the owner's own words and goes through the hub, while thinking is the model's own text and can repeat a prompt, a file's content or a command line. So it takes the path of the 0.1.3 double-click, a read by the one window that was asked: read from the transcript by the extension host of the editor window that opened the monitor, for the one selected session; held in that host's memory for one answer; posted to that monitor's page only; shown as text. It is sent to no hub and to no other window, and written nowhere: not to a file, a log, the output channel, a notification, the status bar, the editor's saved state or the page's saved state. It is gone from the page when the selection moves. It is not an event or a record of this section (8.6). So: check the Thinking section before sharing a screenshot or pasting it into a bug report.
 - **`src` values:** `hook:<Event>`, `args:<tool>` (a file or address read from a hook's tool arguments), `transcript:<Event>`, `sessions-file`, `hub:known` (a session the hub already knew, shown because its workspace opened), `hub:gone` (its process ended), `hub:silent` (no end signal and no event for 30 minutes).
 - **Ids and names are kept only when they look like ids and names** (`contract.safeId`, `safeName`): a call, turn or subagent id made of id characters; a tool, server, model or agent-type name made of name characters and at most four words. Any other value becomes a stand-in made from its hash (`id-…`, `unnamed-…`), so a path or a command line cannot ride in a name field. A session id that is not letters, digits, `-` and `_` is not a session, and its payload is refused.
 - **The hub adds `seq`** to every event: a whole number rising by one. Order is `seq`.
@@ -158,7 +158,7 @@ await readThinking(file, limits);   // -> {ok: true, size, mtimeMs, whole, thoug
 thinkingIn(lines, limits);          // -> {thoughts, recorded, unrecorded, more} from lines already read; no I/O
 ```
 
-- **A second reader of the transcript (since 0.1.5).** The tail reads calls for the hub. `lib/thinking.js` reads thinking, for one window, when that window asks (8.6). It is not part of the hub and gives no events.
+- **A second reader of the transcript (since 0.1.7).** The tail reads calls for the hub. `lib/thinking.js` reads thinking, for one monitor, when its page asks (8.6). It is not part of the hub and gives no events.
 - **What it reads:** the `thinking` and `redacted_thinking` blocks of `assistant` records. A block with text is a recorded thought, with its record's time (`at`, in ms, or null). A block with no text once cleaned (most hold only a signature: 9.8) and a `redacted_thinking` block are counted in `unrecorded`. A subagent's records (`isSidechain: true`) are skipped, as by the tail.
 - **A block the CLI wrote twice** is counted once. Each block is named by 16 hex characters of a SHA-256 of its signature (else of its `data`, else of its message id and text), so the names it holds while it reads hold neither a signature nor any text.
 - **One read for one answer:** one `stat`, then the file is opened, read and closed in one go (on Windows an open handle can stop the CLI from replacing its file). The read starts at a line of its own: it takes the last 4 MB and the one byte before them, to tell; a line the window cut is dropped, and so is a character it cut. The last line may be half written: it is tried, and passed over if it does not parse. `size` and `mtimeMs` are from that `stat`, so the watch (8.6) can skip a file that has not changed. Nothing is kept between calls.
@@ -276,10 +276,10 @@ Every message has `v: 1` and a `type`.
 | host to page | `{type: "hub", state, role, collectors: {claude: {state, folders, installed}}}` | The status line. `state`: `connecting`, `up`, `blocked`, `stopped`. Collector `state`: `installed`, `partly`, `missing`. |
 | host to page | `{type: "look", look}` | `nexus` for a dark theme, `glasshouse` for a light one. |
 | page to host | `{type: "scope", scope}` | A chip was chosen: `all` or a workspace key. |
-| page to host | `{type: "select", target: {class, id}}` | A click. The host does nothing with it. Since 0.1.5 the page also posts `thinking` when the selection becomes a Claude Code agent or leaves one (below). |
+| page to host | `{type: "select", target: {class, id}}` | A click. The host does nothing with it. Since 0.1.7 the page also posts `thinking` when the selection becomes a Claude Code agent or leaves one (below). |
 | page to host | `{type: "act", action, target: {class, id}, member}` | A double-click, or Ctrl+Enter on the selection. `action`: `open` for a file group or a URL group; `focus` for a session (since 0.1.3), with the session's agent node as the target, also when a subagent was double-clicked. |
-| page to host | `{type: "thinking", target: {class: "agent", id}}`, or `{type: "thinking", target: null}` | Since 0.1.5: a Claude Code agent became the selection; or the selection left it, for anything else or for none (8.6). |
-| host to page | `{type: "thinking", id, state, thoughts: [{at, text}], recorded, unrecorded, more, whole}` | Since 0.1.5: the selected agent's thinking, to this window's page only (8.6). |
+| page to host | `{type: "thinking", target: {class: "agent", id}}`, or `{type: "thinking", target: null}` | Since 0.1.7: a Claude Code agent became the selection; or the selection left it, for anything else or for none (8.6). |
+| host to page | `{type: "thinking", id, state, thoughts: [{at, text}], recorded, unrecorded, more, whole}` | Since 0.1.7: the selected agent's thinking, to this monitor's page only (8.6). |
 
 - **The page never names a path, a command, a process or a window.** The host asks the hub to resolve the node.
 - **The host checks** every message's shape, and refuses an id that does not resolve. For `thinking`, such an id is answered `gone` once two looks in a row agree, and is asked again (8.6).
@@ -289,7 +289,7 @@ Every message has `v: 1` and a `type`.
 | File | What |
 |---|---|
 | `media/page.html` | The page's markup, with three placeholders the host fills: `{{csp}}`, `{{nonce}}`, `{{base}}`. No inline script or style; every script and the stylesheet carry the nonce. |
-| `media/host-feed.js` | The seam of 04 section 5.1: `create(api)` (the page hands it what `acquireVsCodeApi()` returned), then `subscribe(onEvent)` with `(event, scope)`, and the handlers `onSnapshot(state, scope, record)`, `onDrop(key, why, scope)`, `onWorkspaces(message)`, `onHub(message)`, `onLook(look)`, and since 0.1.5 `onThinking(message)`; `post(message)`; `start()`. |
+| `media/host-feed.js` | The seam of 04 section 5.1: `create(api)` (the page hands it what `acquireVsCodeApi()` returned), then `subscribe(onEvent)` with `(event, scope)`, and the handlers `onSnapshot(state, scope, record)`, `onDrop(key, why, scope)`, `onWorkspaces(message)`, `onHub(message)`, `onLook(look)`, and since 0.1.7 `onThinking(message)`; `post(message)`; `start()`. |
 | `media/page.js` | Joins the feed, the model and the view. Replaces the mock-up's `app.js`: the simulated-feed buttons are gone, the workspace chips are new. |
 | `media/nav.js`, `style.css`, `engine.js`, `look-*.js`, `layout.js`, `model.js` | From the mock-up. `nav.js` describes an agent with its folder and its source. |
 
@@ -314,7 +314,7 @@ Every message has `v: 1` and a `type`.
 | `lib/actions.js` | `open`: resolve, then `showTextDocument` beside the monitor (a covered tab has no page); a Quick Pick first when the group holds more than one file; for a searched folder `revealInExplorer` when it is in this window, else `revealFileInOS`; for a URL a modal confirmation that shows it, then `openExternal`. `focus`: section 8.5. |
 | `lib/procs.js` | `ancestors(pid)`: the process and its ancestors, nearest first. Section 8.5. |
 | `lib/thinking.js` | `readThinking(file)`: the thinking a transcript holds, newest first, within the limits of 8.6. Section 6. |
-| `lib/thinking-watch.js` | `checkThinking(message)`, the page's `thinking` message checked; `createWatch(deps)`, the watch on the selected agent's transcript: one read at a time, every 3 seconds while the agent is selected and the tab is visible, a new read only when the file's size or time changed. Section 8.6. |
+| `lib/thinking-watch.js` | `checkThinking(message)`, the page's `thinking` message checked; `createWatch(deps)`, the watch on the selected agent's transcript: one read at a time, every 3 seconds while the agent is selected and the monitor is visible, a new read only when the file's size or time changed. Section 8.6. |
 | `lib/install.js` | Section 8.4. |
 | `package.json` | Commands: "Wyarden 3D Monitor: Open", "…: Choose Workspace", "…: Set Up Collectors…", "…: Remove Collectors", "…: Status". |
 
@@ -398,30 +398,32 @@ await ancestors(pid)     // -> { chain: [pid, parent, grandparent, ...], known, 
 - **A subagent whose session is not in the page's model** posts nothing, so nothing happens. Its session's agent node stands as long as the session does, so this is a moment at most.
 - **No hub change.** How a session was started is read by the window that was asked, so a window of 0.1.3 works with a hub of 0.1.2.
 
-### 8.6 Thinking, for the selected agent (since 0.1.5)
+### 8.6 Thinking, for the selected agent (since 0.1.7)
 
 The owner's card of 27 November: "I want to be able to see the thinking that it's done." The same day he chose this monitor as its place, told that it changes the privacy rule (section 4; 02 section 13). `CONTRIBUTING.md` asks that a privacy change be discussed in an issue first; this one was the maintainer's own decision, and this section is its record.
 
-- **The rule:** the thinking of the one selected agent goes to the window that asked, and nowhere else. It is read from the transcript by that window, for that one session; held in that window's memory for one answer; posted to that window's page only; shown as text. It is sent to no hub and to no other window, and written nowhere: not to a file, a log, the output channel, a notification, the status bar, the editor's saved state or the page's saved state. It is gone from the page when the selection moves.
+- **The rule:** the thinking of the one selected agent goes to the monitor that asked, and nowhere else. It is read from the transcript by the extension host of the editor window that opened that monitor, for that one session; held in that host's memory for one answer; posted to that monitor's page only; shown as text. It is sent to no hub and to no other window, and written nowhere: not to a file, a log, the output channel, a notification, the status bar, the editor's saved state or the page's saved state. It is gone from the page when the selection moves.
 - **Why this path.** Thinking is the model's own text, not the owner's words, and it can repeat a prompt, a file's content or a command line. The title (section 4) goes through the hub; this takes the path of the 0.1.3 double-click (8.5): a read by the one window that was asked.
 - **So: check the Thinking section** before sharing a screenshot or pasting it into a bug report.
 - **Claude Code sessions only,** since only Claude Code's transcripts are read. The page asks for thinking only when the selected agent is a Claude Code agent. For an agent of another provider there is no Thinking section. If the hub ever names another provider's session for an asked node, the watch stops and nothing is posted.
-- **The page** posts `{type: "thinking", target: {class: "agent", id}}` when a Claude Code agent becomes the selection, and `{type: "thinking", target: null}` when the selection leaves it, for anything else (a subagent too) or for none. It names no path. The host takes only `class: "agent"` and an id of an agent node's exact form, `a:<agent>:<session>`, with no other key in the target.
+- **The page** posts `{type: "thinking", target: {class: "agent", id}}` when a Claude Code agent becomes the selection, and `{type: "thinking", target: null}` when the selection leaves it, for anything else (a subagent too) or for none. A move between two nodes that are not Claude Code agents posts nothing. It names no path. The host takes only `class: "agent"` and an id of an agent node's exact form, `a:<agent>:<session>`, with no other key in the target.
 - **The host** asks three things, in this order:
   1. **The hub:** which session is this node? (`resolve`, 7.4.)
   2. **Claude Code's own session file:** where the session's transcript is (`transcript`, section 6), by the same lookup as the double-click of 8.5. The path comes from `lib/discover.js`, never from the page.
   3. **The transcript:** `readThinking` (section 6).
 - **The watch** (`lib/thinking-watch.js`):
-  - **One read at a time.** The first look comes 200 ms after the selection, so stepping across agents with the arrow keys starts one look. A view never has two transcript reads in flight. An answer for an earlier selection is dropped.
-  - **Then every 3 seconds,** while the agent stays selected and the tab is visible, it looks at the transcript's size and time, and reads it again only when they changed.
-  - **It keeps looking.** It ends only when the selection moves, the tab is hidden or closed, the page loads again, the transcript's path is one it may not look at (then `not-yet`), or the hub names another provider's session (above). After `gone` or `ended` it looks again every fifth tick (15 seconds), and every 3 seconds again once a look succeeds, so it recovers by itself.
+  - **One read at a time.** The first look comes 200 ms after the selection (`FIRST_MS`), so a quick run across agents with the arrow keys starts one look. A view never has two transcript reads in flight. An answer for an earlier selection is dropped.
+  - **Then every 3 seconds,** while the agent stays selected and the monitor is visible, it looks at the transcript's size and time, and reads it again only when they changed. A `stat` that says the file is missing counts as `not-yet` without a read.
+  - **It keeps looking.** It ends only when the selection moves, the monitor is hidden or closed, the page loads again, the transcript's path is one it may not look at (then `not-yet`), or the hub names another provider's session (above). After `gone` or `ended` it looks again every fifth tick (15 seconds), and every 3 seconds again once a look finds the transcript, so it recovers by itself.
 - **A failed check is never shown as a negative at once.** The hub's client answers "no session" both when the hub says so and when the request failed (`lib/hub-client.js`). So `gone` cannot tell "the hub does not know this node" from "the hub did not answer". That is why its line says only what was checked, and that it is asked again.
   - `gone`, `ended` and `unreadable` are said only when two looks in a row agree.
-  - An answer that would withdraw thoughts already shown (`none`, `unrecorded` or `not-yet` after `recorded`) also needs two looks.
+  - Once thoughts have been shown, any later `none`, `unrecorded` or `not-yet` also needs two looks, for the rest of that watch.
+  - A look that tells nothing (a hub request or a session lookup that throws), or finds the file unchanged since the answer now shown, forgets a pending negative. A file unchanged since the look that gave a pending `none` or `unrecorded` confirms it without a second read.
+  - After `gone` was said, a pending `ended` is confirmed at the next look, 15 seconds later.
   - A `recorded` answer is shown at once.
-  - `unreadable` is posted only while nothing has been shown. After something was shown, a failed read leaves it as it is.
+  - `unreadable` is said only while nothing else has been said for this selection. After that, a failed read leaves the line and the thoughts as they are, and the next look reads again.
 - **No error of the watch is logged or shown,** since its message could hold some of the text.
-- **The answer** goes to this window's page only: `{type: "thinking", id, state, thoughts: [{at, text}], recorded, unrecorded, more, whole}`, the thoughts newest first. Of the transcript it holds thinking text, its time and counts: no prompt, no answer, no tool input, no signature, no path. The reader's `size`, `mtimeMs` and `ok` stay in the host.
+- **The answer** goes to this monitor's page only: `{type: "thinking", id, state, thoughts: [{at, text}], recorded, unrecorded, more, whole}`, the thoughts newest first. Of the transcript it holds thinking text, its time and counts: no prompt, no answer, no tool input, no signature, no path. The reader's `size`, `mtimeMs` and `ok` stay in the host.
 - **The page** writes the text with `textContent` only, in a `details` element with its own scroll, headed "Thinking", under the inspector: each thought with its time (UTC) when the record has one. It is not a control: no button, no link, no input; its heading only opens and closes it. It refuses a message of any other shape whole, and never saves the text, posts it back or reads it out in its live region.
 - **The agent's "In VS Code" list says so,** for a Claude Code agent. Its second row was "A click selects it: The selection stays in this view. Nothing else happens." It is now "A click selects it: This window reads its thinking from the session's transcript and shows it under Thinking. Nothing else is done." Every other class, and an agent of another provider, keeps the old row.
 
@@ -429,10 +431,10 @@ The owner's card of 27 November: "I want to be able to see the thinking that it'
 
 | `state` | When | The status line |
 |---|---|---|
-| `gone` | The hub names no session for the node, in two looks in a row: it does not know it, or it did not answer. | "The hub names no session for this node. It is asked again." |
-| `ended` | No session file names the session, in two looks in a row. | "This session has ended." |
-| `not-yet` | Its transcript file does not exist yet, or its path is one the watch may not look at, such as a path on another machine (section 9.4). | "This session's transcript is not written yet." |
-| `unreadable` | The transcript could not be read, in two looks in a row, and nothing has been shown yet. | "This session's transcript could not be read. It is tried again." |
+| `gone` | The hub names no session for the node, in two looks in a row: it does not know the node, or the request failed. | "The hub names no session for this node. It is asked again." |
+| `ended` | No session file names the session with a live process, in two looks in a row (a session file caught half-written looks the same). | "This session has ended." |
+| `not-yet` | Its transcript file does not exist yet; or its path is one the watch may not look at, such as a path on another machine (section 9.4), which ends the watch. | "This session's transcript is not written yet." |
+| `unreadable` | The transcript could not be read, in two looks in a row, and nothing else has been said for this selection. | "This session's transcript could not be read. It is tried again." |
 | `none` | The transcript holds no thinking. | "No thinking in this session yet." When only the end of the file was read: "No thinking in the last part of the transcript. Only its end was read." |
 | `unrecorded` | The session thought, and Claude Code recorded no text for it. | "Claude thought N times here, and Claude Code recorded no text for it. It records the text for a session started with --thinking-display summarized." Then, when only the end of the file was read: "Only the end of the transcript was read." |
 | `recorded` | Text was recorded. | "N thoughts recorded." Then, when more were left out: "Only the newest is shown." if one thought is shown, else "The newest M are shown."; then, when some left no text: "K more left no text."; then, when only the end of the file was read: "Only the end of the transcript was read." |
@@ -445,11 +447,11 @@ The owner's card of 27 November: "I want to be able to see the thinking that it'
 - **40:** the newest thoughts in one answer. `more` counts the recorded ones left out.
 - **60,000 characters** of thinking text in one answer. The newest thought is always given; after it, the first that does not fit ends the list.
 - **12,000 characters:** one thought is cut to this, its closing ellipsis included. The reader marks it `cut`; the page gets the cut text and not the mark.
-- **Cleaned:** control characters become spaces (a tab and a line break are kept), the text is trimmed, and a run of empty lines is kept to one.
+- **Cleaned:** control characters become spaces (a tab and a line break are kept), the text is trimmed, and a run of three or more line breaks is kept to two.
 - **Main thread only:** a subagent's records (`isSidechain`) are not read, as for calls.
 - **A block the transcript holds twice is counted once.**
 
-- **No hub change.** The hub, its events, its models, its snapshots and what it sends to windows are exactly as before. The thinking is read by the window that was asked, so a window of 0.1.5 works with a hub of 0.1.3 or 0.1.4.
+- **The hub is asked only for `resolve`,** which this feature does not change (7.4). Nothing of the thinking passes through the hub.
 
 ## 9. Verified, and not
 
@@ -567,7 +569,7 @@ The owner installed 0.1.0 in his own VS Code, ran "Set Up Collectors" there, and
 | SessionStart and SessionEnd hooks. | Neither (9.2). |
 | A checkpoint file carries the picture across a hand-over. | None. The new hub rebuilds from session files and transcripts; open calls of collector sessions are lost. |
 | "Focus the session" in five steps: the board's card, a terminal, the chat panel, another window through the hub, no window (6.2). | Since 0.1.3: the terminal and the chat panel, for the window the monitor is in (8.5). A session anywhere else gets a message. How a session was started is read from its session file, which 04 did not know of. |
-| The privacy rule is 02 section 13, and no marker of a prompt or a reply may reach the page (4.6, 9.2). | Since 0.1.5, one exception: the selected agent's thinking, which can repeat either. The window that was asked reads it from the transcript and shows it on its own page; it never passes through the hub (8.6). |
+| The privacy rule is 02 section 13, and no marker of a prompt or a reply may reach the page (4.6, 9.2). | Since 0.1.7, one exception: the selected agent's thinking, which can repeat either. The extension host of the editor window that opened the monitor reads it from the transcript and shows it on that monitor's page; it never passes through the hub (8.6). |
 | three.js, the tree view, the native menu, actions routed between windows, the cost command, Codex, Grok Build, Antigravity. | Not built. |
 
 ### 9.7 Version 0.1.3: a double-click on a session, 27 November
@@ -613,9 +615,9 @@ The owner made a card of what the inspector said for a session ("Nothing is wire
 
 **Version 0.1.4, the same day.** The real editor's output channel showed one line at every start-up: "onState failed: ReferenceError". The hub client was started before the status bar item was made, and its first state arrives inside `start()`. The client caught it and the item was set a moment later, so nothing else was wrong. It has been there since 0.1.0. The client now starts after the item is made, and the whole-extension test fails if a listener of the hub client throws. 344 tests: 340 pass, 0 fail, the same 4 skipped. The real-editor check above was run once more on 0.1.4: the output channel's 37 lines hold no such line, terminal A came to the front again (1.0 second), and the control gave its message. 0.1.4 is not a release: the public release is 0.1.3.
 
-### 9.8 Version 0.1.5: the selected agent's thinking, 28 November
+### 9.8 Version 0.1.7: the selected agent's thinking, 28 November
 
-The owner made a card on 27 November ("I want to be able to see the thinking that it's done.") and the same day chose this monitor as its place, told that it changes the privacy rule. Section 8.6 is what was built, and section 4 records the exception. The work was split among subagents, each with its own files; then reviewers.
+The owner made a card on 27 November ("I want to be able to see the thinking that it's done.") and the same day chose this monitor as its place, told that it changes the privacy rule. Section 8.6 is what was built, and section 4 records the exception. The work was split among subagents, each with its own files; then reviewers. This version sits on 0.1.6, and the merge needed one repair: the stand-in editor of `test/thinking-watch.test.js`, because the monitor now opens as a tab that is moved to a floating window.
 
 **Measured first, on the owner's machine** (27 November 2026, Claude Code 2.1.332, model claude-fable-5-2; counts only, no text was copied):
 
@@ -624,12 +626,20 @@ The owner made a card on 27 November ("I want to be able to see the thinking tha
   - **No flag:** one thinking block each, none with text, in both shapes.
   - **`"showThinkingSummaries": true` in a `--settings` file:** one block each, none with text, in both shapes. The request changed (`thinking.display: "updates"` and its beta were dropped), but no text came.
   - **`--thinking-display summarized`:** text in the transcript in both shapes (470 and 544 characters). The flag is hidden from `claude --help`.
-- **The reader on those six transcripts:** its counts matched the independent count for each. Two had one recorded thought (470 and 544 characters before cleaning); four had one unrecorded.
 - **Read in the code of the Claude Code VS Code extension 2.1.332, and not run:** with `showThinkingSummaries: true` in the user's Claude settings, the extension itself starts its panel sessions with `--thinking-display=summarized`. Not verified.
+
+**What ran:**
+
+| What | Where | Result |
+|---|---|---|
+| The tests, `node --test "ui-concepts/monitor-3d-live/test/*.test.js"` | Windows 11, Node 26.7.0, headless Edge, after the merge of 0.1.6 | 451 tests: 433 pass, 0 fail, 4 skipped (the same four as before), 14 to do (the looks run's stubs, not this feature's). 87 seconds. |
+| The four new test files alone | The same | `thinking.test.js` 23, `thinking-watch.test.js` 16, `thinking-page.test.js` 11, `thinking-privacy.test.js` 6: 56 tests, all pass. |
+| The reader on six real transcripts, counts only | The six probe sessions above | Each count matched the independent count: two with one recorded thought (470 and 544 characters before cleaning), four with one thought that left no text. All six were short enough to be read whole. |
+| Faults made on purpose, in copies outside the repository | The reader (10), the hub path (11), the host and the page (12 by a reviewer, 3 more for the new page checks) | Every fault made a test fail, except the two page leaks named in the reviews table, which do now. |
 
 **What the three reviews found:**
 
-Three reviewers were given claims and no reasoning. One attacked the privacy boundary: the reader's output, the host path, one window only, asking by node id only, the page side, and whether the tests can fail, with ten leaks planted one at a time in a copy. The boundary held on every attack, and each of the ten leaks was caught. One attacked the watch's behaviour. One compared the documents with the code.
+Three reviewers were given claims and no reasoning. One attacked the privacy boundary: the reader's output, the host path, one window only, asking by node id only, the page side, and whether the tests can fail. The boundary held on every attack. For the tests, it planted twelve leaks, one at a time, in a copy: ten were caught by the tests as they were, and two were not (the next-to-last row below; they are caught now). One attacked the watch's behaviour. One compared the documents with the code.
 
 | Found | Fixed by |
 |---|---|
@@ -649,9 +659,12 @@ Three reviewers were given claims and no reasoning. One attacked the privacy bou
 - **The session lookup** (`lib/discover.js`, unchanged, and already used by the double-click) looks into each Claude config folder, one of which the environment can name. The transcript path made from it is checked before it is touched; the folder is not.
 - **Whether a session has ended is decided when the watch starts.** If it ends while selected, its thoughts stay as last read until the node leaves the scene.
 - **After something has been shown, a read that fails leaves the old answer in place,** with no mark that it is old.
-- **The watch is stopped by the tab being hidden or closed.** Nothing stops it at deactivation; its timer does not keep the editor's process alive.
+- **The watch is stopped by the monitor being hidden or closed.** Nothing stops it at deactivation; its timer does not keep the editor's process alive.
+- **After `gone` or `ended` was said, if the hub then answers but every read fails,** nothing new is posted, and the old line stays until a read succeeds.
+- **Only transcript reads are kept to one at a time.** Stepping across agents more slowly than 200 ms against a slow hub can leave one hub request per step in flight, each bounded by the client's 5-second limit.
+- **A read that never settled would hold back every later read for that view.** The reader's reads are plain file reads, and no case is known that does not settle.
 
-**Not verified for 0.1.5:**
+**Not verified for 0.1.7:**
 
 - **The Thinking section in a real editor.** Only the page tests, in headless Edge, and the host tests, with stand-ins for `vscode`, exercise it.
 - **A transcript longer than 4 MB, and one that holds a block twice, on real data.** Only invented data.
