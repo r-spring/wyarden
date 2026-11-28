@@ -114,6 +114,7 @@ function startHub(options = {}) {
     core.setInfo({ role: options.role === 'worker' ? 'worker' : 'thread', off });
 
     const conns = new Map();         // window id -> {res, pending, id}
+    const actions = new Map();       // relay id -> request and its candidate editor connections
     const sockets = new Set();
     const tails = new Map();         // session key -> tail
     let flushQueued = false, closing = false, discoveryTimer = null, tailTimer = null;
@@ -338,7 +339,7 @@ function startHub(options = {}) {
         res.write(JSON.stringify({ type: 'hello', v: 1, epoch, pid: process.pid, proof: contract.hubProof(hub.control, nonce) }) + '\n');
         const id = contract.safeId(win.id) || 'w-' + crypto.randomBytes(4).toString('hex');
         const old = conns.get(id);
-        const conn = { id, res, pending: [], progressAt: Date.now() };
+        const conn = { id, res, pending: [], progressAt: Date.now(), actions: win.actions === true };
         conns.set(id, conn);
         if (old) old.res.end();                       // the same window again: the old line is done
         beforeScope(scope);
@@ -346,6 +347,10 @@ function startHub(options = {}) {
         if (got === null) { conns.delete(id); res.end(JSON.stringify({ type: 'bye', why: 'too-many-windows' }) + '\n'); return; }
         syncTimers();
         const gone = () => {
+          for (const action of actions.values()) {
+            if (action.origin === conn || action.claimed === conn) action.finish(action.claimed ? 'failed' : undefined);
+            else if (action.peers.delete(conn) && !action.peers.size) action.finish();
+          }
           if (conns.get(id) !== conn) return;
           conns.delete(id);
           core.detach(id);
@@ -361,6 +366,54 @@ function startHub(options = {}) {
         let answer;
         try { answer = fn(body); } catch (error) { log('warn', 'a control request failed: ' + className(error)); answer = {}; }
         json(res, 200, answer, nonce);
+      });
+    };
+
+    const relay = (req, res, nonce, pathname) => {
+      readBody(req, CONTROL_BODY, buffer => {
+        if (!buffer || pathname !== contract.actionPath(buffer)) return notFound(res);
+        const body = parse(buffer);
+        const conn = conns.get(body?.window);
+        if (!conn?.actions || closing) return json(res, 200, {}, nonce);
+        if (typeof body.id === 'string') {
+          const pending = actions.get(body.id);
+          if (!pending?.peers.has(conn)) return json(res, 200, {}, nonce);
+          if (body.claim === true) {
+            const granted = !pending.claimed;
+            if (granted) pending.claimed = conn;
+            return json(res, 200, { granted }, nonce);
+          }
+          pending.peers.delete(conn);
+          if (pending.claimed === conn) {
+            const expected = pending.action === 'focus' ? ['terminal', 'panel'] : ['opened', 'revealed'];
+            pending.finish(expected.includes(body.result) ? body.result : 'failed');
+          } else if (!pending.peers.size) pending.finish();
+          return json(res, 200, {}, nonce);
+        }
+
+        const { action, target } = body;
+        if (!target || typeof target.id !== 'string' || target.id.length > 1200 ||
+            (target.member !== undefined && (typeof target.member !== 'string' || target.member.length > LIMITS.path))) {
+          return json(res, 400, {}, nonce);
+        }
+        if (actions.size >= 32) return json(res, 200, { result: 'failed' }, nonce);
+        const peers = core.actionWindows(conn.id, action, target).map(id => conns.get(id)).filter(peer => peer?.actions && !peer.res.destroyed);
+        if (!peers.length) return json(res, 200, {}, nonce);
+        // The first workspace holding a file is the most specific. A session's terminals are tested in parallel.
+        if (action === 'open') peers.length = 1;
+        const id = contract.newNonce();
+        const pending = { origin: conn, action, peers: new Set(peers), claimed: null, finish };
+        const timer = setTimeout(() => finish(pending.claimed ? 'failed' : undefined), contract.ACTION_WAIT_MS);
+        timer.unref();
+        actions.set(id, pending);
+        res.on('close', () => finish());
+        function finish(result) {
+          if (!actions.delete(id)) return;
+          clearTimeout(timer);
+          if (!res.destroyed) json(res, 200, { result }, nonce);
+        }
+        const node = { class: action === 'focus' ? 'agent' : 'resource', id: target.id };
+        for (const peer of peers) core.onSend(peer.id, { type: 'action', id, action, target: node, member: target.member });
       });
     };
 
@@ -380,6 +433,7 @@ function startHub(options = {}) {
         const pathname = pathOf(url);
         const nonce = pathname.startsWith('/v1/') ? contract.checkRequest(hub.control, req.method, pathname, req.headers.authorization) : null;
         if (!nonce) return notFound(res);
+        if (req.method === 'POST' && /^\/v1\/action\/[0-9a-f]{64}$/.test(pathname)) return relay(req, res, nonce, pathname);
         if (req.method === 'POST' && pathname === '/v1/attach') return attach(req, res, nonce);
         if (req.method === 'POST' && pathname === '/v1/update') {
           return control(req, res, nonce, body => {
@@ -436,6 +490,7 @@ function startHub(options = {}) {
           if (wsCancel) { wsCancel(); wsCancel = null; }
           if (stuckTimer) { clearInterval(stuckTimer); stuckTimer = null; }
           closeTails();
+          for (const action of actions.values()) action.finish(action.claimed ? 'failed' : undefined);
           closed = new Promise(done => {
             server.close(() => done());
             for (const conn of [...conns.values()]) {
