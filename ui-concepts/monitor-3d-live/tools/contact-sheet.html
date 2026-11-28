@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Wyarden 3D monitor: the contact sheet of the looks' pictures. tools/shoot-sheet.js serves this page, with
+     docs/looks/looks.json at /looks.json and docs/looks/img/<id>.png at /img/<id>.png, on 127.0.0.1 only, and
+     photographs it in headless Edge or Chrome. It is not shipped (tools/ is not in the VSIX). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The 18 looks</title>
+<style>
+  html, body { margin: 0; background: #e9e7e1; color: #1d1d1b; font: 14px/1.3 "Segoe UI", system-ui, sans-serif; }
+  main { display: grid; grid-template-columns: repeat(3, 400px); gap: 18px 16px; padding: 20px; width: max-content; }
+  figure { margin: 0; }
+  img { display: block; width: 400px; height: 225px; border: 1px solid #9a978f; box-sizing: border-box; }
+  figcaption { margin-top: 5px; display: flex; gap: 8px; align-items: baseline; }
+  .n { color: #77746c; font-variant-numeric: tabular-nums; }
+  code { font: 600 14px/1.3 Consolas, "Cascadia Code", monospace; }
+  .name { color: #55524b; }
+</style>
+</head>
+<body>
+<main id="sheet"></main>
+<script>
+  // One figure for each look, in the list's order, each picture with its id under it. window.sheetReady says when
+  // every picture has loaded: { count, missing: [ids whose picture did not load] }.
+  window.sheetReady = fetch('/looks.json').then(r => r.json()).then(list => Promise.all(list.map((look, i) => new Promise(done => {
+    const figure = document.createElement('figure'), img = new Image(), caption = document.createElement('figcaption');
+    img.alt = look.name; img.width = 400; img.height = 225;
+    img.onload = () => done(null); img.onerror = () => done(look.id);
+    img.src = '/img/' + encodeURIComponent(look.id) + '.png';
+    const n = document.createElement('span'), id = document.createElement('code'), name = document.createElement('span');
+    n.className = 'n'; n.textContent = String(i + 1).padStart(2, '0');
+    id.textContent = look.id;
+    name.className = 'name'; name.textContent = look.name;
+    caption.append(n, id, name);
+    figure.append(img, caption);
+    document.getElementById('sheet').append(figure);
+  }))).then(missing => ({ count: list.length, missing: missing.filter(Boolean), width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight })));
+</script>
+</body>
+</html>

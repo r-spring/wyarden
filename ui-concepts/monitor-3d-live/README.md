@@ -37,7 +37,16 @@ Click a node to select it. Double-click a file or press Ctrl+Enter to open it in
 - **Its Claude Code chat panel** when the session's process can be confirmed in that editor.
 - The status bar shows “3D Monitor: looking for the session…” during the lookup. Wyarden gives a message if the session has ended or has no terminal or panel it can show.
 
-The keys, the list for screen readers, the two looks and the view buttons are the mock-up's. A session that starts is framed into view, unless you have moved the camera: then it stays where you put it.
+The keys, the list for screen readers and the view buttons are the mock-up's. A session that starts is framed into view, unless you have moved the camera: then it stays where you put it.
+
+## Looks
+
+The monitor has 18 looks (since 0.1.8). Every look draws the same things in the same places; a look changes only colours, shapes, lettering and a still backdrop. A state is never a colour: it is a mark beside the shape and a word in its caption.
+
+- **To switch:** the bar at the top says **Look**, then three buttons. The look's name opens the list of all 18, in four groups; click one, or use the arrow keys and Enter. Escape closes the list. **‹** and **›** step to the previous and the next look.
+- **Until you choose,** the editor's theme picks: `nexus` in a dark theme, `glasshouse` in a light one. Once you choose, the tab keeps your look, also after a reload.
+- **In a browser, with nothing installed:** `node ui-concepts/monitor-3d-live/tools/preview.js` from the repository's top folder serves the same page on invented data at a loopback address and prints it. Add `?look=<id>` to open on one look, for example `?look=synapse`. Ctrl+C stops it.
+- **More:** [LOOKS.md](LOOKS.md) is how to write a look; [docs/looks/README.md](../../docs/looks/README.md) is the list, with a picture of each.
 
 ## What it does on your machine
 
@@ -82,9 +91,10 @@ To remove everything: run **Remove Collectors**, uninstall the extension, and de
 | `lib/view.js`, `actions.js` | The floating webview, its policy and double-click actions. |
 | `lib/procs.js` | A process and its ancestors: which terminal, or which window, runs a session. |
 | `lib/thinking.js`, `thinking-watch.js` | The selected agent's thinking, read from its transcript; the watch that reads it again when the file changes, every 3 seconds at most. |
-| `media/` | The page: `page.html`, `page.js`, `host-feed.js`, and the mock-up's `model.js`, `layout.js`, `engine.js`, `nav.js`, the two looks and `style.css`. |
+| `media/` | The page: `page.html`, `page.js`, `host-feed.js`, `looks.js` (the list of looks and the switcher), the 18 `look-<id>.js`, and the mock-up's `model.js`, `layout.js`, `engine.js`, `nav.js` and `style.css`. |
 | `test/` | `node --test "test/*.test.js"` runs everything; the page tests need Edge or Chrome and skip without one. |
 | `tools/pack.js` | Makes the VSIX with Node's own zlib. |
+| `tools/preview.js`, `shoot-looks.js`, `shoot-sheet.js` | The browser preview; a look's picture; the contact sheet of all 18 (`docs/looks/img/contact-sheet.png`). None of `tools/` ships. |
 
 ## Borrowed code
 
