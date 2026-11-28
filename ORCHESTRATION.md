@@ -69,7 +69,10 @@
 - **7917d5** (Robert's own) landed on main at 14:22 on 27 November as monitor 0.1.3, and is in this branch since the merge `ac7437b`. It may still add to the monitor.
 - **1d9e1b** (Robert's own) published the 0.1.3 preview and took the Entomatical extension out of this repository (`9f73bb0`). This repository is now the public Wyarden monitor.
 - **33ceee** (Robert's own, live) changed course at about 14:20: it now adds a display of agent thinking to this same monitor. The root told it on 27 November which files and parts this run changes, and asked which it will change.
-- **The board delivers this branch to main when a turn of the root ends.** So main carries this run's work as it is integrated, and other cards meet it there.
+- **637e7b** (Robert's own, live since 28 November 01:18, on Grok) works on Codex and workspace agents in this monitor. The root sent it the same note, and asked to hear of any new provider, so that every look gets a colour for it.
+- **Versions:** 7917d5 took 0.1.4; 33ceee plans 0.1.5. Step 10 takes the next free number when it runs.
+- **The board delivers this branch to main when a turn of the root ends,** and commits whatever is uncommitted then. So this branch holds only integrated, passing work at the end of every turn.
+- **A window reload ends every card's session.** It cut off the foundation twice on 27 November. Children are told to commit after each part.
 
 ## Limits asked for
 
@@ -83,7 +86,7 @@
 |---|---|---|---|
 | 9a8eb9 | Root | Running | List written and delivered (`docs/looks/README.md`); where and which settled with Robert; approved 27 November 14:17, not a governed run; `monitor-live-tests` on main (e7082f3) |
 | e9327e | 1. Foundation, first try | Cancelled 14:26 | Opened 14:19; its session was interrupted at 14:23 when the board's windows restarted; it had read and changed nothing |
-| 575957 | 1. Foundation | Opened 14:27 from `e2730d6`, Claude Fable, effort high, check `monitor-live-tests` | |
+| 575957 | 1. Foundation | Running. Opened 27 November 14:27, Claude Fable, effort high, check `monitor-live-tests`. Cut off at 14:38 by a window reload with nothing changed; fast-forwarded to `4704617` and resumed 28 November 01:20, told to commit after each part | |
 
 ## Risks
 
