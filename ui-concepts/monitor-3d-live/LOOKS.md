@@ -145,4 +145,31 @@ node ui-concepts/monitor-3d-live/tools/shoot-looks.js <id>
 - **The test** checks every built look: it is complete; it keeps what it claims; nothing stands elsewhere than in NEXUS; its backdrop is still and inside the limits; a real click on its button shows it with 0 frames at rest and no script error; its picture differs from every other look's; the scene keeps its size; a frame at about 200 nodes is inside the budget. It leaves a picture of the page in `ui-concepts/monitor-3d-live/.scratch/looks/<id>.png`, which git ignores.
 - **The whole suite** is `node --test "ui-concepts/monitor-3d-live/test/*.test.js"`.
 - **The shoot tool** writes `docs/looks/img/<id>.png` for the ids you name and no other: the page at 1280 x 720 on one fixed invented scene with every class and state. With `samples` it also writes `docs/looks/img/<id>-<name>.png` for each. Commit those pictures with your look.
-- **To see it yourself,** open the picture, or run the test and open the one in `.scratch/looks/`.
+- **To see it yourself,** open the picture, or run the test and open the one in `.scratch/looks/`, or use the preview below.
+
+## Preview
+
+**What it is:** the live tab's own page (`media/page.html`, `page.js`, `style.css`, the engine and every look file, as the VSIX carries them) in your browser, on invented data. Every look is one click away in the switcher. Nothing is installed.
+
+Run it from the repository's top folder:
+
+```
+node ui-concepts/monitor-3d-live/tools/preview.js [port]
+```
+
+- **It prints the address,** for example `http://127.0.0.1:51122/`. With no port it takes a free one. It listens on 127.0.0.1 only. Ctrl+C stops it.
+- **The address carries the choices.** The page has no control for them.
+
+| Choice | Does | Default |
+|---|---|---|
+| `?look=<id>` | Opens on that look. An id that is not in `media/looks.js` is ignored. A look you click is written back into the address, so a reload keeps it. | the colour scheme's: `nexus` dark, `glasshouse` light |
+| `?seed=<integer>` | The simulator's seed. The same seed gives the same stream. | 7 |
+| `?agents=1\|4\|12` | Sessions at once. | 4 |
+| `?load=quiet\|busy` | How busy they are. | busy |
+| `?warm=<seconds>` | How long the stream has run before the first picture, 0 to 600. | 90 |
+
+Example: `http://127.0.0.1:51122/?look=glasshouse-mockup&agents=12`.
+
+**What is invented:** everything shown. The stream is the older page's seeded simulator, `ui-concepts/monitor-3d/feed.js`: one session for each provider (Claude, Codex, Grok, Antigravity), and their subagents, tools, MCP servers, files, folders and addresses. Calls start and end; some wait for the owner, and some fail. The two editor windows are invented too: `demo-shop` holds the Claude and Grok sessions, `notes-app` the Codex and Antigravity ones. Their chips and "All open" work. The hub's status line is invented. A double-click that would open a file in the editor only writes a line in the browser's console.
+
+**How it works:** `tools/preview.js` fills `media/page.html` as the extension host does: the host's own content security policy, a nonce and the media folder's address. Before the page's scripts it puts two more: the simulator, and `tools/preview/editor.js`, a stand-in for the editor. The stand-in gives the page `acquireVsCodeApi()` and answers it as the host and the hub do. Neither file is in `media/`, so the VSIX never carries them. `test/preview.test.js` checks all of this.
