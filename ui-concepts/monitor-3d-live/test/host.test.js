@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const C = require('../lib/contract.js');
-const { MonitorView, policy, fillTemplate, validScope, SCOPE_KEY } = require('../lib/view.js');
+const { MonitorView, VIEW_TYPE, policy, fillTemplate, validScope, SCOPE_KEY } = require('../lib/view.js');
 const actions = require('../lib/actions.js');
 
 const temp = t => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wym-')); t.after(() => fs.rmSync(dir, { recursive: true, force: true })); return dir; };
@@ -22,12 +22,16 @@ function fakeVscode(answers = {}) {
   const calls = [], status = [];
   const uri = value => ({ value, fsPath: value, toString: () => value });
   const panels = [];
+  class TabInputWebview { constructor(viewType) { this.viewType = viewType; } }
+  const main = { viewColumn: 1, tabs: [] }, floating = { viewColumn: 2, tabs: [] };
+  const tabGroups = { activeTabGroup: main, all: [main, floating] };
   const vscode = {
-    calls, panels, status,
+    calls, panels, status, TabInputWebview,
     Uri: { joinPath: (base, ...parts) => uri([base.value, ...parts].join('/')), file: p => uri('file:' + p), parse: (text, strict) => uri(text) },
-    ViewColumn: { Active: -1, Beside: -2 },
+    ViewColumn: { Active: -1, Beside: -2, One: 1 },
     ColorThemeKind: { Light: 1, Dark: 2, HighContrast: 3, HighContrastLight: 4 },
     window: {
+      tabGroups,
       activeColorTheme: { kind: 2 },
       createWebviewPanel(type, title, column, options) {
         const panel = {
@@ -38,11 +42,14 @@ function fakeVscode(answers = {}) {
             postMessage: message => { panel.posted.push(message); return Promise.resolve(true); },
             onDidReceiveMessage: fn => { panel.handlers.message = fn; }
           },
-          reveal() { panel.revealed++; },
+          reveal() { panel.revealed++; }, dispose() { panel.handlers.dispose(); },
           onDidChangeViewState: fn => { panel.handlers.state = fn; },
           onDidDispose: fn => { panel.handlers.dispose = fn; }
         };
         panels.push(panel);
+        main.activeTab = { input: new TabInputWebview(type) };
+        main.tabs = [main.activeTab];
+        tabGroups.activeTabGroup = main;
         return panel;
       },
       showTextDocument: async (u, options) => { calls.push(['showTextDocument', u.value, options]); },
@@ -56,7 +63,12 @@ function fakeVscode(answers = {}) {
       }))
     },
     commands: {
-      executeCommand: async (name, ...args) => { calls.push(['executeCommand', name, typeof args[0] === 'string' ? args[0] : args[0] && args[0].value]); },
+      executeCommand: async (name, ...args) => {
+        if (name === 'workbench.action.moveEditorToNewWindow') {
+          floating.tabs = main.tabs; floating.activeTab = main.activeTab;
+          main.tabs = []; main.activeTab = undefined; tabGroups.activeTabGroup = floating;
+        } else calls.push(['executeCommand', name, typeof args[0] === 'string' ? args[0] : args[0] && args[0].value]);
+      },
       getCommands: async filter => { calls.push(['getCommands', filter]); return answers.commands || []; }
     },
     env: { openExternal: async u => { calls.push(['openExternal', u.value]); return true; } }
@@ -101,11 +113,14 @@ test('a scope is "all" or a workspace key, nothing else', () => {
   for (const bad of ['ALL', '0123456789a', '0123456789abc', '0123456789aZ', '', null, 5, {}, '../../x']) assert.equal(validScope(bad), false, String(bad));
 });
 
-test('the tab: scripts on, nothing kept while hidden, only the media folder readable, and no placeholder left in its HTML', t => {
+test('open moves only the monitor to a floating group and keeps its webview policy', async t => {
   const { vscode, view } = makeView(t);
-  view.show();
+  await view.show();
   const panel = vscode.panels[0];
-  assert.equal(panel.type, 'wyardenMonitor.view');
+  assert.equal(panel.type, 'wyardenMonitor.window');
+  const [main, floating] = vscode.window.tabGroups.all;
+  assert.deepEqual(main.tabs, []);
+  assert.equal(floating.activeTab.input.viewType, panel.type);
   assert.deepEqual(panel.options.localResourceRoots.map(u => u.value), ['ext/media']);
   assert.equal(panel.options.enableScripts, true);
   assert.equal(panel.options.retainContextWhenHidden, false);
@@ -121,8 +136,8 @@ test('the tab: scripts on, nothing kept while hidden, only the media folder read
   assert.equal(panel.revealed, 1);
 });
 
-test('a tab restored from the last session becomes the live one, unless a tab was already opened: then it is closed', t => {
-  const restored = vscode => { const panel = vscode.window.createWebviewPanel('wyardenMonitor.view', '3D Monitor', -1, {}); panel.disposed = 0; panel.dispose = () => { panel.disposed++; }; return panel; };
+test('a restored monitor becomes the live one, and a late duplicate closes', async t => {
+  const restored = vscode => { const panel = vscode.window.createWebviewPanel(VIEW_TYPE, '3D Monitor', -1, {}); panel.disposed = 0; panel.dispose = () => { panel.disposed++; }; return panel; };
   let made = makeView(t);
   const first = restored(made.vscode);
   made.view.restore(first);
@@ -131,7 +146,7 @@ test('a tab restored from the last session becomes the live one, unless a tab wa
   assert.equal(first.disposed, 0);
 
   made = makeView(t);
-  made.view.show();
+  await made.view.show();
   const live = made.vscode.panels[0], late = restored(made.vscode);
   made.view.restore(late);
   assert.equal(late.disposed, 1, 'a second tab would have no feed, so the restored one is closed');
@@ -150,7 +165,7 @@ test('nothing is sent to a page that has not said it is ready', t => {
   assert.deepEqual(client.updates, [], 'and the hub is asked for nothing');
 });
 
-test('ready: the page gets the look, the hub state and the workspaces, and the hub is asked for a fresh snapshot of this window\'s folder', t => {
+test('ready: the page gets the look, hub state, workspaces and a snapshot of all open workspaces', t => {
   const { vscode, view, client } = makeView(t);
   view.setHubState('up');
   view.fromHub({ type: 'workspaces', list: [{ key: 'aaaaaaaaaaaa', name: 'proj', apps: ['Example Editor'], windows: 1, sessions: 2, needs: 0 }], hidden: 1, scope: 'all' });
@@ -163,21 +178,21 @@ test('ready: the page gets the look, the hub state and the workspaces, and the h
   assert.deepEqual(panel.posted[1], { v: 1, type: 'hub', state: 'up', role: 'hub', collectors: { claude: { state: 'missing', folders: 2, installed: 0 } } });
   assert.deepEqual(panel.posted[2].here, [C.wsKey('/home/example/proj')]);
   assert.equal(panel.posted[2].hidden, 1);
-  assert.deepEqual(client.updates, [{ scope: C.wsKey('/home/example/proj'), snapshot: true }]);
+  assert.deepEqual(client.updates, [{ scope: 'all', snapshot: true }]);
   view.fromHub({ type: 'records', scope: 'all', records: [{ ev: 'tool.start' }] });
   assert.deepEqual(panel.posted[3], { v: 1, type: 'records', scope: 'all', records: [{ ev: 'tool.start' }] });
 });
 
-test('the scope: the saved choice, else this window\'s own workspace, else every open workspace', t => {
+test('the scope is the saved choice, or all open workspaces', t => {
   assert.equal(makeView(t, { saved: { [SCOPE_KEY]: 'bbbbbbbbbbbb' } }).view.wanted(), 'bbbbbbbbbbbb');
-  assert.equal(makeView(t, { saved: { [SCOPE_KEY]: 'not a key' } }).view.wanted(), C.wsKey('/home/example/proj'), 'a saved value of the wrong shape is ignored');
+  assert.equal(makeView(t, { saved: { [SCOPE_KEY]: 'not a key' } }).view.wanted(), 'all', 'a saved value of the wrong shape is ignored');
   assert.equal(makeView(t, { folders: [] }).view.wanted(), 'all');
   // A window with several folders is one workspace: its key is the window's, not its first folder's.
   const two = [{ path: '/home/example/proj', name: 'proj' }, { path: '/home/example/tools', name: 'tools' }];
   const view = makeView(t, { folders: two }).view;
-  assert.equal(view.wanted(), C.windowKey(two.map(f => f.path)));
-  assert.notEqual(view.wanted(), C.wsKey('/home/example/proj'));
-  assert.equal(view.own(), view.wanted());
+  assert.equal(view.wanted(), 'all');
+  assert.equal(view.own(), C.windowKey(two.map(f => f.path)));
+  assert.notEqual(view.own(), C.wsKey('/home/example/proj'));
   assert.equal(makeView(t, { folders: [] }).view.own(), '');
 });
 
@@ -233,9 +248,9 @@ test('a chip: a valid scope is remembered and asked for; anything else is ignore
   assert.deepEqual(client.updates, [{ scope: 'cccccccccccc' }], 'nothing more was asked');
 });
 
-test('a hidden or closed tab asks the hub for nothing, and a page that loads again asks afresh', t => {
+test('a hidden or closed monitor pauses its feed, and a page that loads again asks afresh', async t => {
   const { vscode, view, client } = makeView(t);
-  view.show();
+  await view.show();
   const panel = vscode.panels[0];
   say(panel, { v: 1, type: 'ready' });
   client.updates.length = 0;
@@ -245,11 +260,11 @@ test('a hidden or closed tab asks the hub for nothing, and a page that loads aga
   assert.equal(panel.posted.filter(m => m.type === 'records').length, 0, 'no record goes to a page that is not there');
   panel.visible = true;
   say(panel, { v: 1, type: 'ready' });
-  assert.deepEqual(client.updates[1], { scope: C.wsKey('/home/example/proj'), snapshot: true });
+  assert.deepEqual(client.updates[1], { scope: 'all', snapshot: true });
   panel.handlers.dispose();
   assert.deepEqual(client.updates[2], { scope: null });
-  view.show();
-  assert.equal(vscode.panels.length, 2, 'after it was closed, Open makes a new tab');
+  await view.show();
+  assert.equal(vscode.panels.length, 2, 'after it was closed, Open makes a new window');
 });
 
 test('a hub that went away takes its workspace list with it; one that came back is asked again', t => {
@@ -264,7 +279,7 @@ test('a hub that went away takes its workspace list with it; one that came back 
   assert.equal(view.workspaces, undefined);
   assert.deepEqual(panel.posted.map(m => [m.type, m.state]), [['hub', 'connecting']]);
   view.setHubState('up');
-  assert.deepEqual(client.updates, [{ scope: C.wsKey('/home/example/proj'), snapshot: true }]);
+  assert.deepEqual(client.updates, [{ scope: 'all', snapshot: true }]);
   view.setHubState('nonsense');
   assert.equal(view.hubState, 'connecting', 'an unknown state reads as connecting');
 });
@@ -375,7 +390,7 @@ test('the view passes a double-click on to the action, with this window\'s folde
   say(panel, { v: 1, type: 'act', action: 'open', target: { class: 'resource', id: 'r:claude:s1:file:./' }, member: 'a.js' });
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(client.asked, { id: 'r:claude:s1:file:./', member: 'a.js' });
-  assert.deepEqual(vscode.calls, [['showTextDocument', 'file:' + file, { preview: true, viewColumn: -2 }]]);
+  assert.deepEqual(vscode.calls, [['showTextDocument', 'file:' + file, { preview: true, viewColumn: 1 }]]);
   say(panel, { v: 1, type: 'act', action: 'erase', target: { class: 'resource', id: 'x' } });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(vscode.calls.length, 1, 'an action that is not on the list does nothing');
@@ -756,7 +771,8 @@ test('the view passes a double-click on a session to focus, with its own deps; a
   assert.deepEqual(client.asked, { id: 'a:claude:' + SID }, 'resolve asks this window\'s hub client');
   say(panel, { v: 1, type: 'act', action: 'open', target: { class: 'resource', id: 'r:claude:' + SID + ':file:./' } });
   assert.deepEqual(seen.map(s => s[0]), ['focus', 'open']);
-  assert.deepEqual(Object.keys(seen[1][2]).sort(), ['folders', 'resolve'], 'open gets what it got before');
+  assert.deepEqual(seen[1][2].folders(), ['/home/example/proj']);
+  assert.equal(seen[1][2].viewColumn, 1, 'files open in the main editor group');
 });
 
 test('the view, through focus, shows a chat panel session of this window; the status bar message goes after it', async t => {

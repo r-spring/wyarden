@@ -45,12 +45,25 @@ async function open(vscode, deps, request) {
   let found;
   try { found = await deps.resolve({ id: request.target.id, member: request.member }); }
   catch { found = null; }
-  if (!found || typeof found !== 'object') { void vscode.window.showWarningMessage('3D Monitor: the hub did not answer.'); return 'no-answer'; }
+  if (!found || typeof found !== 'object') {
+    if (!deps.claim) void vscode.window.showWarningMessage('3D Monitor: the hub did not answer.');
+    return 'no-answer';
+  }
+  const here = file => deps.folders().some(folder => C.isInside(folder, file));
+  const forward = async member => {
+    const result = await deps.elsewhere?.('open', { id: request.target.id, member });
+    if (result === 'failed') throw new Error('the other editor window could not complete the action');
+    return result;
+  };
 
   if (found.kind === 'file') {
     const members = Array.isArray(found.members) ? found.members.filter(m => m && typeof m.path === 'string' && C.isAbsolute(m.path) && typeof m.name === 'string') : [];
-    if (!members.length) { void vscode.window.showInformationMessage('3D Monitor: no file is remembered for this group.'); return 'empty'; }
+    if (!members.length) {
+      if (!deps.claim) void vscode.window.showInformationMessage('3D Monitor: no file is remembered for this group.');
+      return 'empty';
+    }
     let pick = members[0];
+    if (deps.claim && (members.length !== 1 || request.member !== pick.name || !here(pick.path))) return 'nothing';
     if (members.length > 1) {
       const chosen = await vscode.window.showQuickPick(
         members.map(m => ({ label: m.name, description: typeof found.folder === 'string' ? found.folder : '', member: m })),
@@ -58,19 +71,28 @@ async function open(vscode, deps, request) {
       if (!chosen) return 'cancelled';
       pick = chosen.member;
     }
-    if (!isFile(pick.path)) { void vscode.window.showInformationMessage('3D Monitor: ' + pick.name + ' is not on disk (any more).'); return 'missing'; }
-    // Beside the monitor, not over it: a tab that is covered has no page, and the scene would stop while the file is read.
-    await vscode.window.showTextDocument(vscode.Uri.file(pick.path), { preview: true, viewColumn: vscode.ViewColumn.Beside });
+    if (!isFile(pick.path)) {
+      if (!deps.claim) void vscode.window.showInformationMessage('3D Monitor: ' + pick.name + ' is not on disk (any more).');
+      return 'missing';
+    }
+    if (!here(pick.path) && await forward(pick.name) === 'opened') return 'opened';
+    if (deps.claim && !await deps.claim()) return 'nothing';
+    await deps.focusWindow?.();
+    await vscode.window.showTextDocument(vscode.Uri.file(pick.path), { preview: true, viewColumn: deps.viewColumn ?? vscode.ViewColumn.Beside });
     return 'opened';
   }
 
   if (found.kind === 'dir' && typeof found.path === 'string' && C.isAbsolute(found.path)) {
     const uri = vscode.Uri.file(found.path);
-    const here = deps.folders().some(folder => C.isInside(folder, found.path));
-    await vscode.commands.executeCommand(here ? 'revealInExplorer' : 'revealFileInOS', uri);
+    const local = here(found.path);
+    if (deps.claim && (!local || !await deps.claim())) return 'nothing';
+    if (!local && await forward() === 'revealed') return 'revealed';
+    if (local) await deps.focusWindow?.();
+    await vscode.commands.executeCommand(local ? 'revealInExplorer' : 'revealFileInOS', uri);
     return 'revealed';
   }
 
+  if (deps.claim) return 'nothing';                 // URLs are confirmed and opened in the requesting window.
   if (found.kind === 'url') {
     const urls = Array.isArray(found.urls) ? found.urls.filter(u => C.cleanUrl(u) === u) : [];
     if (!urls.length) return 'empty';
@@ -103,13 +125,21 @@ function isFile(file) { try { return fs.statSync(file).isFile(); } catch { retur
  * answered one thing to the check could answer another to the use.
  */
 async function focus(vscode, deps, request) {
-  const info = text => { void vscode.window.showInformationMessage('3D Monitor: ' + text); };
+  const info = text => { if (!deps.claim) void vscode.window.showInformationMessage('3D Monitor: ' + text); };
+  const forward = async () => {
+    const result = await deps.elsewhere?.('focus', { id: request.target.id });
+    if (result === 'failed') throw new Error('the other editor window could not show the session');
+    return result === 'terminal' || result === 'panel' ? result : null;
+  };
   if (request.target.class !== 'agent') return 'nothing';
 
   let found;
   try { found = await deps.resolve({ id: request.target.id }); }
   catch { found = null; }
-  if (!found || typeof found !== 'object') { void vscode.window.showWarningMessage('3D Monitor: the hub did not answer.'); return 'no-answer'; }
+  if (!found || typeof found !== 'object') {
+    if (!deps.claim) void vscode.window.showWarningMessage('3D Monitor: the hub did not answer.');
+    return 'no-answer';
+  }
   let kind, session;
   try { kind = found.kind; session = found.session; } catch { kind = undefined; }
   if (kind !== 'session' || !C.isSessionId(session)) { info('this session is no longer live.'); return 'gone'; }
@@ -141,23 +171,37 @@ async function focus(vscode, deps, request) {
 
   // Showing a terminal starts nothing, so a terminal is shown also when `same` is not known.
   const terminal = await terminalOf(vscode, holds);
-  if (terminal) { terminal.show(); return 'terminal'; }
+  if (terminal) {
+    if (deps.claim && !await deps.claim()) return 'nothing';
+    await deps.focusWindow?.();
+    terminal.show();
+    return 'terminal';
+  }
 
   if (file.entry === 'claude-vscode') {
     // The command only reveals a session this window's Claude Code already runs; for any other it starts one.
     // So it is run only for a session whose process is under this extension host and is proved to be the
     // file's own: a leftover file whose pid another program here now holds must not start anything.
-    if (!holds(deps.hostPid)) { info('this session\'s chat panel is in another window.'); return 'elsewhere'; }
+    if (!holds(deps.hostPid)) {
+      const shown = await forward();
+      if (shown) return shown;
+      info('this session\'s chat panel is in another window.');
+      return 'elsewhere';
+    }
     if (same !== true) { info('this session\'s own process could not be confirmed, so its chat panel was not opened.'); return 'unconfirmed'; }
     const commands = await vscode.commands.getCommands(true);
     if (!Array.isArray(commands) || !commands.includes(PANEL_COMMAND)) {
       info('this session runs in Claude Code\'s chat panel, but Claude Code\'s command to show it is not available in this window.');
       return 'no-panel-command';
     }
+    if (deps.claim && !await deps.claim()) return 'nothing';
+    await deps.focusWindow?.();
     await vscode.commands.executeCommand(PANEL_COMMAND, session);
     return 'panel';
   }
   if (file.entry === 'sdk-cli') { info('this session runs in the background. It has no terminal or chat panel to show.'); return 'headless'; }
+  const shown = await forward();
+  if (shown) return shown;
   if (holds(deps.hostPid)) { info('this session runs in this window, but not in a terminal or chat panel that can be shown from here.'); return 'unshown'; }
   info('this session\'s terminal is not in this window. It runs in another window, or outside the editor.');
   return 'elsewhere';
