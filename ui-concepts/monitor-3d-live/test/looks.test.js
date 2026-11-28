@@ -491,6 +491,40 @@ test('the contract: an outline colour apart from the fill, faces, and a caption 
   assert.deepEqual(mixed.lines.slice(-3), [[8, 9], [9, 10], [10, 8]]);
 });
 
+test('the contract: an icon shows the whole of any mesh the contract allows, and an icon that always fitted is drawn as it was', () => {
+  const S = E.shapes, usual = { yaw: -0.5, pitch: 0.42, distance: 84, target: [0, 11, 0] };
+  const SIZES_PX = [18, 22, 40];        // the legend's 22, the inspector's 40, and a smaller one
+  /** How far the mesh's corners leave an icon of `size` px under a camera, in px; 0 or less when all of it is inside by `pad`. */
+  const over = (mesh, camera, size, pad) => Math.max(...mesh.vertices.map(v => { const q = E.project(v, camera, size, size); return q ? Math.max(pad - q.x, q.x - (size - pad), pad - q.y, q.y - (size - pad)) : Infinity; }));      // no point: too near the camera to be drawn at all
+  // Meshes at the contract's limits: 80 tall and 31 from the slot's centre; a bare mast of 80; a resource's 17.
+  const limits = { 'a block 62 x 80 x 62': S.box(62, 80, 62), 'a mast 80 tall': S.merge(S.box(20, 10, 20), S.path([[0, 10, 0], [0, 80, 0]])), 'a tower 34 x 80 x 34': S.box(34, 80, 34), 'a slab 62 x 4 x 62': S.box(62, 4, 62) };
+  for (const [name, mesh] of Object.entries(limits)) for (const size of SIZES_PX) {
+    const camera = E.iconCamera(mesh, size);
+    assert.ok(over(mesh, camera, size, E.ICON.pad) <= 1e-6, name + ' at ' + size + ' px leaves its icon by ' + over(mesh, camera, size, 0).toFixed(2) + ' px');
+    assert.deepEqual([camera.yaw, camera.pitch], [usual.yaw, usual.pitch], 'seen from the same side as every icon');
+    assert.ok(camera.distance >= usual.distance && camera.distance < E.ICON.far, name + ': from ' + camera.distance.toFixed(1) + ' away');
+  }
+  // The camera the icon always had cut the tall ones off: that is what this repairs.
+  assert.ok(over(limits['a mast 80 tall'], usual, 22, 0) > 15 && over(limits['a block 62 x 80 x 62'], usual, 40, 0) > 30);
+  // It is no farther back than it must be: a little nearer, the tall block no longer fits.
+  const fitted = E.iconCamera(limits['a block 62 x 80 x 62'], 40);
+  assert.ok(over(limits['a block 62 x 80 x 62'], Object.assign({}, fitted, { distance: fitted.distance - 1 }), 40, E.ICON.pad) > 0);
+  // drawIcon draws with that camera: every point it is asked to draw lies inside the icon.
+  const points = [], rec = { clearRect() {}, beginPath() {}, closePath() {}, fill() {}, stroke() {}, setLineDash() {}, moveTo(x, y) { points.push([x, y]); }, lineTo(x, y) { points.push([x, y]); } };
+  E.drawIcon(rec, { mesh: () => limits['a mast 80 tall'], palette: { fill: .1 } }, 'agent', '#fff', 22);
+  assert.ok(points.length > 20 && points.every(p => p[0] >= 0 && p[0] <= 22 && p[1] >= 0 && p[1] <= 22), 'drawn inside the icon: ' + points.length + ' points');
+  // The looks that must not change: every one of their meshes keeps the camera the icon always had, exactly.
+  for (const id of ['nexus', 'glasshouse', 'nexus-mockup', 'glasshouse-mockup']) for (const key of MESH_KEYS) for (const size of SIZES_PX)
+    assert.deepEqual(E.iconCamera(LOOKS[id].mesh(key), size), usual, id + ': the icon of ' + key + ' at ' + size + ' px');
+  // The slack: the NEXUS mock-up's agent has always left its icon by its tip, 4.7 % of the icon's size, and keeps the camera it had.
+  assert.ok(over(LOOKS['nexus-mockup'].mesh('agent'), usual, 22, 0) > 1 && over(LOOKS['nexus-mockup'].mesh('agent'), usual, 22, 0) < 22 * E.ICON.slack);
+  // Every built look: no icon leaves its box by more than that slack.
+  for (const id of BUILT) for (const key of MESH_KEYS) for (const size of SIZES_PX) {
+    const mesh = LOOKS[id].mesh(key), out = over(mesh, E.iconCamera(mesh, size), size, 0);
+    assert.ok(out <= size * E.ICON.slack + 1e-9, id + ': the icon of ' + key + ' at ' + size + ' px is cut off by ' + out.toFixed(2) + ' px');
+  }
+});
+
 test('the contract: a ground that is not flat is one still gradient, round or straight, in place of the flat fill; a look without one draws as before', () => {
   const pal = (ground, more) => Object.assign({}, LOOKS.nexus.palette, ground === undefined ? {} : { ground }, more);
   const paint = (palette, w = 1280, h = 720) => { const { canvas, drawn } = fakeCanvas(), ctx = canvas.getContext('2d'); return { error: E.paintGround(ctx, palette, w, h), drawn, ctx }; };

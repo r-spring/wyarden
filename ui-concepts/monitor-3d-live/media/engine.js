@@ -409,9 +409,29 @@
     else if (shape === 'hourglass') { ctx.moveTo(x - s * .7, y - s * .9); ctx.lineTo(x + s * .7, y - s * .9); ctx.lineTo(x - s * .7, y + s * .9); ctx.lineTo(x + s * .7, y + s * .9); ctx.closePath(); ctx.stroke(); }
     else if (shape === 'dot') { ctx.arc(x, y, s * .42, 0, TAU); ctx.fill(); }
   }
+  /**
+   * The camera of an icon of `size` px. A mesh that fits the icon as it always was drawn (from 84 away, looking at 11
+   * above the floor) keeps exactly that camera, and so does one whose tip leaves the icon by no more than ICON.slack of
+   * its size: the NEXUS mock-up's agent does, by 4.7 %, and its icon stays as it was. Any other mesh (a mesh may be 80
+   * tall, and that camera shows about 45) is looked at in its middle, from as far back as it takes to show all of it a
+   * stroke's width inside the edge.
+   */
+  const ICON = { yaw: -0.5, pitch: 0.42, distance: 84, target: [0, 11, 0], slack: .06, pad: 1.5, far: 1200 };
+  function iconCamera(mesh, size) {
+    const usual = { yaw: ICON.yaw, pitch: ICON.pitch, distance: ICON.distance, target: ICON.target.slice() };
+    const fits = (camera, pad) => mesh.vertices.every(v => { const q = project(v, camera, size, size); return q && q.x >= pad && q.x <= size - pad && q.y >= pad && q.y <= size - pad; });
+    if (fits(usual, -size * ICON.slack)) return usual;
+    const low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
+    for (const v of mesh.vertices) for (let i = 0; i < 3; i++) { if (v[i] < low[i]) low[i] = v[i]; if (v[i] > high[i]) high[i] = v[i]; }
+    const camera = { yaw: ICON.yaw, pitch: ICON.pitch, distance: ICON.far, target: [0, 1, 2].map(i => (low[i] + high[i]) / 2) };
+    let near = ICON.distance, far = ICON.far;
+    for (let i = 0; i < 22; i++) { camera.distance = (near + far) / 2; if (fits(camera, ICON.pad)) far = camera.distance; else near = camera.distance; }
+    camera.distance = far;
+    return camera;
+  }
   /** One class's mesh on a small canvas, for the legend. */
   function drawIcon(ctx, look, key, color, size) {
-    const mesh = look.mesh(key), camera = { yaw: -0.5, pitch: 0.42, distance: 84, target: [0, 11, 0] };
+    const mesh = look.mesh(key), camera = iconCamera(mesh, size);
     const pts = mesh.vertices.map(v => project(v, camera, size, size));
     ctx.clearRect(0, 0, size, size);
     ctx.globalAlpha = Math.min(1, look.palette.fill * 1.6); ctx.fillStyle = color;
@@ -937,6 +957,6 @@
   }
 
   const api = { View, Redraw, project, arch, hull, inHull, overlap, shapes, strokes, seeded, BACKDROP, backdropScene, compileBackdrop, drawBadge, drawIcon,
-    GROUND, groundProblem, paintGround, groundColors, CAPTION_FLOOR, luminance, contrast, captionColor, DATA_GAP, GLOW_MS, MIN_HIT, MAX_GROWTH, CAMERA, PROVIDERS, TITLE_SHOWN };
+    GROUND, groundProblem, paintGround, groundColors, CAPTION_FLOOR, luminance, contrast, captionColor, ICON, iconCamera, DATA_GAP, GLOW_MS, MIN_HIT, MAX_GROWTH, CAMERA, PROVIDERS, TITLE_SHOWN };
   if (inNode) module.exports = api; else root.MonitorEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);
