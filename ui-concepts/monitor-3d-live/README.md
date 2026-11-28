@@ -43,6 +43,15 @@ Click a node to select it. Double-click a file or press Ctrl+Enter to open it in
 
 Use the look switcher, view buttons and keyboard controls in the monitor. The list offers the same nodes to screen readers. A session that starts is framed into view until you move the camera yourself.
 
+## Looks
+
+The monitor has 18 looks (since 0.2.0). Every look draws the same things in the same places; a look changes only colours, shapes, lettering and a still backdrop. A state is never a colour: it is a mark beside the shape and a word in its caption.
+
+- **To switch:** the bar at the top says **Look**, then three buttons. The look's name opens the list of all 18, in four groups; click one, or use the arrow keys and Enter. Escape closes the list. **‹** and **›** step to the previous and the next look.
+- **Until you choose,** the editor's theme picks: `nexus` in a dark theme, `glasshouse` in a light one. Once you choose, the tab keeps your look, also after a reload.
+- **In a browser, with nothing installed:** `node ui-concepts/monitor-3d-live/tools/preview.js` from the repository's top folder serves the same page on invented data at a loopback address and prints it. Add `?look=<id>` to open on one look, for example `?look=synapse`. Ctrl+C stops it.
+- **More:** [LOOKS.md](LOOKS.md) is how to write a look; [docs/looks/README.md](../../docs/looks/README.md) is the list, with a picture of each.
+
 ## What it does on your machine
 
 - **One connection per window.** Each window tells the hub its folders and keeps one loopback connection open. That connection is how a workspace counts as alive.
@@ -90,6 +99,7 @@ To remove everything: run **Remove Collectors**, uninstall the extension, and de
 | `media/` | The page, views, looks and scene model. |
 | `test/` | `node --test "test/*.test.js"` runs everything; the page tests need Edge or Chrome and skip without one. |
 | `tools/pack.js` | Makes the VSIX with Node's own zlib. |
+| `tools/preview.js`, `shoot-looks.js`, `shoot-sheet.js` | The browser preview; a look's picture; the contact sheet of all 18 (`docs/looks/img/contact-sheet.png`). None of `tools/` ships. |
 
 ## Borrowed code
 
