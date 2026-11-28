@@ -324,6 +324,24 @@ describe('the live page in a headless browser', () => {
     assert.equal(await h.eval(visible('#status')), true);
   });
 
+  it('reports native collector availability and Codex approval in the page and the selected session', T, async () => {
+    await h.open();
+    const model = M.create();
+    model.apply({ v: 1, t: Date.now(), agent: 'codex', session: 'fixture-thread', ws: 'w1', ev: 'session.start', src: 'codex:app-server', grade: 'derived' });
+    await h.deliver(S.snapshotRecords('all', model));
+    await h.deliver({ v: 1, type: 'hub', state: 'up', role: 'client', collectors: {
+      codex: { state: 'awaiting-approval', folders: 1, installed: 0 },
+      grok: { state: 'installed', folders: 1, installed: 1 },
+      antigravity: { state: 'partly', folders: 1, installed: 0 }
+    } });
+    await h.eval('document.querySelector("[data-node=\\"a:codex:fixture-thread\\"]").click()');
+    assert.match(await h.eval(text('#status')), /Codex collector: awaiting hook approval in \/hooks\. Grok Build collector: installed\. Antigravity collector: partially configured\./);
+    assert.match(await h.eval(text('#status-live')), /awaiting hook approval/);
+    assert.match(await h.eval(text('#inspector')), /Session activity can be discovered through the Codex app server\. Awaiting hook approval/);
+    await h.deliver({ v: 1, type: 'hub', state: 'up', role: 'client', collectors: { codex: { state: 'installed', folders: 1, installed: 1 } } });
+    assert.match(await h.eval(text('#inspector')), /Live calls appear on the next hook event/);
+  });
+
   it('10. no editing control anywhere: no input, select, textarea, form or contenteditable', T, async () => {
     await h.open();
     await h.deliver(S.workspaces({}));

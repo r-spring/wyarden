@@ -503,7 +503,7 @@ test('focus: each step of the table, in order, with its outcome, its one message
 test('focus: the hub is asked about the node; the file is read for the hub\'s session; the file\'s pid is the one walked', async () => {
   const { deps, ran } = await runFocus();
   assert.deepEqual(deps.asked.resolve, [{ id: 'a:claude:' + SID }], 'only the node\'s id goes to the hub');
-  assert.deepEqual(deps.asked.session, [SID]);
+  assert.deepEqual(deps.asked.session, ['claude:' + SID]);
   assert.deepEqual(deps.asked.ancestors, [PID], 'the session file\'s pid, not the hub\'s');
   assert.deepEqual(ran, [['executeCommand', PANEL, SID]], 'the command gets the session id the hub named');
   const none = await runFocus({ request: { ...AGENT, target: { class: 'tool', id: 't:claude:' + SID + ':x' } } });
@@ -667,7 +667,7 @@ test('focus: known, start and unit are read once each; a session id that changes
   got = await runFocus({ answer });
   assert.equal(sessionReads, 1, 'the id is read once');
   assert.deepEqual(got.ran, [['executeCommand', PANEL, SID]], 'the checked id is the one used');
-  assert.deepEqual(got.deps.asked.session, [SID]);
+  assert.deepEqual(got.deps.asked.session, ['claude:' + SID]);
   assert.ok(!JSON.stringify(got.calls).includes('evil'));
   // The other way round: a bad id first is no live session, whatever the next read says.
   sessionReads = 0;
@@ -777,7 +777,7 @@ test('the view passes a double-click on a session to focus, with its own deps; a
 
 test('the view, through focus, shows a chat panel session of this window; the status bar message goes after it', async t => {
   const { vscode, view, client } = makeView(t, { answers: { terminals: [], commands: [PANEL], statusBar: true }, deps: {
-    session: id => (id === SID ? entry() : null), ancestors: async pid => (pid === PID ? tree() : { chain: [pid], known: true }), hostPid: HOST
+    session: key => (key === 'claude:' + SID ? entry() : null), ancestors: async pid => (pid === PID ? tree() : { chain: [pid], known: true }), hostPid: HOST
   } });
   client.answer = () => ({ kind: 'session', agent: 'claude', session: SID, cwd: '/home/example/proj', root: null, pid: PID });
   view.show();

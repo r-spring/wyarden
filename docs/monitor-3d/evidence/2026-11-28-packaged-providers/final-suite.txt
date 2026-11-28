@@ -1,0 +1,21 @@
+2026-11-28 UTC, Windows, Node.js v26.7.0
+Source afe5c20d8a6e5ec5adeab4d640b592ac67322c5f
+Installed VSIX BDF7E4711A4A2BFD291C6C4F22D488FA4EF7CF03FCBD829BD08BAF142058A616
+
+node --test --test-concurrency=1 "ui-concepts/monitor-3d-live/test/*.test.js"
+ℹ tests 562
+ℹ suites 7
+ℹ pass 558
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 4
+ℹ todo 0
+ℹ duration_ms 327681.2197
+
+﹣ a window that reads nothing is closed after the stuck time, even with no further message (338.4317ms) # this system's loopback takes every byte, so a reader that reads nothing leaves no backlog to judge
+﹣ the hard ceiling closes a window that reads nothing at once (0.4916ms) # this system's loopback takes every byte, so a reader that reads nothing leaves no backlog to judge
+﹣ apply keeps the file mode (POSIX) (0.2726ms) # file modes are POSIX only
+﹣ a settings file that is a link: the real file is written and the link is kept (6.0608ms) # links cannot be made here (EPERM)
+
+node --test ui-concepts/monitor-3d-live/test/call-lifecycle.test.js
+5 tests, 5 passed, 0 failed, 0 cancelled, 0 skipped, 0 TODO.

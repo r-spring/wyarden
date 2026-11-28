@@ -60,7 +60,7 @@ function fakeDeps(feedHook) {
 async function setup(t, opts = {}) {
   const { home, hub } = await hubFile();
   const fake = fakeDeps(opts.feedHook);
-  const h = await startHub(Object.assign({ home, hub, deps: fake.deps, timings: TIMINGS }, opts.hubOptions));
+  const h = await startHub(Object.assign({ home, userHome: home, env: {}, hub, deps: fake.deps, timings: TIMINGS }, opts.hubOptions));
   t.after(async () => { await h.close(); fs.rmSync(home, { recursive: true, force: true }); });
   return { home, hub, h, fake, port: hub.port };
 }
@@ -439,7 +439,7 @@ test('a new tail\'s replay lands inside the first snapshot, and a later attach d
   fake.setLive([{ agent: 'claude', session: 'd1', key: 'claude:d1', cwd: P, pid: 77, status: 'busy', transcript: '/home/example/.claude/projects/x/d1.jsonl' }]);
   const { home, hub } = await hubFile();
   // A long tail timer: any poll seen here is one made out of turn.
-  const h = await startHub({ home, hub, deps: fake.deps, timings: { discoveryMs: 10000, tailMs: 10000, workspacesMs: 20 } });
+  const h = await startHub({ home, userHome: home, env: {}, hub, deps: fake.deps, timings: { discoveryMs: 10000, tailMs: 10000, workspacesMs: 20 } });
   t.after(async () => { await h.close(); fs.rmSync(home, { recursive: true, force: true }); });
   const s = { port: hub.port, hub };
   const a = open(s, winBody('A', [P], 'all'));
@@ -522,7 +522,7 @@ const realNormaliser = (() => { try { return require('../lib/normalise.js').crea
 
 test('end to end with the real normaliser: a Claude PreToolUse and PostToolUse over HTTP become a tool node', { skip: !realNormaliser && 'lib/normalise.js is not there yet' }, async t => {
   const { home, hub } = await hubFile();
-  const h = await startHub({ home, hub, timings: TIMINGS, deps: {
+  const h = await startHub({ home, userHome: home, env: {}, hub, timings: TIMINGS, deps: {
     createNormaliser: realNormaliser, claudeConfigDirs: () => [], liveClaudeSessions: () => [], createTail: () => ({ poll: () => [], close() {} })
   } });
   t.after(async () => { await h.close(); fs.rmSync(home, { recursive: true, force: true }); });

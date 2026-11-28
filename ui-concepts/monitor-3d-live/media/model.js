@@ -45,6 +45,7 @@
   };
 
   const HISTORY = 50;          // calls remembered for each session
+  const UNOBSERVED_CAP = 200;  // Codex calls kept for late reconciliation, even after their history entry ages out
   const MEMBER_CAP = 40;       // files remembered inside one folder group
   const PORT_CAP = 8;          // ports drawn on one MCP server
   const PORT_MAX = 32;         // ports remembered on one MCP server
@@ -57,6 +58,22 @@
 
   const fail = message => { throw new Error('monitor model: ' + message); };
   const short = id => (id.length > 8 ? id.slice(0, 6) : id);
+  const linkId = (session, call, resource) => JSON.stringify(resource === undefined ? [session, call] : [session, call, resource]);
+
+  class LiveLinks extends Map {
+    get(id) {
+      const scoped = super.get(id);
+      // Scoped keys start with '['. Native provider IDs start with a safe identifier character.
+      if (scoped || typeof id !== 'string' || id.startsWith('[')) return scoped;
+      let match;
+      for (const link of this.values()) {
+        const previousId = link.kind === 'touch' ? link.call + ' > ' + link.to : link.call;
+        if (previousId === id) match = link;
+      }
+      return match;
+    }
+    has(id) { return this.get(id) !== undefined; }
+  }
 
   function validate(e) {
     if (!e || typeof e !== 'object') fail('an event must be an object');
@@ -108,7 +125,7 @@
       this.columns = [];            // column index -> session key, or null for a gap
       this.sessions = new Map();    // session key -> session record
       this.overflow = new Set();    // sessions with no column to stand in
-      this.links = new Map();       // link id -> open call, or a touch made by an open call
+      this.links = new LiveLinks(); // link id -> open call, or a touch made by an open call
       this.arcs = new Map();        // clash arcs between two agents' copies of one written file
       this.writers = new Map();     // "ws|path" -> Map(session key -> resource node id)
       this.closed = [];             // calls that ended since the view last asked
@@ -332,9 +349,10 @@
       // so starts that never end cannot pile up links without limit.
       if (s.calls.size >= OPEN_CAP) { this.closeCall(s, s.calls.keys().next().value, null); this.leftOut.calls = (this.leftOut.calls || 0) + 1; }
       const caller = this.callerOf(s, e), agent = this.agentOf(s);
-      const link = { id: e.call, kind, from: caller.id, to: target.id, call: e.call, session: s.key, what: e.tool, port: port ? port.name : '', unclear: e.by === '?', t: e.t };
+      const link = { id: linkId(s.key, e.call), kind, from: caller.id, to: target.id, call: e.call, session: s.key, what: e.tool, port: port ? port.name : '', unclear: e.by === '?', t: e.t };
       this.links.set(link.id, link);
-      s.calls.set(e.call, { kind, target: target.id, caller: caller.id, port: port ? port.name : '', links: [link.id], touched: [], t: e.t });
+      s.calls.set(e.call, { kind, target: target.id, caller: caller.id, port: link.port, links: [link.id], touched: [], t: e.t,
+        ...(e.turn && { turn: e.turn }) });
       target.calls++; target.open++; this.touch(target); this.setStatus(target, 'working', e);
       if (port) { port.calls++; port.open++; }
       agent.calls++; agent.open = s.calls.size; this.touch(agent);
@@ -356,7 +374,7 @@
       if (target) {
         target.open = Math.max(0, target.open - 1); this.changed.add(target.id);
         const port = call.port && target.ports && target.ports.get(call.port);
-        if (port) { port.open = Math.max(0, port.open - 1); if (e && e.ok === false) port.failed++; }
+        if (port) port.open = Math.max(0, port.open - 1);
         this.syncFolded(target);
       }
       if (agent) { agent.open = s.calls.size; this.changed.add(agent.id); }
@@ -369,15 +387,50 @@
       return call;
     }
     syncFolded(node) { if (node.folded) this.syncStack(this.cell(node.col, node.floor)); }
-    endCall(s, e, target) {
-      const call = this.closeCall(s, e.call, e), agent = this.agentOf(s);
-      if (!call) { target.calls++; agent.calls++; }            // the start was never seen: still count the call
-      if (e.ok === false) { target.failed++; agent.failed++; }
-      target.lastOk = e.ok; target.lastMs = Number.isFinite(e.ms) ? e.ms : null; target.lastError = e.ok === false ? (e.error || 'failed') : '';
-      this.touch(target);
-      this.setStatus(target, target.open ? 'working' : e.ok === false ? 'failed' : 'rest', e);
-      s.history.push({ call: e.call, what: target.cls === 'mcp' ? target.server + ' / ' + e.tool : target.tool, ok: e.ok, ms: target.lastMs, msGrade: e.msGrade || '', error: target.lastError, t: e.t });
-      if (s.history.length > HISTORY) s.history.shift();
+    endCall(s, e, kind) {
+      const open = s.calls.get(e.call);
+      const previous = s.unobserved?.get(e.call);
+      // Codex posts can name a different collecting turn. Prefer a matching turn when one is known.
+      const late = e.ok !== null && previous && (previous.turn === e.turn || !open) ? previous : null;
+      if (late?.resolved) return;
+      const call = late || this.closeCall(s, e.call, e);
+      const target = call ? this.nodes.get(call.target) : kind === 'mcp' ? this.server(e.server, e) : this.tool(s, e.tool || 'unknown tool', e);
+      const agent = this.agentOf(s), unseen = !call;
+      if (unseen) { target.calls++; agent.calls++; }            // the start was never seen: still count the call
+      const ms = Number.isFinite(e.ms) ? e.ms : null, error = e.ok === false ? (e.error || 'failed') : '';
+      if (e.ok === false) agent.failed++;
+      if (target) {
+        if (target.cls === 'mcp') {
+          target.usedBy.add(s.key);
+          const port = call ? target.ports.get(call.port) : this.port(target, e.tool);
+          if (port && unseen) port.calls++;
+          if (port && e.ok === false) port.failed++;
+        }
+        if (e.ok === false) target.failed++;
+        const id = linkId(s.key, e.call);
+        if (!late || target.lastUnobservedCall === id) {
+          target.lastOk = e.ok; target.lastMs = ms; target.lastError = error;
+          if (e.ok === null) target.lastUnobservedCall = id;
+          else delete target.lastUnobservedCall;
+          this.setStatus(target, target.open ? 'working' : e.ok === false ? 'failed' : 'rest', e);
+        }
+        this.touch(target);
+      }
+      const result = { ok: e.ok, ms, msGrade: e.msGrade || '', error };
+      if (late) {
+        late.resolved = true;
+        const entry = s.history.find(c => c.call === e.call && c.t === late.closedAt && c.ok === null);
+        if (entry) Object.assign(entry, result);
+      } else {
+        const what = target.cls === 'mcp' ? target.server + ' / ' + e.tool : target.tool;
+        if (e.ok === null) {
+          s.unobserved ||= new Map();
+          s.unobserved.set(e.call, { turn: call.turn, target: call.target, port: call.port, closedAt: e.t });
+          if (s.unobserved.size > UNOBSERVED_CAP) s.unobserved.delete(s.unobserved.keys().next().value);
+        }
+        s.history.push({ call: e.call, what, ...result, t: e.t });
+        if (s.history.length > HISTORY) s.history.shift();
+      }
     }
     clash(s, res, e) {
       if (typeof e.path !== 'string') return;
@@ -428,6 +481,14 @@
         case 'turn.start':
           s.turnOpen = true; agent.turn = e.turn || ''; agent.wait = null; this.setStatus(agent, 'working', e); break;
         case 'turn.end':
+          if (s.kind === 'codex' && e.turn) {
+            for (const [id, call] of s.calls) {
+              if (call.turn !== e.turn) continue;
+              const tool = this.links.get(call.links[0])?.what || call.port;
+              this.endCall(s, { ...e, call: id, tool, ok: null, grade: 'derived' }, call.kind);
+            }
+            if (agent.turn && agent.turn !== e.turn) break;
+          }
           s.turnOpen = false; agent.outcome = e.outcome;
           if (e.outcome === 'failed') this.setStatus(agent, 'failed', e);
           else if (e.outcome === 'interrupted') this.setStatus(agent, 'unclear', e);
@@ -443,14 +504,14 @@
           if (s.turnOpen) this.setStatus(agent, 'working', e); else if (agent.status === 'needs') this.setStatus(agent, 'idle', e);
           break;
         case 'tool.start': this.openCall(s, e, 'tool', this.tool(s, e.tool, e)); break;
-        case 'tool.end': this.endCall(s, e, s.calls.has(e.call) ? this.nodes.get(s.calls.get(e.call).target) : this.tool(s, e.tool || 'unknown tool', e)); break;
+        case 'tool.end': this.endCall(s, e, 'tool'); break;
         case 'mcp.start': { const server = this.server(e.server, e); server.usedBy.add(s.key); this.openCall(s, e, 'mcp', server, this.port(server, e.tool)); break; }
-        case 'mcp.end': { const server = this.server(e.server, e); server.usedBy.add(s.key); if (!s.calls.has(e.call)) { const p = this.port(server, e.tool); if (p) { p.calls++; if (!e.ok) p.failed++; } } this.endCall(s, e, server); break; }
+        case 'mcp.end': this.endCall(s, e, 'mcp'); break;
         case 'resource.touch': {
           const res = this.resource(s, e), call = e.call && s.calls.get(e.call);
           if (e.kind === 'file' && e.op === 'write') this.clash(s, res, e);
           if (!call) break;
-          const id = e.call + ' > ' + res.id;
+          const id = linkId(s.key, e.call, res.id);
           if (this.links.has(id)) break;
           this.links.set(id, { id, kind: 'touch', from: call.target, to: res.id, call: e.call, session: s.key, op: e.op, what: res.label, t: e.t });
           call.links.push(id); call.touched.push(res.id);
@@ -565,6 +626,7 @@
     for (const [key, x] of s.sessions) {
       if (!text(key) || !obj(x) || x.key !== key || !int(x.col) || x.col < 0 || x.col >= L.MAX_COLUMNS) return 'a session';
       if (!isMap(x.calls) || !isSet(x.nodes) || !Array.isArray(x.history) || !text(x.agentId) || !s.nodes.has(x.agentId)) return 'a session\'s parts';
+      if (x.unobserved !== undefined && (!isMap(x.unobserved) || x.unobserved.size > UNOBSERVED_CAP)) return 'a session\'s unobserved calls';
       if (s.columns[x.col] !== key) return 'a session\'s column';
       for (const call of x.calls.values()) if (!obj(call) || !Array.isArray(call.links) || !Array.isArray(call.touched) || !text(call.target)) return 'an open call';
     }
@@ -579,6 +641,33 @@
     for (const w of s.writers.values()) if (!isMap(w)) return 'a writer';
     for (const key of s.overflow) if (!text(key)) return 'the overflow';
     return '';
+  }
+  /** Version 1 snapshots originally keyed live links by the bare call id. */
+  function scopeRestoredLinks(model) {
+    for (const s of model.sessions.values()) {
+      for (const [id, call] of s.calls) {
+        if (call.links[0] !== id) continue;
+        const old = model.links.get(id), scoped = linkId(s.key, id);
+        const target = model.nodes.get(call.target);
+        if (old?.session === s.key) {
+          model.links.delete(id);
+          model.links.set(scoped, { ...old, id: scoped });
+        } else if (target && model.nodes.has(call.caller)) {
+          // Another session may have overwritten the drawable link; the open call still has both ends.
+          model.links.set(scoped, { id: scoped, kind: call.kind, from: call.caller, to: target.id,
+            call: id, session: s.key, what: target.tool || call.port, port: call.port, t: call.t });
+        }
+        call.links[0] = scoped;
+        for (let i = 1; i < call.links.length; i++) {
+          const oldId = call.links[i], touch = model.links.get(oldId);
+          if (touch?.session !== s.key) continue;
+          const touchId = linkId(s.key, id, touch.to);
+          model.links.delete(oldId);
+          model.links.set(touchId, { ...touch, id: touchId });
+          call.links[i] = touchId;
+        }
+      }
+    }
   }
   /** A model that carries on from a serialize() text. Every node counts as changed, so the view redraws all of it. */
   function load(text) {
@@ -596,6 +685,8 @@
     const wrong = unsound(data.state);
     if (wrong) fail('a snapshot of the wrong shape: ' + wrong);
     for (const key of SNAPSHOT) model[key] = data.state[key];
+    scopeRestoredLinks(model);
+    model.links = new LiveLinks(model.links);
     model.changed = new Set(model.nodes.keys()); model.structure = true;
     return model;
   }

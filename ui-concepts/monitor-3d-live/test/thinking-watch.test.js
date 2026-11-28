@@ -160,7 +160,7 @@ const thinkingPosts = panel => panel.posted.filter(m => m.type === 'thinking');
 function openView(t, text, options = {}) {
   const file = path.join(temp(t), SID + '.jsonl');
   if (text !== undefined) fs.writeFileSync(file, text);
-  const made = makeView(t, { session: id => (id === SID ? entryFor(file) : null), ...options });
+  const made = makeView(t, { session: key => (key === 'claude:' + SID ? entryFor(file) : null), ...options });
   made.view.show();
   const panel = made.vscode.panels[made.vscode.panels.length - 1];
   say(panel, { v: 1, type: 'ready' });
@@ -735,7 +735,7 @@ test('7. privacy: the thinking reaches the panel that asked and nothing else; th
     line({ type: 'user', isSidechain: false, timestamp: T2, sessionId: SID, message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_P1', content: CANARY.result }] } }));
   // Two views on the same fakes: two windows' worth of panels, one client, one context, one output channel.
   const vscode = fakeVscode(), context = fakeContext(t), client = fakeClient(), clock = manualClock(), logs = [];
-  const session = id => (id === SID ? entryFor(file) : null);
+  const session = key => (key === 'claude:' + SID ? entryFor(file) : null);
   const one = makeView(t, { session, vscode, context, client, clock, logs });
   const two = makeView(t, { session, vscode, context, client, clock, logs });
   one.view.show(); two.view.show();

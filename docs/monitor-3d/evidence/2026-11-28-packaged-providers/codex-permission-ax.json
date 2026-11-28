@@ -1,0 +1,16 @@
+{
+  "utc": "2026-11-28T10:18:27.617Z",
+  "labels": [
+    "    - button \"All open, 3 live sessions, 1 waiting for you\" [pressed]: All open 3 ▲ needs you",
+    "    - button \"Fixture-Alpha, 2 live sessions, 1 waiting for you\": Fixture-Alpha 2 ▲ needs you",
+    "    - button \"Fixture-Beta, 1 live session\": Fixture-Beta 1",
+    "          - 'option \"Agent: Codex, in Fixture-Alpha, needs you (permission for read_fixture) since 10:18:10 UTC. 1 call, 1 open, 0 failed.\"'",
+    "        - 'group \"Column 1: Antigravity in Fixture-Beta\"':",
+    "          - 'option \"Agent: Antigravity, in Fixture-Beta, idle since 10:09:30 UTC. 1 call, 0 open, 0 failed.\"'",
+    "        - 'group \"Column 2: Grok in Fixture-Alpha\"':",
+    "          - 'option \"Agent: Grok, in Fixture-Alpha, idle since 10:09:54 UTC. 1 call, 0 open, 0 failed.\"'",
+    "        - 'group \"Column 3: Codex in Fixture-Alpha\"':",
+    "          - 'option \"Agent: Codex, in Fixture-Alpha, needs you (permission for read_fixture) since 10:18:10 UTC. 1 call, 1 open, 0 failed.\"'",
+    "          - 'option \"MCP server: wyarden_fixture. working. 1 call, 1 open, 1 tool.\"'"
+  ]
+}

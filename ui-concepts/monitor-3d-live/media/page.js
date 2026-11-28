@@ -99,7 +99,13 @@
     frameAll(false);
   }
   feed.onWorkspaces = message => { state.workspaces = message; renderChips(); renderStatus(); renderEmpty(); };
-  feed.onHub = message => { state.hub = message; renderStatus(); };
+  feed.onHub = message => {
+    const selected = model.nodes.get(state.selected);
+    const last = collectorState(selected?.kind)?.state;
+    state.hub = message;
+    renderStatus();
+    if (selected?.cls === 'agent' && collectorState(selected.kind)?.state !== last) renderInspector();
+  };
   // The host says this when the page loads and when the editor's theme changes. Until the owner chooses a look the theme
   // picks one; after that the look stays, and one that reads its colours from the page reads them again (refreshLook).
   feed.onLook = look => { if (!state.lookChosen && isLook(look) && look !== state.look) { state.look = look; applyLook(); save(); } else refreshLook(); };
@@ -185,6 +191,10 @@
       return;
     }
     const d = N.describe(n, model), v = view.visual(n), head = el('div', 'insp-head'), names = el('div');
+    if (n.cls === 'agent' && n.kind !== 'claude' && !n.collector) {
+      const calls = d.facts.find(fact => fact[0] === 'Calls');
+      if (calls) calls[1] = (n.kind === 'codex' ? 'Session activity can be discovered through the Codex app server. ' : '') + collectorStep(n.kind);
+    }
     names.append(el('p', 'insp-class', d.className + (d.kindName ? ': ' + d.kindName : '')), el('h2', '', d.title));
     head.append(icon(v.mesh, v.color, 40), names);
     const parts = [head];
@@ -525,6 +535,20 @@
   /* ---------- the status line and the empty scene: text only, from the host's messages ---------- */
 
   const COMMAND = '“Wyarden 3D Monitor: Set Up Collectors…”';
+  const RESTART = { codex: 'Restart Codex and open /hooks to review Wyarden.', grok: 'Restart Grok Build.', antigravity: 'Restart Antigravity.' };
+  const collectorState = provider => state.hub?.collectors?.[provider];
+  function collectorStep(provider) {
+    const c = collectorState(provider);
+    if (c?.state === 'awaiting-approval') return 'Awaiting hook approval. In Codex, open /hooks and review the Wyarden commands.';
+    if (c?.state === 'approval-unknown') return 'Hook approval could not be read. ' + RESTART[provider];
+    if (c?.state === 'inactive') return 'Hooks are inactive. ' + RESTART[provider];
+    if (c?.state === 'runtime-unavailable') return 'Install Node.js and reopen the editor before setting up this collector.';
+    if (c?.state === 'bridge-unavailable') return 'The local collector command is unavailable. Run ' + COMMAND + '.';
+    if (c?.state === 'installed') return 'Live calls appear on the next hook event. ' + RESTART[provider];
+    if (c?.state === 'unreadable' || c?.state === 'unavailable') return 'Collector status unavailable. Open Status for details.';
+    if (c?.folders === 0) return 'Start the provider once, then run ' + COMMAND + '.';
+    return 'Run ' + COMMAND + '. ' + RESTART[provider];
+  }
   function hubSentence() {
     const h = state.hub;
     if (!h) return 'Hub: starting…';
@@ -543,16 +567,33 @@
     if (c.state === 'partly') return 'Claude Code collector: installed in ' + installed + ' of ' + plural(folders, 'account folder', 'account folders') + ' (exact calls there; derived elsewhere).' + install;
     return 'Claude Code collector: not installed. Calls are read from transcripts (derived).' + install;
   }
+  function nativeCollectorSentences() {
+    return Object.keys(RESTART).flatMap(provider => {
+      const c = collectorState(provider);
+      if (!c) return [];
+      const label = (provider === 'grok' ? 'Grok Build' : N.providerName(provider)) + ' collector: ';
+      if (c.state === 'installed') return [label + 'installed.'];
+      if (c.state === 'awaiting-approval') return [label + 'awaiting hook approval in /hooks.'];
+      if (c.state === 'approval-unknown') return [label + 'approval unknown. Check /hooks.'];
+      if (c.state === 'inactive') return [label + 'inactive. ' + RESTART[provider]];
+      if (c.state === 'partly') return [label + 'partially configured.'];
+      if (c.state === 'runtime-unavailable') return [label + 'command runtime unavailable.'];
+      if (c.state === 'bridge-unavailable') return [label + 'local command unavailable.'];
+      if (c.state === 'unreadable' || c.state === 'unavailable') return [label + 'status unavailable.'];
+      return [label + (c.folders ? 'setup needed.' : 'no profile found.')];
+    });
+  }
   function renderStatus() {
     const parts = [hubSentence()];
     if (state.snapshots) parts.push('Showing ' + plural(model.sessions.size, 'session', 'sessions') + '.');
     const hidden = state.workspaces ? Number(state.workspaces.hidden) || 0 : 0;
     if (hidden > 0) parts.push(hidden === 1 ? '1 more is live in a folder that is open in no window.' : hidden + ' more are live in folders that are open in no window.');
     const collector = collectorSentence();
-    if (collector) parts.push(collector);
+    const collectors = [collector, ...nativeCollectorSentences()].filter(Boolean);
+    parts.push(...collectors);
     setText($('status'), parts.join(' '));
     // Said aloud only when the hub or the collector changes, never for a count.
-    const spoken = [hubSentence(), collector].filter(Boolean).join(' ');
+    const spoken = [hubSentence(), ...collectors].join(' ');
     if (spoken !== state.announced) { state.announced = spoken; setText($('status-live'), spoken); }
   }
   function scopeName(key) {

@@ -861,6 +861,32 @@ test('apply refuses a file that changed after the plan was made, and leaves no t
   });
 });
 
+test('native approval binds the provider plan to its original profile and exact bytes', () => {
+  withRoot(root => {
+    const dir = folder(root), moved = path.join(root, 'moved');
+    const { planConfig } = require('../lib/providers/codex.js');
+    const options = { mode: 'add', commandFor: (_provider, event) => 'fixture-command ' + event };
+    const file = path.join(dir, 'hooks.json'), original = '{"hooks":{}}\n';
+    fs.writeFileSync(file, original);
+    const [standalone] = planConfig(HUB, { ...options, dirs: [dir] });
+    assert.equal(install.apply([standalone])[0].reason, 'not a change made by plan');
+    const [changed] = install.planProvider('codex', HUB, [dir], options);
+    changed.after = '{"hooks":{"unreviewed":[]}}';
+    assert.equal(install.apply([changed])[0].reason, 'the plan changed after review');
+    const [codex] = install.planProvider('codex', HUB, [dir], options);
+    fs.renameSync(dir, moved);
+    fs.mkdirSync(dir);
+    fs.writeFileSync(file, original);
+    assert.equal(install.apply([codex])[0].reason, 'changed since it was shown');
+    const [grok] = install.planProvider('grok', HUB, [dir], options);
+    fs.mkdirSync(path.dirname(grok.file));
+    assert.equal(install.apply([grok])[0].reason, 'changed since it was shown');
+    assert.equal(fs.existsSync(grok.file), false);
+    assert.equal(fs.readFileSync(file, 'utf8'), original);
+    assert.equal(fs.readFileSync(path.join(moved, 'hooks.json'), 'utf8'), original);
+  });
+});
+
 test('apply refuses when a missing file appeared, or an existing one went, after the plan', () => {
   withRoot(root => {
     const d = folder(root);

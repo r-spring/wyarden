@@ -116,7 +116,7 @@ function isFile(file) { try { return fs.statSync(file).isFile(); } catch { retur
 /**
  * Show a session that runs in this window: its terminal, or its Claude Code chat panel.
  *   deps.resolve(target)    -> the hub's answer; for an agent node {kind: 'session', agent, session, cwd, root, pid}
- *   deps.session(sessionId) -> that session's entry of discover.liveClaudeSessions, or null
+ *   deps.session(agentSessionKey) -> that session's process entry, or null
  *   deps.ancestors(pid)     -> {chain, known, start, unit} (lib/procs.js)
  *   deps.hostPid            -> this window's extension host
  * The steps are in the order of docs/monitor-3d/05-working-mockup.md; the first that fits ends it.
@@ -140,15 +140,15 @@ async function focus(vscode, deps, request) {
     if (!deps.claim) void vscode.window.showWarningMessage('3D Monitor: the hub did not answer.');
     return 'no-answer';
   }
-  let kind, session;
-  try { kind = found.kind; session = found.session; } catch { kind = undefined; }
-  if (kind !== 'session' || !C.isSessionId(session)) { info('this session is no longer live.'); return 'gone'; }
+  let kind, agent, session;
+  try { kind = found.kind; agent = found.agent; session = found.session; } catch { kind = undefined; }
+  if (kind !== 'session' || !C.AGENTS.includes(agent) || !C.isSessionId(session)) { info('this session is no longer live.'); return 'gone'; }
 
   // The session's own file names its process. The hub's pid is not used: only the file also says where the
   // session runs and when its process started, and those must describe the same process as the pid.
   let file;
   try {
-    const entry = await deps.session(session);
+    const entry = await deps.session(agent + ':' + session);
     file = entry && typeof entry === 'object' ? { pid: entry.pid, entry: entry.entry, procStart: entry.procStart } : null;
   } catch { file = null; }
   if (!file || !Number.isInteger(file.pid) || file.pid <= 0) {
@@ -178,7 +178,7 @@ async function focus(vscode, deps, request) {
     return 'terminal';
   }
 
-  if (file.entry === 'claude-vscode') {
+  if (agent === 'claude' && file.entry === 'claude-vscode') {
     // The command only reveals a session this window's Claude Code already runs; for any other it starts one.
     // So it is run only for a session whose process is under this extension host and is proved to be the
     // file's own: a leftover file whose pid another program here now holds must not start anything.

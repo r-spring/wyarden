@@ -44,9 +44,9 @@ class MonitorView {
   /**
    * deps.client        the hub client of this window
    * deps.folders()     this window's folders: [{path, name}]
-   * deps.collectors()  {claude: {state, folders, installed}} for the status line
+   * deps.collectors()  provider-keyed collector states for the status line
    * deps.log(message)
-   * deps.session(id)    a live session's entry from discover.liveClaudeSessions, or null
+   * deps.session(key)   a live session's process entry by its provider-qualified key, or null
    * deps.ancestors(pid) a process and its ancestors (lib/procs.js)
    * deps.hostPid        this window's extension host
    * The last three are for a double-click on a session; without them no session is shown.
@@ -57,7 +57,11 @@ class MonitorView {
     this.panel = undefined; this.ready = false;
     this.workspaces = undefined;          // the hub's last "workspaces" message
     this.hubState = 'connecting';
-    this.thinking = createWatch({ resolve: target => this.deps.client.resolve(target), session: deps.session, read: thinking.readThinking, post: m => this.post(m), schedule: deps.schedule });
+    this.thinking = createWatch({
+      resolve: target => this.deps.client.resolve(target),
+      session: id => deps.session?.('claude:' + id),
+      read: thinking.readThinking, post: m => this.post(m), schedule: deps.schedule
+    });
   }
 
   /* ---------- the panel ---------- */

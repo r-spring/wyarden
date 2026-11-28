@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 0.2.0 adds live Codex, Grok Build, and Antigravity sessions alongside Claude Code. The collector setup command previews the required provider configuration. The status command shows whether each provider is configured and whether Codex is waiting for hook approval.
+
 - 0.1.7: select a Claude Code agent to see the thinking its session has done, newest first, in a **Thinking** section under its details; it is read by the editor window that opened the monitor and by no other, kept current while the agent stays selected, and written nowhere. In the 14 transcripts measured, most thinking left only a count; in six probe sessions, Claude Code wrote the text only when started with `--thinking-display summarized`.
 - 0.1.6 opens **3D Monitor** in a dedicated floating window. Open files, reveal searched folders, and show agent sessions across open workspaces from that window.
 - 0.1.5: a new version number for the same code as 0.1.4, so that an installed copy can be told from an older 0.1.4 build. Nothing behaves differently.

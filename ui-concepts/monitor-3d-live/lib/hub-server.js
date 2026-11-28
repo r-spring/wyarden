@@ -1,7 +1,7 @@
 /* Wyarden 3D monitor, working mock-up: the hub's listener, its timers, and its worker entry.
  *
  * One hub per machine. It listens on 127.0.0.1 only, on the port written once in hub.json, and
- * does four things: takes hook payloads from Claude Code (and answers at once, because a hook
+ * does four things: takes hook payloads from providers (and answers at once, because a hook
  * holds the agent until it is answered), keeps one open line-per-message connection to each
  * editor window, reads the CLI's session list and the transcripts while some window shows the
  * view, and answers resolve and status for holders of the control token. Everything it decides is
@@ -16,6 +16,7 @@ const crypto = require('node:crypto');
 const http = require('node:http');
 const os = require('node:os');
 const contract = require('./contract.js');
+const collectors = require('./collectors.js');
 const { createHubCore } = require('./hub-core.js');
 
 const { LIMITS } = contract;
@@ -105,7 +106,10 @@ function startHub(options = {}) {
 
     let normaliser = null;
     if (deps.createNormaliser) {
-      try { normaliser = deps.createNormaliser({ rootInfo: contract.rootInfo }); } catch (error) { log('error', 'the normaliser cannot start: ' + className(error)); }
+      try {
+        normaliser = deps.createNormaliser({ rootInfo: contract.rootInfo,
+          adapters: Array.isArray(options.providerAdapters) ? options.providerAdapters : collectors.adapters() });
+      } catch (error) { log('error', 'the normaliser cannot start: ' + className(error)); }
     }
     if (!normaliser && !off.includes('createNormaliser')) off.push('createNormaliser');
     const epoch = crypto.randomBytes(4).toString('hex');
@@ -186,6 +190,10 @@ function startHub(options = {}) {
 
     /* ---------- discovery and transcripts: only while some window shows a scope ---------- */
 
+    let codexLookup;
+    let watchingGeneration = 0;
+    const codexEveryMs = Math.max(timings.discoveryMs, 3000);
+    let nextCodexLookup = 0;
     const discoverOnce = () => {
       if (closing) return;
       const t = Date.now();
@@ -196,8 +204,20 @@ function startHub(options = {}) {
           for (const item of Array.isArray(list) ? list : []) {
             if (item && typeof item.cwd === 'string' && !item.root) { try { item.root = contract.rootInfo(item.cwd); } catch { /* no root */ } }
           }
-          core.setLiveSessions(list, t);
+          core.setLiveSessions(list, t, 'claude');
         } catch (error) { log('warn', 'discovery failed: ' + className(error)); }
+      }
+      if (!Array.isArray(options.providerAdapters) && !codexLookup && t >= nextCodexLookup) {
+        const foundProfile = collectors.dirsFor('codex', { home: userHome, env }).length > 0;
+        const executable = foundProfile && collectors.executable('codex', env);
+        nextCodexLookup = t + codexEveryMs;
+        if (executable) {
+          const generation = watchingGeneration;
+          codexLookup = collectors.providers.codex.liveCodexSessions({ executable, env, retainOnFailure: true }).then(list => {
+            if (!closing && generation === watchingGeneration && core.needsDiscovery()) core.setLiveSessions(list, Date.now(), 'codex');
+          }).catch(() => { /* A failed Codex lookup leaves every provider's last sightings alone. */ })
+            .finally(() => { codexLookup = null; });
+        }
       }
       try { core.sweep(t); } catch (error) { log('warn', 'the silence rule failed: ' + className(error)); }
     };
@@ -222,7 +242,7 @@ function startHub(options = {}) {
       let payloads = [];
       try { payloads = tail.poll() || []; } catch (error) { log('warn', 'a transcript poll failed: ' + className(error)); }
       for (const payload of payloads) {
-        try { core.ingest(payload, { hint: 'transcript', t: Date.now() }); } catch (error) { log('warn', 'a transcript payload failed: ' + className(error)); }
+        try { core.ingest(payload, { source: 'transcript', t: Date.now() }); } catch (error) { log('warn', 'a transcript payload failed: ' + className(error)); }
       }
     };
     const pollTails = () => {
@@ -252,6 +272,7 @@ function startHub(options = {}) {
         discoveryTimer = setInterval(discoverOnce, timings.discoveryMs); discoveryTimer.unref();
         tailTimer = setInterval(pollTails, timings.tailMs); tailTimer.unref();
       } else if (!need && discoveryTimer) {
+        watchingGeneration++;
         clearInterval(discoveryTimer); clearInterval(tailTimer); discoveryTimer = tailTimer = null;
         closeTails();
       }
@@ -316,7 +337,7 @@ function startHub(options = {}) {
             payload = parse(buffer);
             if (payload === undefined) { core.countBody('rejected'); log('warn', 'a hook body is not JSON: ' + size + ' bytes'); return; }
             if (payload && typeof payload.hook_event_name === 'string' && /^[A-Za-z]{1,40}$/.test(payload.hook_event_name)) event = payload.hook_event_name;
-            core.ingest(payload, { hint: agent, t: Date.now() });
+            core.ingest(payload, { route: agent, source: 'hook', t: Date.now() });
           } catch (error) {
             log('warn', 'a hook payload failed: event ' + event + ', ' + size + ' bytes, ' + className(error));
           } finally { payload = null; buffer = null; }
@@ -426,7 +447,7 @@ function startHub(options = {}) {
         const url = req.url || '';
         if (url.startsWith(ingestPrefix)) {
           const m = /^([A-Za-z0-9_-]+)\/([a-z]+)$/.exec(url.slice(ingestPrefix.length));
-          if (req.method !== 'POST' || !m || !sameToken(m[1], hub.ingest)) return notFound(res);
+          if (req.method !== 'POST' || !m || !contract.AGENTS.includes(m[2]) || !sameToken(m[1], hub.ingest)) return notFound(res);
           return ingest(req, res, m[2]);
         }
         // A control request is signed for its method and path with a fresh nonce; the token itself never travels.
