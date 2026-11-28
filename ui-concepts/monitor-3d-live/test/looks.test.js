@@ -687,9 +687,11 @@ describe('the looks in a headless browser', () => {
     await sleep(120);
     s = await h.eval(LOOK_STATE);
     assert.deepEqual([s.look, s.focus], [IDS[4], 'look-next'], 'Enter and Space on "next look" step twice, and the focus stays');
-    assert.equal(s.tag, true, 'a stub is marked beside its name in the bar');
-    assert.match(await h.eval('document.getElementById("look-name").getAttribute("aria-label")'), /^Look: Lattice original, not built\. /);
-    assert.match(await h.eval('document.getElementById("live").textContent'), /^Look: Lattice original, not built yet\.$/);
+    // A stub, and only a stub, is marked beside its name in the bar, and said to be not built.
+    const stubbed = STUBS.includes(IDS[4]), named = R.entry(IDS[4]).name;
+    assert.equal(s.tag, stubbed, IDS[4] + (stubbed ? ' is a stub: it is marked' : ' is built: it is not marked'));
+    assert.equal(await h.eval('document.getElementById("look-name").getAttribute("aria-label")'), 'Look: ' + named + (stubbed ? ', not built' : '') + '. Choose a look');
+    assert.equal(await h.eval('document.getElementById("live").textContent'), 'Look: ' + named + (stubbed ? ', not built yet' : '') + '.');
     await noErrors('the switcher by keyboard');
   });
 
@@ -710,9 +712,11 @@ describe('the looks in a headless browser', () => {
     await h.deliver({ v: 1, type: 'look', look: 'glasshouse' });
     const s = await h.eval(LOOK_STATE);
     assert.deepEqual([s.look, s.pressed, s.name, s.chosen], ['nexus-mockup', ['nexus-mockup'], 'NEXUS mock-up', true], 'after a reload');
-    // A stub is a look like any other to the saved state.
-    await openScene(undefined, { v: 1, look: 'skyline', lookChosen: true });
-    assert.deepEqual([(await h.eval(LOOK_STATE)).look, (await h.eval(LOOK_STATE)).tag], ['skyline', true]);
+    // Every look of the list comes back from the saved state, a stub as well as a built one.
+    for (const id of [IDS[15], STUBS[0], BUILT[BUILT.length - 1]].filter(Boolean)) {
+      await openScene(undefined, { v: 1, look: id, lookChosen: true });
+      assert.deepEqual([(await h.eval(LOOK_STATE)).look, (await h.eval(LOOK_STATE)).tag], [id, STUBS.includes(id)], id + ' from the saved state');
+    }
     await noErrors('the host\'s rule');
   });
 

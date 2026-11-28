@@ -19,10 +19,10 @@ Replace the whole stub by this, and leave out `stub`. Keep the first and last li
     name: 'Circuit City',
     theme: 'dark',                      // 'dark' or 'light': the browser's own colour scheme (scroll bars)
     claims: {},                         // see "What a look claims"
-    font: "Consolas, monospace",        // captions in the scene, the list and the figures under it
+    font: "Consolas, monospace",        // captions in the scene, the figures under it, the inspector's lists
     lineWidth: 1.2,                     // a shape's edges, 0.5 to 4
     glow: true,                         // a wide faint stroke under each edge, in the class's colour
-    caption: text => text.toUpperCase(),
+    caption: text => text.toUpperCase(),// every caption and tile label passes through it: its case; return a text
     palette: { /* below */ },
     mesh(key) { /* below */ }
   };
