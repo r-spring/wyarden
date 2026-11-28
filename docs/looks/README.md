@@ -7,6 +7,8 @@
 
 Written 27 November 2026.
 
+**Changed the same day:** after this list was made, the Entomatical extension moved out of this repository into its own (commit `9f73bb0`). Section C and the table of interfaces with no look idea describe files as they stood here at commit `0a8c20c`. They are now in the Entomatical repository, and still in this repository's history.
+
 ## What a look carries
 
 The rule is this repository's own ([the critique](../monitor-3d/01-mockup-critique.md), "The concept to build on"): a look has no say in where a thing stands, and nothing moves unless a call happens.
@@ -44,9 +46,9 @@ Shown in this repository as screenshots and [a critique](../monitor-3d/01-mockup
 | `event-horizon` | 05 Event Horizon | [horizon.png](../monitor-3d/img/before/horizon.png) | Near-black. Rings inside rings, like a tunnel; every node is a round clock face in amber or pale cyan. Thin, wide-spaced capitals. | Not built |
 | `signal-terrain` | 06 Signal Terrain | [terrain.png](../monitor-3d/img/before/terrain.png) | Dark green. A wireframe landscape with contour lines and a north arrow; every node is a small beacon in olive or gold. An italic serif title in cream. | Not built |
 
-### C. The main extension's interfaces (4)
+### C. The Entomatical board and the landing page (4)
 
-The main extension has no look switch of any kind: nothing sets a theme, a skin or a density. It shows two styles of its own, and the landing page shows a third in two versions.
+The Entomatical board was this repository's main extension when the list was made. It has no look switch of any kind: nothing sets a theme, a skin or a density. It shows two styles of its own (paths below are Entomatical's, at commit `0a8c20c` here). The landing page, which is still here, shows a third in two versions.
 
 | id | Look | Shown in | What it looks like | Today |
 |---|---|---|---|---|
@@ -75,6 +77,8 @@ This repository names five more ideas and borrows rules from them, but has no pi
 | Orbit, from the Godot build | `orbital` | Rings round a sun on a dark blue sky, as in Orbital Mechanics. What differs is that its shapes are coloured by state, which a look here may not do. |
 
 ## Interfaces with no look idea of their own
+
+The first four are Entomatical's, at commit `0a8c20c`. So are the test harness pages.
 
 | Interface | Where | Why it has no entry |
 |---|---|---|
