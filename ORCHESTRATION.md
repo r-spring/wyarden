@@ -24,8 +24,9 @@ Live editor work uses one lane. Card `1ce761` owns the monitor window and cross-
 
 | Owner | Outcome | State |
 | --- | --- | --- |
-| `80cf35` | All three real providers visible in Wyarden | Submitted for root approval |
-| Steps 1–6 | Implementation, integration and live evidence | No child allocated at planning time |
+| `80cf35` | All three real providers visible in Wyarden | Robert approved at 02:04 on 28 November |
+| `5a6fd9` | Step 1, route events through the shared hub | Launch confirmed, monitor-live-tests assigned |
+| Steps 2–6 | Provider adapters, editor integration and live evidence | Awaiting dependencies |
 
 ---
 
