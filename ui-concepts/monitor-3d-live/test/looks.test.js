@@ -469,6 +469,30 @@ const PICTURE = `(() => {
   for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); if (d[i] !== bg) other++; }
   return { hash: (h >>> 0).toString(16), drawn: other / d.length, width: v.width, height: v.height, nodes: v.stats.nodes, captions: v.labels.length, backdrop: v.backdropInfo };
 })()`;
+/* One frame as a number made of everything it asks the canvas to draw, with the style in force; then the same frame a minute
+   later by the page's clocks, with Math.random forbidden. Pixels are not compared here: a browser may rasterise the same
+   commands differently after the canvas has been read back, and what must not differ is what the look asks for. */
+const DRAWN_TWICE = `(() => {
+  const v = Monitor3D.view, ctx = v.ctx, P = CanvasRenderingContext2D.prototype;
+  const names = ['beginPath', 'moveTo', 'lineTo', 'arc', 'ellipse', 'closePath', 'fill', 'stroke', 'fillRect', 'clearRect', 'fillText', 'strokeText', 'setLineDash'];
+  const inked = new Set(['fill', 'stroke', 'fillRect', 'fillText', 'strokeText']);
+  const run = () => {
+    let h = 2166136261, calls = 0;
+    const add = text => { for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } };
+    for (const name of names) ctx[name] = function (...args) {
+      calls++;
+      add(name + '(' + args.map(a => (typeof a === 'number' ? a.toFixed(3) : JSON.stringify(a))).join(',') + ')');
+      if (inked.has(name)) add([ctx.fillStyle, ctx.strokeStyle, ctx.globalAlpha, ctx.lineWidth, ctx.font, ctx.textAlign].join('|'));
+      return P[name].apply(this, args);
+    };
+    try { v.draw(new Set(['input'])); } finally { for (const name of names) delete ctx[name]; }
+    return (h >>> 0).toString(16) + ' in ' + calls + ' calls';
+  };
+  const first = run(), real = { now: performance.now.bind(performance), date: Date.now, random: Math.random };
+  performance.now = () => real.now() + 60000; Date.now = () => real.date() + 60000;
+  Math.random = () => { throw new Error('a look may not use Math.random when it draws'); };
+  try { return [first, run()]; } finally { delete performance.now; Date.now = real.date; Math.random = real.random; }
+})()`;
 const centre = selector => `(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return null; e.scrollIntoView({ block: 'nearest' }); const r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
   return { x, y, w: r.width, h: r.height, inView: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, onTop: e.contains(document.elementFromPoint(x, y)) }; })()`;
 const LOOK_STATE = `({ look: document.documentElement.dataset.look, state: Monitor3D.state.look, chosen: Monitor3D.state.lookChosen, pressed: [...document.querySelectorAll('button[data-look][aria-pressed="true"]')].map(b => b.dataset.look),
@@ -563,9 +587,10 @@ describe('the looks in a headless browser', () => {
       assert.ok(picture.drawn > .02, 'more than the background is drawn: ' + (picture.drawn * 100).toFixed(1) + ' % of the canvas');
       assert.ok(picture.captions >= 6, 'captions: ' + picture.captions);
       if (picture.backdrop) assert.deepEqual([picture.backdrop.over, picture.backdrop.error], [{}, ''], 'the backdrop is inside its limits');
-      // Drawn again with nothing changed, it is the same picture: nothing in a look depends on when it is drawn.
-      await h.eval('Monitor3D.view.draw(new Set(["input"]))');
-      assert.equal((await h.eval(PICTURE)).hash, picture.hash, 'a second frame of the same scene differs');
+      // Drawn again a minute later with nothing changed, it is the same drawing: nothing in a look depends on when it is drawn.
+      const twice = await h.eval(DRAWN_TWICE);
+      assert.equal(twice[1], twice[0], 'the same scene is drawn differently a minute later');
+      assert.ok(parseInt(twice[0].split(' in ')[1], 10) > 500, 'the frame was recorded: ' + twice[0]);
       pictures.set(id, picture);
       await h.screenshot(path.join(SHOTS, id + '.png'));
       await noErrors(id);
