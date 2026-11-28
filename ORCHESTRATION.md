@@ -25,8 +25,11 @@ Live editor work uses one lane. Card `1ce761` owns the monitor window and cross-
 | Owner | Outcome | State |
 | --- | --- | --- |
 | `80cf35` | All three real providers visible in Wyarden | Robert approved at 02:04 on 28 November |
-| `5a6fd9` | Step 1, route events through the shared hub | Launch confirmed, monitor-live-tests assigned |
-| Steps 2–6 | Provider adapters, editor integration and live evidence | Awaiting dependencies |
+| `5a6fd9` | Step 1, route events through the shared hub | Done. Integrated `364bcc0` at `8077f3c`. The real loopback test kept Claude and Grok separate with the same session id. Full suite 364 passed, 4 skipped, 0 failed. |
+| `bb64b7` | Step 2, Codex sessions and tools | Launch confirmed after `5a6fd9`. |
+| `1018a5` | Step 3, Grok Build sessions and tools | Launch confirmed after `5a6fd9`. |
+| `68479f` | Step 4, Antigravity sessions and tools | Launch confirmed after `5a6fd9`. |
+| Steps 5–6 | Editor integration and live evidence | Awaiting the provider adapters |
 
 ---
 
