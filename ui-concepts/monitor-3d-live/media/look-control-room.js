@@ -64,9 +64,6 @@
       cls: { agent: O.amber, subagent: O.violet, tool: O.green, mcp: O.blue, resource: O.grey },
       state: { needs: O.title, failed: O.red, working: O.white, unclear: O.idle, idle: O.idle, done: O.idle },
       clash: O.redText,
-      // control_room.gd line 42: stage_inner #131315 to stage_outer #0b0b0c round the middle, stage_reach 1.0. A shade of
-      // light in the middle of the wall, eight steps of 255 above its edges.
-      ground: { shape: 'round', at: [.5, .5], stops: [[0, '#131315'], [1, '#0b0b0c']] },
       fill: .95, solid: 1, floorFill: 0, floorLine: .45, post: .5, captionBack: 0, captionHalo: .9
     },
     page: {
