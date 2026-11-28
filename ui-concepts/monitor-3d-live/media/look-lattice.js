@@ -37,15 +37,16 @@
     // Neither rule: as in the original, a subagent is the agent's octahedron made smaller, and an MCP server and a
     // resource share the ring, told apart by size and colour. Every class has its own colour; no provider has one.
     claims: {},
-    // scene.js draws its labels in Consolas; style.css --mono names Cascadia Code first, but Cascadia is wider and with it a row of the
-    // page (most likely the status line) wraps at 800 px and the scene shrinks by 16 px. Consolas first, then the rest of --mono.
+    // scene.js draws its labels in Consolas (lines 63, 77 and 78), so the scene's captions are Consolas first.
     font: "Consolas, 'Cascadia Code', 'SFMono-Regular', 'Liberation Mono', monospace",
     lineWidth: 1,                                         // the original's edges: 1 px with a 3 px glow
     glow: true,
     caption: text => text.toUpperCase(),
     page: {
-      ui: "Consolas, 'Cascadia Code', 'SFMono-Regular', 'Liberation Mono', monospace",
-      headFont: "Consolas, 'Cascadia Code', 'SFMono-Regular', 'Liberation Mono', monospace",
+      // style.css --mono, in its own order: the page is Cascadia Code where that is installed. It is wider than Consolas,
+      // so at 800 x 600 the status line takes two lines of text and the scene is one line lower (LOOKS.md, the size rule).
+      ui: "'Cascadia Code', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
+      headFont: "'Cascadia Code', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
       // The masthead's NEXUS: Segoe UI 500, wide-spaced capitals in near-white (.brand).
       titleFont: "'Segoe UI', Arial, sans-serif",
       titleWeight: '500',

@@ -90,10 +90,18 @@ A colour is any CSS colour.
 | `titleCase` | `uppercase`, `none`, `lowercase` | `panelMuted` | quiet text on a panel |
 | `titleColor` | its colour | `panelLine` | borders on a panel |
 | `titleShadow` | a text shadow, for a glow | `panelAccent` | pressed and focused on a panel |
+| `labelFont` | the small spaced headings' font family; absent, they have `headFont`'s | | |
 
 - **Fonts are the system's.** Name a family list that ends in a generic one. No font file can load: the page's policy allows no network and no font source.
+- **Two fonts in the panels.** `headFont` sets the headings ("List", "Inspector", "Legend", the selected node's name). `labelFont` sets the small spaced headings under them ("CLASSES", "STATES", "CALLS"), so a look may have serif headings over small monospace labels. `labelSpacing` and `labelCase` belong to the same small headings.
 - **The panel colours are for a look whose panels and stage differ** (dark panels beside a light stage). Without them a panel uses `ink`, `caption`, `muted`, `line` and `accent`. With them, the legend's and the inspector's swatches stand on the stage's colour, so your class and state colours need only work on `bg`.
-- **The bar keeps its height,** so the scene has the same size in every look. A title above about 20px runs into the line under it.
+
+**The scene keeps its size.** Use the fonts your original used; the rule below is all a font has to keep.
+
+- **At 1280 x 720 the scene has exactly the same size in every look.**
+- **The top bar and the workspace chips keep their height at every size.** A title above about 20px runs into the line under it.
+- **Below 1280 x 720 the status line may take more lines.** It is a sentence, and it is never cut: in a wide page font it wraps sooner (Cascadia Code: two lines at 800 x 600, where Segoe UI has one). The scene then gives exactly the height of those whole lines of text, and nothing else.
+- **When the test fails on size, its message names the look and the row:** the top bar, the workspace chips or the status line.
 
 **`fromPage(read)`.** Called each time the look is applied, and again when the editor's theme changes, also after the owner chose the look. `read(name, fallback)` gives a CSS variable of the page, or the fall-back when it is absent. Write into `this.palette` (and `this.page`, `this.theme`):
 
@@ -142,7 +150,7 @@ node --test ui-concepts/monitor-3d-live/test/looks.test.js
 node ui-concepts/monitor-3d-live/tools/shoot-looks.js <id>
 ```
 
-- **The test** checks every built look: it is complete; it keeps what it claims; nothing stands elsewhere than in NEXUS; its backdrop is still and inside the limits; a real click on its button shows it with 0 frames at rest and no script error; its picture differs from every other look's; the scene keeps its size; a frame at about 200 nodes is inside the budget. It leaves a picture of the page in `ui-concepts/monitor-3d-live/.scratch/looks/<id>.png`, which git ignores.
+- **The test** checks every built look: it is complete; it keeps what it claims; nothing stands elsewhere than in NEXUS; its backdrop is still and inside the limits; a real click on its button shows it with 0 frames at rest and no script error; its picture differs from every other look's; it keeps to the size rule; a frame at about 200 nodes is inside the budget. It leaves a picture of the page in `ui-concepts/monitor-3d-live/.scratch/looks/<id>.png`, which git ignores.
 - **The whole suite** is `node --test "ui-concepts/monitor-3d-live/test/*.test.js"`.
 - **The shoot tool** writes `docs/looks/img/<id>.png` for the ids you name and no other: the page at 1280 x 720 on one fixed invented scene with every class and state. With `samples` it also writes `docs/looks/img/<id>-<name>.png` for each. Commit those pictures with your look.
 - **To see it yourself,** open the picture, or run the test and open the one in `.scratch/looks/`, or use the preview below.

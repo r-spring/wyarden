@@ -325,6 +325,75 @@ test('the contract: every page variable is one CSS custom property that style.cs
   assert.equal(set.size, 0, 'a look that sets none clears them all');
   assert.equal(R.swatchBack(KNOBS), KNOBS.palette.bg, 'panels with their own ink: a swatch stands on the stage\'s colour');
   assert.equal(R.swatchBack(LOOKS.nexus), '');
+  // Two fonts in the panels: the small spaced headings have their own variable, and fall back on the headings' font.
+  assert.equal(R.PAGE.labelFont, '--label-font');
+  assert.ok(css.includes('var(--label-font, var(--head-font, var(--ui)))'), 'the small headings: the label font, else the headings\' font, else the page\'s');
+  assert.equal((css.match(/--label-font/g) || []).length, 1, 'only the small headings (.side h3) use the label font');
+});
+
+/* ---------- the size rule ---------- */
+
+/* What the page's rows measure in one look at one window size (run in the page). */
+const ROWS = `(() => {
+  const high = s => document.querySelector(s).getBoundingClientRect().height, status = document.getElementById('status');
+  return { scene: [Monitor3D.view.width, Monitor3D.view.height], bar: high('.bar'), chips: high('.scopes'), work: high('.work'), status: high('.status-bar'),
+    line: parseFloat(getComputedStyle(status).lineHeight), text: status.getBoundingClientRect().height };
+})()`;
+const FIXED_ROWS = [['bar', 'the top bar (.bar)'], ['chips', 'the workspace chips (.scopes)']], STATUS_ROW = 'the status line (.status-bar)';
+/* The sizes the rule is checked at. At 1280 x 720 the scene's size is exact. Below it the status line, which is a sentence
+   and not a label, may take more or fewer lines in a look's page font than in the first look's: nothing of it is cut. */
+const SIZES = [{ width: 1280, height: 720, wrap: false }, { width: 800, height: 600, wrap: true }, { width: 560, height: 600, wrap: true }];
+/**
+ * The size rule (LOOKS.md, "The scene keeps its size"). `rows` is ROWS for one look and `base` for the first look, both at
+ * the window size `at`. Returns what is wrong; every line names the look and the row.
+ *   - The top bar and the workspace chips keep their height, and the scene its width, at every size.
+ *   - `wrap` false: the status line keeps its height too, so the scene's size is exact.
+ *   - `wrap` true: the status line may differ by whole lines of its text. The scene and the panels beside it give exactly
+ *     that height and no other.
+ */
+function sizeProblems(id, rows, baseId, base, at, wrap) {
+  const out = [], near = (a, b) => Math.abs(a - b) < .05, px = n => Math.round(n * 100) / 100 + ' px';
+  const say = text => out.push(id + ' at ' + at + ': ' + text);
+  for (const [key, name] of FIXED_ROWS) if (!near(rows[key], base[key])) say(name + ' is ' + px(rows[key]) + ' high, and ' + px(base[key]) + ' in ' + baseId + ': this row keeps its height in every look');
+  if (!near(rows.scene[0], base.scene[0])) say('the scene is ' + px(rows.scene[0]) + ' wide, and ' + px(base.scene[0]) + ' in ' + baseId + ': no row may change its width');
+  const lines = rows.text / rows.line, baseLines = base.text / base.line, more = rows.status - base.status;
+  if (!near(more, 0)) {
+    const told = STATUS_ROW + ' is ' + px(rows.status) + ' high (' + Math.round(lines) + ' lines of text), and ' + px(base.status) + ' in ' + baseId + ' (' + Math.round(baseLines) + '): ';
+    if (!wrap) say(told + 'at this size the scene\'s size is exact, so its text must take the same lines in every look');
+    else if (!near(rows.line, base.line) || !near(lines, Math.round(lines)) || !near(more / rows.line, Math.round(lines) - Math.round(baseLines))) say(told + 'it may differ by whole lines of its text only (a line is ' + px(rows.line) + ')');
+  }
+  if (out.length) return out;
+  if (!near(rows.work + rows.status, base.work + base.status)) say('the scene and the panels are ' + px(rows.work) + ' high over ' + STATUS_ROW + ' of ' + px(rows.status) + '; in ' + baseId + ' they are ' + px(base.work) + ' over ' + px(base.status) + ': a row other than the status line changed its height');
+  else if (!near(rows.scene[1], rows.work * base.scene[1] / base.work)) say('the scene is ' + px(rows.scene[1]) + ' high in a main area of ' + px(rows.work) + '; in ' + baseId + ' it is ' + px(base.scene[1]) + ' of ' + px(base.work) + ': the scene lost height that ' + STATUS_ROW + ' did not take');
+  return out;
+}
+
+test('the size rule: the scene\'s size is exact at 1280 x 720; below it only the status line may differ, by whole lines of its text; a failure names the row and the look', () => {
+  // Measured in the page, card 5a6363: NEXUS at 800 x 600, and a look whose page font is Cascadia Code, where the status text takes two lines.
+  const nexus = { scene: [556, 503.0625], bar: 39, chips: 35, work: 503.0625, status: 22.9375, line: 15.95, text: 15.9375 };
+  const wide = { scene: [556, 487.125], bar: 39, chips: 35, work: 487.125, status: 38.875, line: 15.95, text: 31.875 };
+  const rule = (rows, wrap, at) => sizeProblems('lattice', Object.assign({}, nexus, rows), 'nexus', nexus, at || '800 x 600', wrap !== false);
+  assert.deepEqual(rule({}), [], 'the same rows: nothing to say');
+  assert.deepEqual(rule(wide), [], 'one more whole line of status text, and the scene gave exactly that');
+  // The same difference at 1280 x 720 fails: there the size is exact.
+  const exact = rule(wide, false, '1280 x 720');
+  assert.equal(exact.length, 1);
+  assert.match(exact[0], /^lattice at 1280 x 720: the status line \(\.status-bar\) is 38\.88 px high \(2 lines of text\), and 22\.94 px in nexus \(1\): at this size the scene's size is exact/);
+  // Another row: the top bar grows, or the chips do. Each is named, with the look.
+  assert.match(rule({ bar: 55, work: 487.0625, scene: [556, 487.0625] })[0], /^lattice at 800 x 600: the top bar \(\.bar\) is 55 px high, and 39 px in nexus/);
+  assert.match(rule({ chips: 63, work: 475.0625, scene: [556, 475.0625] })[0], /^lattice at 800 x 600: the workspace chips \(\.scopes\) is 63 px high, and 35 px in nexus/);
+  assert.match(rule({ scene: [540, 503.0625] })[0], /^lattice at 800 x 600: the scene is 540 px wide, and 556 px in nexus/);
+  // The status line by less than a line (padding, another font size): not whole lines of its text.
+  assert.match(rule({ status: 30.9375, work: 495.0625, scene: [556, 495.0625], text: 15.9375 })[0], /the status line \(\.status-bar\) is 30\.94 px high .* whole lines of its text only \(a line is 15\.95 px\)/);
+  assert.match(rule({ status: 30.9375, work: 495.0625, scene: [556, 495.0625], text: 23.9375 })[0], /whole lines of its text only/);
+  // Height that went nowhere a row accounts for.
+  assert.match(rule({ work: 480, scene: [556, 480] })[0], /^lattice at 800 x 600: the scene and the panels are 480 px high .* a row other than the status line changed its height/);
+  assert.match(rule({ scene: [556, 470] })[0], /^lattice at 800 x 600: the scene is 470 px high in a main area of 503\.06 px.* the scene lost height that the status line \(\.status-bar\) did not take/);
+  // The narrow layout: the scene has 68 % of the main area, so a line more of status text costs it 68 % of a line.
+  const narrow = { scene: [560, 333.96875], bar: 35, chips: 35, work: 491.125, status: 38.875, line: 15.95, text: 31.875 };
+  const three = Object.assign({}, narrow, { status: 54.8125, text: 47.8125, work: 475.1875, scene: [560, 475.1875 * .68] });
+  assert.deepEqual(sizeProblems('lattice', three, 'nexus', narrow, '560 x 600', true), []);
+  assert.deepEqual(SIZES.map(s => [s.width, s.height, s.wrap]), [[1280, 720, false], [800, 600, true], [560, 600, true]]);
 });
 
 test('the contract: an outline colour apart from the fill, faces, and a caption size', () => {
@@ -597,19 +666,24 @@ describe('the looks in a headless browser', () => {
     });
   }
 
-  it('no two built looks draw the same picture of the same scene, and none changes the size of the scene', T, async () => {
+  it('no two built looks draw the same picture of the same scene, and every look keeps to the size rule: exact at 1280 x 720, whole lines of the status line below it', T, async () => {
     assert.deepEqual([...pictures.keys()], BUILT, 'every built look was photographed');
     const by = new Map();
     for (const [id, p] of pictures) { assert.ok(!by.has(p.hash), id + ' draws the same picture as ' + by.get(p.hash)); by.set(p.hash, id); }
     const first = pictures.get(BUILT[0]);
-    for (const [id, p] of pictures) assert.deepEqual([p.width, p.height], [first.width, first.height], id + ' at 1280 x 720');
-    // The same at 800 x 600 and in the narrow layout, where the bar is tightest.
-    for (const size of [{ width: 800, height: 600 }, { width: 560, height: 600 }]) {
+    // The size rule (sizeProblems, above), row by row: exact at 1280 x 720; at 800 x 600 and in the narrow layout the status
+    // line alone may differ, by whole lines of its text. What is wrong names the look and the row.
+    measured.statusLines = {};
+    for (const size of SIZES) {
       await openScene(size);
-      const sizes = {};
-      for (const id of BUILT) { await h.eval(`Monitor3D.chooseLook(${JSON.stringify(id)})`); await sleep(150); sizes[id] = await h.eval('[Monitor3D.view.width, Monitor3D.view.height, document.querySelector(".bar").getBoundingClientRect().height]'); }
-      for (const id of BUILT) assert.deepEqual(sizes[id], sizes[BUILT[0]], id + ' at ' + size.width + ' x ' + size.height);
+      const rows = {}, at = size.width + ' x ' + size.height;
+      for (const id of BUILT) { await h.eval(`Monitor3D.chooseLook(${JSON.stringify(id)})`); await sleep(150); rows[id] = await h.eval(ROWS); }
+      const wrong = BUILT.flatMap(id => sizeProblems(id, rows[id], BUILT[0], rows[BUILT[0]], at, size.wrap));
+      assert.deepEqual(wrong, [], wrong.join('\n'));
+      const lines = id => Math.round(rows[id].text / rows[id].line);
+      measured.statusLines[at] = Object.assign({ [BUILT[0]]: lines(BUILT[0]) }, Object.fromEntries(BUILT.filter(id => lines(id) !== lines(BUILT[0])).map(id => [id, lines(id)])));
     }
+    for (const [id, p] of pictures) assert.deepEqual([p.width, p.height], [first.width, first.height], id + ' at 1280 x 720: the scene as it was photographed has another size than in ' + BUILT[0]);
     measured.pictures = Object.fromEntries([...pictures].map(([id, p]) => [id, p.hash]));
     measured.scene = [first.width, first.height];
   });
@@ -726,6 +800,7 @@ describe('the looks in a headless browser', () => {
       return { set: ${JSON.stringify(Object.values(R.PAGE))}.filter(n => root.getPropertyValue(n) !== ''), size: [Monitor3D.view.width, Monitor3D.view.height], bar: document.querySelector('.bar').getBoundingClientRect().height,
         title: [cs('.brand strong', 'font-style'), cs('.brand strong', 'font-size'), cs('.brand strong', 'text-transform'), cs('.brand strong', 'color'), cs('.brand strong', 'letter-spacing'), cs('.brand strong', 'font-weight')],
         titleFont: cs('.brand strong', 'font-family'), body: cs('body', 'font-family'), head: cs('.side h2', 'font-family'), label: [cs('.side h3', 'text-transform'), cs('.side h3', 'letter-spacing')],
+        labelFont: cs('.side h3', 'font-family'), summary: cs('#legend summary', 'font-family'),
         radius: [cs('#motion', 'border-radius'), cs('#hud', 'border-radius'), cs('#frame', 'border-radius')], shadow: cs('.brand strong', 'text-shadow') !== 'none',
         panel: [cs('.side h2', 'color'), cs('#status', 'color'), cs('.bar', 'border-bottom-color'), cs('#motion', 'color'), cs('#frame', 'color'), cs('#hud b', 'color')], stageInk: cs('.stage', '--ink').trim(),
         swatch: getComputedStyle(document.querySelector('#legend-body canvas')).backgroundColor, text: document.querySelector('.brand strong').textContent };
@@ -735,13 +810,22 @@ describe('the looks in a headless browser', () => {
     assert.deepEqual(plain.title, ['normal', '14px', 'uppercase', 'rgb(232, 252, 255)', '3px', '600'], 'the title as it was before there were variables');
     assert.deepEqual([plain.label, plain.radius, plain.shadow, plain.swatch], [['uppercase', '0.6px'], ['3px', '3px', '3px'], false, 'rgba(0, 0, 0, 0)']);
     assert.equal(plain.text, 'Monitor 3D');
+    assert.deepEqual([plain.labelFont, plain.head, plain.summary], [plain.body, plain.body, plain.body], 'NEXUS: the headings and the small headings are in the page\'s font, as before');
     await h.eval(KNOBS_SOURCE);
     await h.eval('Monitor3D.chooseLook("every-knob")');
     await sleep(300);
     const set = await h.eval(style);
     assert.deepEqual(set.set, Object.values(R.PAGE), 'every variable of the list is set');
     assert.deepEqual(set.title, ['italic', '19px', 'none', 'rgb(245, 158, 11)', '1px', '400']);
-    for (const family of [set.titleFont, set.body, set.head]) assert.match(family, /^Georgia/);
+    for (const family of [set.titleFont, set.body, set.head, set.summary]) assert.match(family, /^Georgia/);
+    // Two fonts in the panels: the small spaced headings have their own (page.labelFont), the headings keep headFont.
+    assert.match(set.labelFont, /^Consolas/, 'the small headings are in the label font');
+    // Without a label font the small headings have the headings' font, as they had before there was such a key.
+    await h.eval('document.documentElement.style.removeProperty("--label-font")');
+    assert.match(await h.eval('getComputedStyle(document.querySelector(".side h3")).fontFamily'), /^Georgia/, 'no labelFont: the small headings fall back on headFont');
+    await h.eval('Monitor3D.chooseLook("every-knob")');
+    await sleep(200);
+    assert.deepEqual(await h.eval(style), set, 'applied again, the look sets the label font again');
     assert.deepEqual([set.label, set.radius, set.shadow], [['none', '2px'], ['11px', '11px', '11px'], true]);
     // The panels have their own ink (light on dark) and the stage keeps the palette's (dark on light).
     assert.deepEqual(set.panel, ['rgb(248, 250, 252)', 'rgb(154, 164, 178)', 'rgb(71, 85, 105)', 'rgb(215, 221, 229)', 'rgb(215, 221, 229)', 'rgb(248, 250, 252)']);

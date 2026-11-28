@@ -51,6 +51,7 @@
     titleColor: '--title-color',
     titleShadow: '--title-shadow',    // a text-shadow, for a glow
     headFont: '--head-font',          // the panels' headings: a font-family list
+    labelFont: '--label-font',        // the small spaced headings: a font-family list; absent, they have headFont's
     labelSpacing: '--label-spacing',  // the small headings' letter-spacing
     labelCase: '--label-case',        // the small headings: uppercase | none
     radius: '--radius',               // corners of buttons, chips and the boxes over the scene

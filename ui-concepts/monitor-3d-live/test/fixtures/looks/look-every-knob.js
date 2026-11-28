@@ -30,7 +30,7 @@
     page: {
       ui: "Georgia, 'Times New Roman', serif", titleFont: "Georgia, 'Times New Roman', serif", titleStyle: 'italic', titleWeight: '400', titleSize: '19px',
       titleSpacing: '1px', titleCase: 'none', titleColor: '#f59e0b', titleShadow: '0 0 6px #f59e0b', headFont: "Georgia, 'Times New Roman', serif",
-      labelSpacing: '2px', labelCase: 'none', radius: '11px',
+      labelFont: "Consolas, 'Courier New', monospace", labelSpacing: '2px', labelCase: 'none', radius: '11px',
       panelInk: '#f8fafc', panelText: '#d7dde5', panelMuted: '#9aa4b2', panelLine: '#475569', panelAccent: '#f59e0b',
       notAKey: 'ignored'
     },
