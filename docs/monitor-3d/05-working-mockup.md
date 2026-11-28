@@ -17,6 +17,7 @@ This document is the contract the parts were built against. Sections 1 to 8 say 
 | "Only what is alive." | A session is drawn only when its folder is inside an open workspace. An ended session leaves the scene 20 seconds after its end. A session whose process is gone is ended. |
 | "VS Code and the open-source builds, Windows and Linux." | Plain JavaScript, no package, no native code, no build step. Only stable `vscode` API. One VSIX for every system and editor. Paths are handled by their own form (Windows or POSIX), so both forms are tested on both systems. |
 | "I want to be able to see the thinking that it's done." (27 November, a card) | Since 0.1.7, a selected Claude Code agent shows the thinking its session has done, newest first, in a "Thinking" section under the inspector, kept current while it stays selected. The extension host of the editor window that opened the monitor reads it from the transcript, shows it on that monitor's page and writes it nowhere. This is an exception to the privacy rule, and the owner chose it knowing that (sections 4 and 8.6). |
+| "what about adding that to anti-gravity grok and codex?" (28 November) | Since 0.2.1, a selected Codex, Grok Build or Antigravity agent has the Thinking section too. The same window reads that tool's own record of the session, the same way, and only its reasoning; the same exception covers it (sections 4 and 8.6). The same day the owner asked for Codex's reasoning summaries to be turned on, on his machine: that is a setting in Codex's own config, not in this extension (9.9). |
 
 ## 2. The parts
 
@@ -40,7 +41,9 @@ This document is the contract the parts were built against. Sections 1 to 8 say 
    lib/actions.js                    a double-click becomes a VS Code call
    lib/procs.js                      a process and its ancestors: where a session runs
    lib/thinking.js                   the selected agent's thinking, from its transcript (0.1.7)
-   lib/thinking-watch.js             reads it again while the transcript changes (0.1.7)
+   lib/thinking-formats.js           what a Codex, Grok Build or Antigravity record holds as reasoning (0.2.1)
+   lib/thinking-records.js           where that record is, from the session's id (0.2.1)
+   lib/thinking-watch.js             reads it again while the transcript or record changes (0.1.7)
    lib/install.js                    collectors: plan, show, write, remove
    |  postMessage
    v
@@ -76,7 +79,7 @@ The vocabulary is [02-live-signals.md](02-live-signals.md) section 11, and `medi
   - `title`: the title of the session's tab, from the CLI's session file (`name`, unless it is the CLI's placeholder). The scene shows it under the agent only while the pointer is on the agent; the inspector and the list always have it.
   - `space`: the name of the workspace the session works in, which is its window's title. The tile the agent stands on is labelled with it.
 - **The title is an addition to what may be kept** (02 section 13 lists no session title). The owner asked for it on 27 November. It is the text the editor already shows on the tab; it is cleaned and cut like every other text, held in memory, sent only to the windows of this machine's editors, and written nowhere.
-- **Thinking is an exception to what may be kept** (since 0.1.7; 02 section 13 keeps no assistant text). The owner asked for it in a card on 27 November ("I want to be able to see the thinking that it's done.") and the same day chose this monitor as its place, told that it changes this rule. `CONTRIBUTING.md` asks that a privacy change be discussed in an issue first; this one was the maintainer's own decision, and this document is its record. It is not like the title: the title is the owner's own words and goes through the hub, while thinking is the model's own text and can repeat a prompt, a file's content or a command line. So it takes the path of the 0.1.3 double-click, a read by the one window that was asked: read from the transcript by the extension host of the editor window that opened the monitor, for the one selected session; held in that host's memory for one answer; posted to that monitor's page only; shown as text. It is sent to no hub and to no other window, and written nowhere: not to a file, a log, the output channel, a notification, the status bar, the editor's saved state or the page's saved state. It is gone from the page when the selection moves. It is not an event or a record of this section (8.6). So: check the Thinking section before sharing a screenshot or pasting it into a bug report.
+- **Thinking is an exception to what may be kept** (since 0.1.7; 02 section 13 keeps no assistant text). The owner asked for it in a card on 27 November ("I want to be able to see the thinking that it's done.") and the same day chose this monitor as its place, told that it changes this rule. `CONTRIBUTING.md` asks that a privacy change be discussed in an issue first; this one was the maintainer's own decision, and this document is its record. Since 0.2.1 it covers the reasoning of a selected Codex, Grok Build or Antigravity agent too, as the owner asked on 28 November; that is read from the tool's own record of the session, the same way. It is not like the title: the title is the owner's own words and goes through the hub, while thinking is the model's own text and can repeat a prompt, a file's content or a command line. So it takes the path of the 0.1.3 double-click, a read by the one window that was asked: read from the session's transcript or record by the extension host of the editor window that opened the monitor, for the one selected session; held in that host's memory for one answer; posted to that monitor's page only; shown as text. It is sent to no hub and to no other window, and written nowhere: not to a file, a log, the output channel, a notification, the status bar, the editor's saved state or the page's saved state. It is gone from the page when the selection moves. It is not an event or a record of this section (8.6). So: check the Thinking section before sharing a screenshot or pasting it into a bug report.
 - **`src` values:** `hook:<Event>`, `args:<tool>` (a file or address read from a hook's tool arguments), `transcript:<Event>`, `sessions-file`, `hub:known` (a session the hub already knew, shown because its workspace opened), `hub:gone` (its process ended), `hub:silent` (no end signal and no event for 30 minutes).
 - **Ids and names are kept only when they look like ids and names** (`contract.safeId`, `safeName`): a call, turn or subagent id made of id characters; a tool, server, model or agent-type name made of name characters and at most four words. Any other value becomes a stand-in made from its hash (`id-…`, `unnamed-…`), so a path or a command line cannot ride in a name field. A session id that is not letters, digits, `-` and `_` is not a session, and its payload is refused.
 - **The hub adds `seq`** to every event: a whole number rising by one. Order is `seq`.
@@ -154,8 +157,8 @@ tail.close();       // also: tail.skipped, tail.jumps, tail.left, tail.open
 
 ```js
 const { readThinking, thinkingIn, LIMITS } = require('./thinking.js');
-await readThinking(file, limits);   // -> {ok: true, size, mtimeMs, whole, thoughts: [{at, text, cut?}], recorded, unrecorded, more}, or {ok: false, why}; never rejects
-thinkingIn(lines, limits);          // -> {thoughts, recorded, unrecorded, more} from lines already read; no I/O
+await readThinking(file, opts);     // opts: {format, ...limits}; -> {ok: true, size, mtimeMs, whole, thoughts: [{at, text, cut?}], recorded, unrecorded, more}, or {ok: false, why}; never rejects
+thinkingIn(lines, limits);          // -> {thoughts, recorded, unrecorded, more} from a Claude Code transcript's lines already read; no I/O
 ```
 
 - **A second reader of the transcript (since 0.1.7).** The tail reads calls for the hub. `lib/thinking.js` reads thinking, for one monitor, when its page asks (8.6). It is not part of the hub and gives no events.
@@ -164,6 +167,11 @@ thinkingIn(lines, limits);          // -> {thoughts, recorded, unrecorded, more}
 - **One read for one answer:** one `stat`, then the file is opened, read and closed in one go (on Windows an open handle can stop the CLI from replacing its file). The read starts at a line of its own: it takes the last 4 MB and the one byte before them, to tell; a line the window cut is dropped, and so is a character it cut. The last line may be half written: it is tried, and passed over if it does not parse. `size` and `mtimeMs` are from that `stat`, so the watch (8.6) can skip a file that has not changed. Nothing is kept between calls.
 - **What it returns** of the transcript: thinking text, its time and counts. No prompt, no answer, no tool input, no signature, no path, no session id, no error text.
 - **It never rejects.** A path that is not absolute, is on another machine, or is longer than 4096 characters is `missing` without a look at the disk; a missing file is `missing` too; a folder is `not-a-file`; any other failure is `unreadable`. Its limits are 8.6's.
+- **Three more formats (since 0.2.1).** `format` is `claude` when left out, or `codex`, `grok`, `antigravity`; any other value is `unreadable` before the path is looked at, and the disk is not touched. `lib/thinking-formats.js` holds one extractor for each of the three, and says only what a parsed record holds as reasoning. Everything else is the same steps as for a Claude Code transcript: the one `stat` and the bounded read, the cut first line dropped, a line parsed only when it holds the format's mark, a thought counted once (by a short hash of the key its format gives), the cleaning, the limits, and the same answer. Each format is the tool's own and undocumented; what follows was seen on the owner's machine on 28 November (9.9).
+  - **Codex** (its "rollout" file): only a `response_item` record whose payload type is `reasoning`. Its text is the record's `summary` entries, a blank line between them. A reasoning record with no summary text counts in `unrecorded`. The encrypted content, and the second copy Codex writes of the same reasoning (an `item_completed` event), are never read; nor are answers, prompts or tool calls. A thought is counted once by its reasoning id (else by its text).
+  - **Grok Build** (the session's `updates.jsonl`): only an `agent_thought_chunk` update, its text and its time. One line is one whole thought. Answers (`agent_message_chunk`), prompts (`user_message_chunk`) and tool calls are other line types and are never read.
+  - **Antigravity** (`transcript_full.jsonl`, else `transcript.jsonl`): only a `PLANNER_RESPONSE` record's `thinking` text; its answer (`content`) and its tool calls are never read. When the record names `thinking` among the fields it cut, the thought is marked `cut` and its text is as the tool left it.
+  - **Grok Build and Antigravity cannot show reasoning that left no text:** a call with no summary leaves no line (Grok Build), or a blank one that does not say so reliably (Antigravity). So for them a blank item is passed over and `unrecorded` is always 0.
 
 ## 7. The hub
 
@@ -276,10 +284,10 @@ Every message has `v: 1` and a `type`.
 | host to page | `{type: "hub", state, role, collectors: {claude: {state, folders, installed}}}` | The status line. `state`: `connecting`, `up`, `blocked`, `stopped`. Collector `state`: `installed`, `partly`, `missing`. |
 | host to page | `{type: "look", look}` | `nexus` for a dark theme, `glasshouse` for a light one. |
 | page to host | `{type: "scope", scope}` | A chip was chosen: `all` or a workspace key. |
-| page to host | `{type: "select", target: {class, id}}` | A click. The host does nothing with it. Since 0.1.7 the page also posts `thinking` when the selection becomes a Claude Code agent or leaves one (below). |
+| page to host | `{type: "select", target: {class, id}}` | A click. The host does nothing with it. Since 0.1.7 the page also posts `thinking` when the selection becomes an agent of a kind whose thinking is read, or leaves one (below): Claude Code since 0.1.7; Codex, Grok Build and Antigravity since 0.2.1. |
 | page to host | `{type: "act", action, target: {class, id}, member}` | A double-click, or Ctrl+Enter on the selection. `action`: `open` for a file group or a URL group; `focus` for a session (since 0.1.3), with the session's agent node as the target, also when a subagent was double-clicked. |
-| page to host | `{type: "thinking", target: {class: "agent", id}}`, or `{type: "thinking", target: null}` | Since 0.1.7: a Claude Code agent became the selection; or the selection left it, for anything else or for none (8.6). |
-| host to page | `{type: "thinking", id, state, thoughts: [{at, text}], recorded, unrecorded, more, whole}` | Since 0.1.7: the selected agent's thinking, to this monitor's page only (8.6). |
+| page to host | `{type: "thinking", target: {class: "agent", id}}`, or `{type: "thinking", target: null}` | Since 0.1.7: an agent of one of the four kinds became the selection (Claude Code; since 0.2.1 also Codex, Grok Build, Antigravity); or the selection left it, for anything else or for none (8.6). The message is unchanged in 0.2.1. |
+| host to page | `{type: "thinking", id, state, thoughts: [{at, text}], recorded, unrecorded, more, whole}` | Since 0.1.7: the selected agent's thinking, to this monitor's page only (8.6). The message is unchanged in 0.2.1. |
 
 - **The page never names a path, a command, a process or a window.** The host asks the hub to resolve the node.
 - **The host checks** every message's shape, and refuses an id that does not resolve. For `thinking`, such an id is answered `gone` once two looks in a row agree, and is asked again (8.6).
@@ -313,8 +321,10 @@ Every message has `v: 1` and a `type`.
 | `lib/view.js` | The tab: `createWebviewPanel`, the HTML from `page.html`, the messages of 8.1, and the policy: `default-src 'none'`, scripts and the stylesheet by this page's nonce only, `img-src data:`, `connect-src 'none'`. No host is named, not even the editor's own. |
 | `lib/actions.js` | `open`: resolve, then `showTextDocument` beside the monitor (a covered tab has no page); a Quick Pick first when the group holds more than one file; for a searched folder `revealInExplorer` when it is in this window, else `revealFileInOS`; for a URL a modal confirmation that shows it, then `openExternal`. `focus`: section 8.5. |
 | `lib/procs.js` | `ancestors(pid)`: the process and its ancestors, nearest first. Section 8.5. |
-| `lib/thinking.js` | `readThinking(file)`: the thinking a transcript holds, newest first, within the limits of 8.6. Section 6. |
-| `lib/thinking-watch.js` | `checkThinking(message)`, the page's `thinking` message checked; `createWatch(deps)`, the watch on the selected agent's transcript: one read at a time, every 3 seconds while the agent is selected and the monitor is visible, a new read only when the file's size or time changed. Section 8.6. |
+| `lib/thinking.js` | `readThinking(file, {format})`: the thinking a transcript or a record holds, newest first, within the limits of 8.6. Section 6. |
+| `lib/thinking-formats.js` | Since 0.2.1: one extractor for each of Codex, Grok Build and Antigravity: what a parsed record holds as reasoning. Section 6. |
+| `lib/thinking-records.js` | Since 0.2.1: `recordOf(agent, sessionId)`, where a Codex, Grok Build or Antigravity session's own record is. Folder listings only. Section 8.6. |
+| `lib/thinking-watch.js` | `checkThinking(message)`, the page's `thinking` message checked; `createWatch(deps)`, the watch on the selected agent's transcript or record: one read at a time, every 3 seconds while the agent is selected and the monitor is visible, a new read only when the file's size or time changed. Section 8.6. |
 | `lib/install.js` | Section 8.4. |
 | `package.json` | Commands: "Wyarden 3D Monitor: Open", "…: Choose Workspace", "…: Set Up Collectors…", "…: Remove Collectors", "…: Status". |
 
@@ -400,34 +410,39 @@ await ancestors(pid)     // -> { chain: [pid, parent, grandparent, ...], known, 
 
 ### 8.6 Thinking, for the selected agent (since 0.1.7)
 
-The owner's card of 27 November: "I want to be able to see the thinking that it's done." The same day he chose this monitor as its place, told that it changes the privacy rule (section 4; 02 section 13). `CONTRIBUTING.md` asks that a privacy change be discussed in an issue first; this one was the maintainer's own decision, and this section is its record.
+The owner's card of 27 November: "I want to be able to see the thinking that it's done." The same day he chose this monitor as its place, told that it changes the privacy rule (section 4; 02 section 13). `CONTRIBUTING.md` asks that a privacy change be discussed in an issue first; this one was the maintainer's own decision, and this section is its record. On 28 November the owner asked for it for Codex, Grok Build and Antigravity agents too ("what about adding that to anti-gravity grok and codex?"); that is version 0.2.1, and the rule below covers all four kinds.
 
-- **The rule:** the thinking of the one selected agent goes to the monitor that asked, and nowhere else. It is read from the transcript by the extension host of the editor window that opened that monitor, for that one session; held in that host's memory for one answer; posted to that monitor's page only; shown as text. It is sent to no hub and to no other window, and written nowhere: not to a file, a log, the output channel, a notification, the status bar, the editor's saved state or the page's saved state. It is gone from the page when the selection moves.
+- **The rule:** the thinking of the one selected agent goes to the monitor that asked, and nowhere else. It is read from the session's transcript (Claude Code) or from its tool's own record (Codex, Grok Build, Antigravity) by the extension host of the editor window that opened that monitor, for that one session; held in that host's memory for one answer; posted to that monitor's page only; shown as text. It is sent to no hub and to no other window, and written nowhere: not to a file, a log, the output channel, a notification, the status bar, the editor's saved state or the page's saved state. It is gone from the page when the selection moves.
 - **Why this path.** Thinking is the model's own text, not the owner's words, and it can repeat a prompt, a file's content or a command line. The title (section 4) goes through the hub; this takes the path of the 0.1.3 double-click (8.5): a read by the one window that was asked.
 - **So: check the Thinking section** before sharing a screenshot or pasting it into a bug report.
-- **Claude Code sessions only,** since only Claude Code's transcripts are read. The page asks for thinking only when the selected agent is a Claude Code agent. For an agent of another provider there is no Thinking section. If the hub ever names another provider's session for an asked node, the watch stops and nothing is posted.
-- **The page** posts `{type: "thinking", target: {class: "agent", id}}` when a Claude Code agent becomes the selection, and `{type: "thinking", target: null}` when the selection leaves it, for anything else (a subagent too) or for none. A move between two nodes that are not Claude Code agents posts nothing. It names no path. The host takes only `class: "agent"` and an id of an agent node's exact form, `a:<agent>:<session>`, with no other key in the target.
+- **Four kinds of agent.** The page asks for thinking only when the selected agent is a Claude Code agent (since 0.1.7) or a Codex, Grok Build or Antigravity agent (since 0.2.1): the kinds whose records are read. An agent of any other kind has no Thinking section. If the hub ever names a session of a kind that is not read for an asked node, the watch stops and nothing is posted.
+- **The page** posts `{type: "thinking", target: {class: "agent", id}}` when an agent of one of the four kinds becomes the selection, and `{type: "thinking", target: null}` when the selection leaves it, for anything else (a subagent too) or for none. A move between two nodes that are not such agents posts nothing. It names no path. The host takes only `class: "agent"` and an id of an agent node's exact form, `a:<agent>:<session>`, with no other key in the target.
 - **The host** asks three things, in this order:
   1. **The hub:** which session is this node? (`resolve`, 7.4.)
-  2. **Claude Code's own session file:** where the session's transcript is (`transcript`, section 6), by the same lookup as the double-click of 8.5. The path comes from `lib/discover.js`, never from the page.
-  3. **The transcript:** `readThinking` (section 6).
+  2. **Where its record is.** For Claude Code, its own session file: where the session's transcript is (`transcript`, section 6), by the same lookup as the double-click of 8.5; the path comes from `lib/discover.js`. For Codex, Grok Build and Antigravity, the tool's own record, found from the session's id by `recordOf(agent, sessionId)` in `lib/thinking-records.js` (below). Never from the page.
+  3. **The transcript or record:** `readThinking`, with the format of the agent's kind (section 6).
+- **Finding a Codex, Grok Build or Antigravity record** (`lib/thinking-records.js`). It reads folder listings only, never a record's content; it refuses a network path; and it stays inside the tool's own sessions folder (`brain` for Antigravity). Each tool's home is found as the collectors find it: `CODEX_HOME`, else `.codex` in the user's home; `GROK_HOME`, else `.grok`; `.gemini` in the user's home for Antigravity.
+  - **Codex:** `<Codex home>/sessions/YYYY/MM/DD/rollout-<date and time>-<thread id>.jsonl`. The day folders are looked through, newest first, for the file whose name ends with the id. A thread whose history Codex has moved into its own database has no such file, so there is nothing to read.
+  - **Grok Build:** `<Grok home>/sessions/<a folder named after the working folder>/<session id>/updates.jsonl`. Every folder under `sessions` is looked in for the id.
+  - **Antigravity:** `<home>/.gemini/<antigravity-cli, antigravity or antigravity-ide>/brain/<conversation id>/.system_generated/logs/transcript_full.jsonl`, else `transcript.jsonl` beside it, which holds the same records with long texts cut near 4 KB. The databases beside them are never opened.
 - **The watch** (`lib/thinking-watch.js`):
   - **One read at a time.** The first look comes 200 ms after the selection (`FIRST_MS`), so a quick run across agents with the arrow keys starts one look. A view never has two transcript reads in flight. An answer for an earlier selection is dropped.
   - **Then every 3 seconds,** while the agent stays selected and the monitor is visible, it looks at the transcript's size and time, and reads it again only when they changed. A `stat` that says the file is missing counts as `not-yet` without a read.
-  - **It keeps looking.** It ends only when the selection moves, the monitor is hidden or closed, the page loads again, the transcript's path is one it may not look at (then `not-yet`), or the hub names another provider's session (above). After `gone` or `ended` it looks again every fifth tick (15 seconds), and every 3 seconds again once a look finds the transcript, so it recovers by itself.
+  - **It keeps looking.** It ends only when the selection moves, the monitor is hidden or closed, the page loads again, a Claude Code transcript's path is one it may not look at (then `not-yet`), or the hub names a session of a kind that is not read (above). After `gone` or `ended` it looks again every fifth tick (15 seconds), and every 3 seconds again once a look finds the transcript, so it recovers by itself.
+  - **For Codex, Grok Build and Antigravity** (since 0.2.1), a session whose record is not found gets `not-yet` at once, and is looked for again every fifth tick (15 seconds), since finding a record lists many folders. A record whose path the watch may not look at, or that is not of the agent's own format, counts as not found. Once found, the record is watched every 3 seconds, as a transcript is. There is no `ended` for them: they have no session file that says so.
 - **A failed check is never shown as a negative at once.** The hub's client answers "no session" both when the hub says so and when the request failed (`lib/hub-client.js`). So `gone` cannot tell "the hub does not know this node" from "the hub did not answer". That is why its line says only what was checked, and that it is asked again.
   - `gone`, `ended` and `unreadable` are said only when two looks in a row agree.
   - Once thoughts have been shown, any later `none`, `unrecorded` or `not-yet` also needs two looks, for the rest of that watch.
-  - A look that tells nothing (a hub request or a session lookup that throws), or finds the file unchanged since the answer now shown, forgets a pending negative. A file unchanged since the look that gave a pending `none` or `unrecorded` confirms it without a second read.
+  - A look that tells nothing (a hub request, a session lookup or a record lookup that throws), or finds the file unchanged since the answer now shown, forgets a pending negative. A file unchanged since the look that gave a pending `none` or `unrecorded` confirms it without a second read.
   - After `gone` was said, a pending `ended` is confirmed at the next look, 15 seconds later.
   - A `recorded` answer is shown at once.
   - `unreadable` is said only while nothing else has been said for this selection. After that, a failed read leaves the line and the thoughts as they are, and the next look reads again.
 - **No error of the watch is logged or shown,** since its message could hold some of the text.
 - **The answer** goes to this monitor's page only: `{type: "thinking", id, state, thoughts: [{at, text}], recorded, unrecorded, more, whole}`, the thoughts newest first. Of the transcript it holds thinking text, its time and counts: no prompt, no answer, no tool input, no signature, no path. The reader's `size`, `mtimeMs` and `ok` stay in the host.
 - **The page** writes the text with `textContent` only, in a `details` element with its own scroll, headed "Thinking", under the inspector: each thought with its time (UTC) when the record has one. It is not a control: no button, no link, no input; its heading only opens and closes it. It refuses a message of any other shape whole, and never saves the text, posts it back or reads it out in its live region.
-- **The agent's "In VS Code" list says so,** for a Claude Code agent. Its second row was "A click selects it: The selection stays in this view. Nothing else happens." It is now "A click selects it: This window reads its thinking from the session's transcript and shows it under Thinking. Nothing else is done." Every other class, and an agent of another provider, keeps the old row.
+- **The agent's "In VS Code" list says so,** for a Claude Code agent. Its second row was "A click selects it: The selection stays in this view. Nothing else happens." It is now "A click selects it: This window reads its thinking from the session's transcript and shows it under Thinking. Nothing else is done." For a Codex, Grok Build or Antigravity agent (since 0.2.1) it is "A click selects it: This window reads its thinking from the session's own record and shows it under Thinking. Nothing else is done." Every other class, and an agent of any other kind, keeps the old row.
 
-**What the status line under "Thinking" says,** in the order of the host's three questions. Before the first answer it says "Reading this session's transcript…". N, M and K are numbers: N is `recorded` (in the `unrecorded` state, `unrecorded`), M the number of thoughts shown, K `unrecorded`. For one: "1 thought recorded.", "Claude thought 1 time here".
+**What the status line under "Thinking" says for a Claude Code agent,** in the order of the host's three questions. Before the first answer it says "Reading this session's transcript…". N, M and K are numbers: N is `recorded` (in the `unrecorded` state, `unrecorded`), M the number of thoughts shown, K `unrecorded`. For one: "1 thought recorded.", "Claude thought 1 time here".
 
 | `state` | When | The status line |
 |---|---|---|
@@ -441,6 +456,18 @@ The owner's card of 27 November: "I want to be able to see the thinking that it'
 
 "Only the end of the file was read" is `whole: false`. The thoughts themselves are shown only in the `recorded` state. In the 14 transcripts measured, 374 of 380 thinking blocks had no text (9.8).
 
+**For a Codex, Grok Build or Antigravity agent** (since 0.2.1). Before the first answer: "Reading this session's record…". N, M and K as above. There is no `ended`. Grok Build's and Antigravity's records cannot show reasoning that left no text, so for them K is always 0, `unrecorded` does not come, and their `none` line does not claim that no thinking happened.
+
+| `state` | When | The status line |
+|---|---|---|
+| `gone` | As for Claude Code. | "The hub names no session for this node. It is asked again." |
+| `not-yet` | The record was not found on disk. Said at once, and the record is looked for again every fifth tick. (A record that goes missing after thoughts were shown needs two looks, as for Claude Code.) | "This session's record was not found on disk. It is looked for again." |
+| `unreadable` | The record could not be read, in two looks in a row, and nothing else has been said for this selection. | "This session's record could not be read. It is tried again." |
+| `none`, Codex | The record holds no reasoning. | "No reasoning in this session yet." When only the end of the file was read: "No reasoning in the last part of the record. Only its end was read." |
+| `none`, Grok Build and Antigravity | The record holds no thinking text. | "No thinking text in this session's record yet." When only the end of the file was read: "No thinking text in the last part of the record. Only its end was read." |
+| `unrecorded` (Codex only, in practice) | Codex reasoned, and kept no readable text for it. | "Codex reasoned N times here and kept no readable text for it. It keeps a summary only when its reasoning summaries are on (model_reasoning_summary), and not for every step." For one: "1 time". Then, when only the end of the file was read: "Only the end of the record was read." |
+| `recorded` | Text was recorded. | As for Claude Code, except that the last addition reads "Only the end of the record was read." |
+
 **The limits** (`LIMITS` in `lib/thinking.js`):
 
 - **4 MB:** the end of the transcript read for one answer, as much as the tail reads in one poll (section 6), and the one byte before it, to see whether the window starts on a line of its own. The newest thinking is at the end; older thinking is not seen, and `whole: false` says so.
@@ -448,10 +475,11 @@ The owner's card of 27 November: "I want to be able to see the thinking that it'
 - **60,000 characters** of thinking text in one answer. The newest thought is always given; after it, the first that does not fit ends the list.
 - **12,000 characters:** one thought is cut to this, its closing ellipsis included. The reader marks it `cut`; the page gets the cut text and not the mark.
 - **Cleaned:** control characters become spaces (a tab and a line break are kept), the text is trimmed, and a run of three or more line breaks is kept to two.
-- **Main thread only:** a subagent's records (`isSidechain`) are not read, as for calls.
-- **A block the transcript holds twice is counted once.**
+- **Main thread only:** a subagent's records (`isSidechain`) are not read, as for calls. For the other three kinds, a Grok Build subagent's folder and an Antigravity child conversation are records of their own, and are not read.
+- **A block the transcript holds twice is counted once,** and so is a thought a record holds twice.
+- **The same limits for all four kinds** (since 0.2.1).
 
-- **The hub is asked only for `resolve`,** which this feature does not change (7.4). Nothing of the thinking passes through the hub.
+- **The hub is asked only for `resolve`,** which this feature does not change (7.4), for all four kinds. Nothing of the thinking passes through the hub.
 
 ## 9. Verified, and not
 
@@ -677,3 +705,41 @@ Three reviewers were given claims and no reasoning. One attacked the privacy bou
 - **That the setting gives text in the VS Code panel.** It was read in the extension's code, not run.
 - **A hub that stays away for long.** Only stand-ins were used.
 - **Two windows of different versions on one hub.**
+
+### 9.9 Version 0.2.1: thinking for Codex, Grok Build and Antigravity agents, 28 November
+
+Version 0.2.0 brought Codex, Grok Build and Antigravity sessions into the monitor. On 28 November the owner asked for the Thinking section for those agents too ("what about adding that to anti-gravity grok and codex?"), and the same day asked for Codex's reasoning summaries to be turned on, on his machine. Sections 6 and 8.6 say what was built; section 4's exception now covers the reasoning of a selected agent of any of the four kinds. Each tool's own record of the session is read by the same window, the same way as a Claude Code transcript, and only its reasoning is taken.
+
+**Measured first, on the owner's machine** (28 November 2026; counts only, no text was read by a person or copied):
+
+- **Grok Build 1.0.92:** 1,346 session folders. Of 13,256 reasoning records in all sessions, 11,872 (89.6%) carried readable text. In the ten newest sessions: 58 reasoning records, 51 with text (21 to 3,307 characters, median 257). The text is a short summary the model writes; the raw reasoning is kept only encrypted. The update stream is append-only: the tool's own bundled guide says so, and the creation and last-change times of 8 of 8 recent files fit it.
+- **Antigravity 1.5.19:** 534 conversations in the CLI's store; 4,945 of 7,715 model-call records carried thinking text (in the desktop app's store, 12,961 of 48,616). About 40% of the calls that used thinking tokens left no text. The text runs about 0.75 bytes per thinking token, so it is taken to be a summary (inferred, not measured). The two transcript files held the same records and the same thinking in 37 of 37 recent conversations.
+- **Codex 0.172.0:** 1,424 rollout files, 129,849 reasoning records. Every turn since October ran with reasoning summaries "none" (the models' own default here; no setting had chosen it), and 0 of the 127,452 reasoning records written that way carry text. With "detailed", 631 of 1,595 did; with "auto", 68 of 802; all 699 records with text are from September. One line in one file was 58 MB long. 6 of 10 recent files kept their creation time while they grew, which is why the watch goes by the file's size as well as its time.
+- **The id the hooks report.** For Codex, 39 hook-reported session ids were tested, and each named exactly one rollout file. For Grok Build and Antigravity no hook-reported id is kept anywhere on disk. That the hook's id is the record's id is read from each tool's own guide, and fits every trace found (the acceptance run's sessions each have exactly one record, at the right time, in the right folder). It is not measured directly.
+- **Codex's reasoning summaries on the owner's machine** were turned on at his request on 28 November (`model_reasoning_summary = "detailed"` in Codex's config). A test run of its own could not be made: the command-line Codex was not signed in on that machine (the editor's Codex holds the sign-in). The next Codex sessions answered the question instead: the two newest records, begun after the change, held 23 and 14 thoughts with text (the table below).
+
+**What ran:**
+
+The owner set a rule on 28 November, while this was built: the least checking that shows a change works, and thorough testing only once something breaks. So this version has no independent review, no real-editor run and no second run of the suite.
+
+| What | Where | Result |
+|---|---|---|
+| The new and changed test files, once each | Windows 11, Node 26.7.0, headless Edge for the page | `thinking-formats.test.js` 41, `thinking-records.test.js` 28, `thinking-watch.test.js` 23, `thinking-page.test.js` 12: all pass. Six faults made on purpose in a copy of the three formats were each caught. |
+| The whole suite, once, part-way through | The same | 612 tests: 607 pass, 1 fail, 4 skipped. The failure was the whole-extension test, run before `lib/thinking-records.js` was written. That test, run again once the file was there: pass. (One run between failed on its fixture hook passing its own 5-second limit; a bare PowerShell start took 2.7 seconds on the busy machine then, and main's copy behaves the same.) The suite was not run again. |
+| The finder and the reader on the owner's real records, counts only | The four newest sessions of each tool, their ids taken from folder and file names | Codex: 4 of 4 records found; the two newest, begun after reasoning summaries were turned on, held 23 and 14 thoughts with text (2 and 4 left none); the two before held none. Grok Build: 3 of 4 found (the fourth folder had no update stream), with 0, 1 and 16 thoughts; finding one took from 0.2 to 6.5 seconds. Antigravity: 4 of 4 found, with 1, 22, 19 and 21 thoughts. |
+
+**Left as it is, and why:**
+- **Once a record is found, the watch looks only at that path.** If the tool moves or deletes the file while its agent is selected, the line says the record was not found and is looked for again, but the folders are searched again only when the agent is selected again. Codex moving a thread into its database is the one known case, and then there is no file to find.
+- **Finding a Grok Build record can take seconds,** since every folder under its sessions folder is looked in. It is asynchronous, and done once for a selection.
+- **Searches for a record are not kept to one at a time;** only reads are.
+- **A thought the tool cut itself** (Antigravity's short transcript) is not marked on the page.
+
+**Not verified for 0.2.1:**
+
+- **That the hook's id is the record's id, for Grok Build and Antigravity.** Read in their guides, not measured.
+- **The whole suite on the final code.** By the owner's rule above.
+- **Codex running inside WSL.** Its records would be on a network-style path, which the reader refuses on purpose. Not covered.
+- **Subagents.** A Grok Build subagent's folder and an Antigravity child conversation are records of their own, and are not read (main thread only, as for Claude Code). Which id a Codex hook reports inside a subagent is not known.
+- **A Codex thread whose history was moved into Codex's database** has no file. It is shown as "record not found".
+- **Linux and VSCodium.**
+- **A real editor.**

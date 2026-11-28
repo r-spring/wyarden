@@ -51,6 +51,7 @@ class MonitorView {
    * deps.hostPid        this window's extension host
    * The last three are for a double-click on a session; without them no session is shown.
    * deps.session also gives the transcript of a selected session's thinking; deps.schedule(fn, ms), optional, is that watch's timer.
+   * deps.record(agent, id) a Codex, Grok Build or Antigravity session's record for its thinking (lib/thinking-records.js), or null
    */
   constructor(vscode, context, deps) {
     this.vscode = vscode; this.context = context; this.deps = deps;
@@ -60,6 +61,7 @@ class MonitorView {
     this.thinking = createWatch({
       resolve: target => this.deps.client.resolve(target),
       session: id => deps.session?.('claude:' + id),
+      record: (agent, id) => deps.record?.(agent, id),
       read: thinking.readThinking, post: m => this.post(m), schedule: deps.schedule
     });
   }
@@ -188,7 +190,7 @@ class MonitorView {
         void this.vscode.window.showWarningMessage('3D Monitor: that could not be opened (' + error.message + ').');
       });
     }
-    // "select" itself needs nothing from the host: the selection lives in the page. A Claude Code session's agent also sends "thinking", above.
+    // "select" itself needs nothing from the host: the selection lives in the page. An agent of Claude Code, Codex, Grok Build or Antigravity also sends "thinking", above.
   }
 
   actionDeps() {

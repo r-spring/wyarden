@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { checkThinking, createWatch, EVERY_MS, FIRST_MS, SLOW_TICKS, STATES } = require('../lib/thinking-watch.js');
+const { checkThinking, createWatch, EVERY_MS, FIRST_MS, SLOW_TICKS, STATES, RECORD_AGENTS } = require('../lib/thinking-watch.js');
 const { MonitorView } = require('../lib/view.js');
 const thinkingModule = require('../lib/thinking.js');
 
@@ -147,10 +147,10 @@ function fakeClient(answer) {
   return client;
 }
 const entryFor = file => ({ agent: 'claude', session: SID, key: 'claude:' + SID, cwd: '/home/example/proj', pid: 4242, configDir: '/home/example/.claude', transcript: file });
-function makeView(t, { session, vscode = fakeVscode(), context = fakeContext(t), client = fakeClient(), clock = manualClock(), logs = [] } = {}) {
+function makeView(t, { session, record, vscode = fakeVscode(), context = fakeContext(t), client = fakeClient(), clock = manualClock(), logs = [] } = {}) {
   const collectors = { claude: { state: 'missing', folders: 1, installed: 0 } };
   const view = new MonitorView(vscode, context, { client, folders: () => [{ path: '/home/example/proj', name: 'proj' }], collectors: () => collectors,
-    log: m => logs.push(m), session, schedule: clock.schedule });
+    log: m => logs.push(m), session, record, schedule: clock.schedule });
   return { vscode, context, client, clock, logs, view };
 }
 const say = (panel, message) => panel.handlers.message(message);
@@ -187,13 +187,17 @@ function pick(list, n) {
   if (x instanceof Error) throw x;
   return typeof x === 'function' ? x() : x;
 }
-/** A watch on fakes. `hub`, `sessions`, `answers` and `stats` give one answer per call, in order. */
-function fakeWatch({ hub = [SESSION], sessions = [ENTRY], answers = [], stats = [] } = {}) {
-  const clock = manualClock(), posts = [], seen = { resolve: [], session: [], read: [], stat: [] };
+/**
+ * A watch on fakes. `hub`, `sessions`, `records`, `answers` and `stats` give one answer per call, in order.
+ * `seen.read` holds the files read; `seen.opts` the options each read was given (none for Claude Code).
+ */
+function fakeWatch({ hub = [SESSION], sessions = [ENTRY], records = [], answers = [], stats = [] } = {}) {
+  const clock = manualClock(), posts = [], seen = { resolve: [], session: [], record: [], read: [], opts: [], stat: [] };
   const watch = createWatch({
     resolve: async target => { seen.resolve.push(target); return pick(hub, seen.resolve.length - 1); },
     session: id => { seen.session.push(id); return pick(sessions, seen.session.length - 1); },
-    read: async file => { seen.read.push(file); return pick(answers, seen.read.length - 1); },
+    record: async (...args) => { seen.record.push(args); return pick(records, seen.record.length - 1); },
+    read: async (file, ...opts) => { seen.read.push(file); seen.opts.push(opts); return pick(answers, seen.read.length - 1); },
     stat: async file => { seen.stat.push(file); return pick(stats, seen.stat.length - 1); },
     post: m => posts.push(m), schedule: clock.schedule
   });
@@ -609,14 +613,166 @@ test('5d. a first read that fails twice says "unreadable"; once says nothing; af
   }
 });
 
-test('5e. another provider\'s session: nothing is posted, nothing is looked up, and no timer is left', async () => {
-  for (const agent of ['codex', 'grok', undefined]) {
-    const w = fakeWatch({ hub: [{ kind: 'session', agent, session: SID }], answers: [one('Never.')] });
+test('5e. a session of a tool that is not one of the four: nothing is posted, nothing is looked up, and no timer is left', async () => {
+  for (const agent of ['zed', 'Claude', 'CODEX', 'codex ', '', undefined, 42]) {
+    const w = fakeWatch({ hub: [{ kind: 'session', agent, session: SID }], records: [{ file: TRANSCRIPT, format: agent }], answers: [one('Never.')] });
     await w.begin();
     assert.deepEqual(w.posts, [], String(agent));
     assert.equal(w.watch.current(), null, 'the watch ended');
     assert.equal(w.clock.pending(), 0);
-    assert.deepEqual([w.seen.session.length, w.seen.read.length], [0, 0]);
+    assert.deepEqual([w.seen.session.length, w.seen.record.length, w.seen.read.length], [0, 0, 0]);
+  }
+});
+
+/* ---------- Codex, Grok Build and Antigravity: a record found by lib/thinking-records.js ---------- */
+
+const RECORD_FILE = {
+  codex: '/home/example/.codex/sessions/2026/01/02/rollout-2026-01-02T03-00-00-' + SID + '.jsonl',
+  grok: '/home/example/.grok/sessions/' + SID + '/updates.jsonl',
+  antigravity: '/home/example/.gemini/antigravity/brain/' + SID + '/transcript_full.jsonl'
+};
+const sessionOf = agent => ({ kind: 'session', agent, session: SID, cwd: '/home/example/proj', root: null, pid: 4242 });
+const recordOf = agent => ({ file: RECORD_FILE[agent], format: agent });
+
+test('9a. a Codex, Grok Build or Antigravity session: its record is asked for, read in its own format, and its thinking posted', async () => {
+  assert.deepEqual(RECORD_AGENTS, ['codex', 'grok', 'antigravity']);
+  for (const agent of RECORD_AGENTS) {
+    const id = 'a:' + agent + ':' + SID;
+    const w = fakeWatch({ hub: [sessionOf(agent)], records: [recordOf(agent)], answers: [answer([{ at: 2, text: 'Newer, ' + agent + '.' }, { at: 1, text: 'Older.' }])], stats: [{ size: 100, mtimeMs: 5000 }] });
+    await w.begin(id);
+    assert.deepEqual(w.seen.resolve, [{ id }], agent);
+    assert.deepEqual(w.seen.record, [[agent, SID]], agent + ': the record is asked for with the agent and the session id only');
+    assert.deepEqual(w.seen.session, [], agent + ': no Claude Code session file is looked up');
+    assert.deepEqual(w.seen.read, [RECORD_FILE[agent]]);
+    assert.deepEqual(w.seen.opts, [[{ format: agent }]], agent + ': read in its own format');
+    assert.deepEqual(w.posts, [{ type: 'thinking', id, state: 'recorded', thoughts: [{ at: 2, text: 'Newer, ' + agent + '.' }, { at: 1, text: 'Older.' }], recorded: 2, unrecorded: 0, more: 0, whole: true }]);
+    assert.deepEqual(w.clock.delays(), [EVERY_MS]);
+    // As for Claude Code: an unchanged record costs one stat a tick, and nothing else.
+    await w.look();
+    assert.deepEqual([w.seen.read.length, w.seen.record.length, w.seen.resolve.length, w.posts.length], [1, 1, 1, 1], agent + ': unchanged');
+    w.watch.stop();
+  }
+  // Claude Code's transcript is read with no options at all, as before.
+  const c = fakeWatch({ answers: [one('Claude.')] });
+  await c.begin();
+  assert.deepEqual(c.seen.opts, [[]]);
+  assert.deepEqual(c.seen.record, [], 'no record is looked for');
+  c.watch.stop();
+});
+
+test('9b. no record: one "not-yet" at once, the record looked for every fifth tick, then the thinking once it is there, and every tick again', async () => {
+  for (const agent of RECORD_AGENTS) {
+    const id = 'a:' + agent + ':' + SID;
+    const w = fakeWatch({ hub: [sessionOf(agent)], records: [null, null, null, recordOf(agent)], answers: [one('Found at last.')] });
+    await w.begin(id);
+    assert.deepEqual(w.posts, [{ type: 'thinking', id, state: 'not-yet', ...zero }], agent + ': said at once');
+    assert.equal(w.watch.current(), id, 'the watch goes on');
+    assert.deepEqual(w.clock.delays(), [SLOW_MS], 'the record is looked for again every fifth tick');
+    await w.look();
+    await w.look();
+    assert.deepEqual(w.states(), ['not-yet'], 'said once');
+    assert.equal(w.seen.record.length, 3);
+    assert.deepEqual(w.clock.delays(), [SLOW_MS]);
+    assert.deepEqual(w.seen.read, [], 'nothing read while there is no record');
+    await w.look();
+    assert.deepEqual(w.states(), ['not-yet', 'recorded']);
+    assert.deepEqual(w.clock.delays(), [EVERY_MS], 'every tick again');
+    assert.equal(w.seen.resolve.length, 4, 'each look asked the hub too');
+    assert.deepEqual(w.seen.session, [], 'and never a Claude Code session file: there is no "ended" for these');
+    w.watch.stop();
+  }
+});
+
+test('9c. a record lookup that throws or rejects tells nothing, and is tried again on the next tick', async () => {
+  const w = fakeWatch({ hub: [sessionOf('codex')], records: [new Error('invented ' + RECORD_FILE.codex), recordOf('codex')], answers: [one('After the fault.')] });
+  await w.begin('a:codex:' + SID);
+  assert.deepEqual(w.posts, [], 'a rejected lookup: nothing');
+  assert.deepEqual(w.clock.delays(), [EVERY_MS], 'and the next look is one tick away');
+  await w.look();
+  assert.deepEqual(w.states(), ['recorded']);
+  w.watch.stop();
+
+  const clock = manualClock(), posts = [];
+  let calls = 0;
+  const watch = createWatch({
+    resolve: async () => sessionOf('grok'),
+    record: () => { calls++; if (calls === 1) throw new Error('invented'); return recordOf('grok'); },
+    read: async () => one('After a lookup that threw.'), stat: async () => ({ size: 100, mtimeMs: 5000 }),
+    post: m => posts.push(m), schedule: clock.schedule
+  });
+  watch.watch('a:grok:' + SID);
+  clock.advance(FIRST_MS); await settle();
+  assert.deepEqual(posts, [], 'a lookup that threw: nothing');
+  clock.next(); await settle();
+  assert.deepEqual(posts.map(m => m.state), ['recorded']);
+  assert.equal(calls, 2);
+  watch.stop();
+});
+
+test('9d. a record of the wrong format, or whose file is relative, too long or on another machine, is no record: nothing is read or stat-ed', async () => {
+  const bad = [
+    { file: RECORD_FILE.codex, format: 'claude' }, { file: RECORD_FILE.codex, format: 'grok' }, { file: RECORD_FILE.codex }, { file: RECORD_FILE.codex, format: 'Codex' },
+    { file: 'sessions/rollout-' + SID + '.jsonl', format: 'codex' }, { file: '\\\\server\\share\\rollout-' + SID + '.jsonl', format: 'codex' },
+    { file: '//server/share/rollout-' + SID + '.jsonl', format: 'codex' }, { file: '/home/example/' + 'x'.repeat(4100), format: 'codex' },
+    { file: '/home/example/a\u0000.jsonl', format: 'codex' }, { file: 42, format: 'codex' }, { file: [RECORD_FILE.codex], format: 'codex' },
+    { format: 'codex' }, RECORD_FILE.codex, 42, [], undefined, null
+  ];
+  for (const found of bad) {
+    const w = fakeWatch({ hub: [sessionOf('codex')], records: [found], answers: [one('Never read.')], stats: [{ size: 1, mtimeMs: 1 }] });
+    await w.begin('a:codex:' + SID);
+    await w.look();
+    const what = JSON.stringify(found) || String(found);
+    assert.deepEqual(w.states(), ['not-yet'], what);
+    assert.deepEqual([w.seen.read, w.seen.stat], [[], []], what + ': nothing read or stat-ed');
+    assert.equal(w.watch.current(), 'a:codex:' + SID, what + ': and the record is looked for again');
+    assert.deepEqual(w.clock.delays(), [SLOW_MS]);
+    w.watch.stop();
+  }
+});
+
+test('9e. Codex: reasoning that kept no text is "unrecorded"; a record with none, "none"', async () => {
+  let w = fakeWatch({ hub: [sessionOf('codex')], records: [recordOf('codex')], answers: [answer([], { unrecorded: 3, whole: false })] });
+  await w.begin('a:codex:' + SID);
+  assert.deepEqual(w.posts, [{ type: 'thinking', id: 'a:codex:' + SID, state: 'unrecorded', thoughts: [], recorded: 0, unrecorded: 3, more: 0, whole: false }]);
+  w.watch.stop();
+  w = fakeWatch({ hub: [sessionOf('antigravity')], records: [recordOf('antigravity')], answers: [answer([])] });
+  await w.begin('a:antigravity:' + SID);
+  assert.deepEqual(w.states(), ['none']);
+  w.watch.stop();
+});
+
+test('9f. thoughts already shown for another tool are not taken back by one bad look', async () => {
+  for (const agent of RECORD_AGENTS) {
+    const id = 'a:' + agent + ':' + SID;
+    // recorded; then none for one look; then the thoughts again.
+    let w = fakeWatch({ hub: [sessionOf(agent)], records: [recordOf(agent)],
+      answers: [one('Shown.'), answer([], { size: 40, mtimeMs: 6000 }), one('Shown, and more.', { size: 50, mtimeMs: 7000 })], stats: [{ size: 40, mtimeMs: 6000 }, { size: 50, mtimeMs: 7000 }] });
+    await w.begin(id);
+    await w.look();
+    assert.deepEqual(w.states(), ['recorded'], agent + ': one look of "none" withdraws nothing');
+    await w.look();
+    assert.deepEqual(w.states(), ['recorded', 'recorded']);
+    w.watch.stop();
+    // recorded; the record missing for one look; back as it was.
+    w = fakeWatch({ hub: [sessionOf(agent)], records: [recordOf(agent)], answers: [one('Shown.')], stats: [enoent(), { size: 100, mtimeMs: 5000 }] });
+    await w.begin(id);
+    await w.look();
+    await w.look();
+    assert.deepEqual(w.states(), ['recorded'], agent + ': no "not-yet"');
+    // recorded; then two failed reads: nothing posted.
+    w.watch.stop();
+    w = fakeWatch({ hub: [sessionOf(agent)], records: [recordOf(agent)], answers: [one('Shown.'), { ok: false, why: 'unreadable' }], stats: [{ size: 1, mtimeMs: 1 }] });
+    await w.begin(id);
+    for (let i = 0; i < 3; i++) await w.look();
+    assert.deepEqual(w.states(), ['recorded'], agent + ': failed reads after thoughts post nothing');
+    w.watch.stop();
+    // And a first read that fails twice says "unreadable".
+    w = fakeWatch({ hub: [sessionOf(agent)], records: [recordOf(agent)], answers: [{ ok: false, why: 'unreadable' }], stats: [{ size: 1, mtimeMs: 1 }] });
+    await w.begin(id);
+    assert.deepEqual(w.posts, []);
+    await w.look();
+    assert.deepEqual(w.states(), ['unreadable'], agent);
+    w.watch.stop();
   }
 });
 
@@ -786,6 +942,65 @@ test('7. privacy: the thinking reaches the panel that asked and nothing else; th
   }
   for (const [what, text] of Object.entries(CANARY)) {
     if (what === 'thinking' || what === 'later') continue;
+    assert.ok(!holds(panel.posted, text), what + ' reached the page');
+    for (const [name, value] of Object.entries(sinks)) assert.ok(!holds(value, text), what + ' in ' + name);
+  }
+});
+
+test('7b. privacy, for Codex: the real reader, an invented Codex record; only the reasoning summary reaches the panel that asked, and nothing else', async t => {
+  const seen = watchConsole(t);
+  const C = {
+    reasoning: 'CANARY-CODEX-REASONING-5e1f', prompt: 'CANARY-CODEX-PROMPT-a37c', developer: 'CANARY-CODEX-DEVELOPER-09b2', answer: 'CANARY-CODEX-ANSWER-d4e8',
+    input: 'CANARY-CODEX-TOOL-INPUT-71aa', output: 'CANARY-CODEX-TOOL-OUTPUT-3c6d', encrypted: 'Q0FOQVJZLUNPREVYLUVOQ1JZUFRFRC04ODE', raw: 'CANARY-CODEX-RAW-CONTENT-b0f5',
+    twin: 'CANARY-CODEX-TWIN-SUMMARY-6d2e', cwd: '/home/example/CANARY-CODEX-CWD-4f90'
+  };
+  const at = s => '2026-01-02T03:00:0' + s + '.000Z';
+  const item = (s, payload) => line({ timestamp: at(s), type: 'response_item', payload });
+  const dir = temp(t), file = path.join(dir, 'rollout-2026-01-02T03-00-00-' + SID + '.jsonl');
+  fs.writeFileSync(file,
+    line({ timestamp: at(0), type: 'session_meta', payload: { id: SID, cwd: C.cwd, instructions: C.developer, cli_version: '0.0.0-example' } }) +
+    item(1, { type: 'message', role: 'developer', content: [{ type: 'input_text', text: C.developer }] }) +
+    item(2, { type: 'message', role: 'user', content: [{ type: 'input_text', text: C.prompt }] }) +
+    item(3, { type: 'reasoning', id: 'rs_example_1', summary: [{ type: 'summary_text', text: C.reasoning }], content: null, encrypted_content: C.encrypted }) +
+    line({ timestamp: at(3), type: 'event_msg', payload: { type: 'item_completed', item: { type: 'Reasoning', id: 'rs_example_1', summary_text: [C.twin], raw_content: [C.raw] } } }) +
+    item(4, { type: 'function_call', name: 'shell', arguments: JSON.stringify({ command: ['bash', '-lc', C.input] }), call_id: 'call_example_1' }) +
+    item(5, { type: 'function_call_output', call_id: 'call_example_1', output: C.output }) +
+    item(6, { type: 'reasoning', id: 'rs_example_2', summary: [], content: null, encrypted_content: C.encrypted }) +
+    item(7, { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: C.answer }] }));
+  // Two views on the same fakes; the hub names a Codex session; the record stand-in names the file above.
+  const vscode = fakeVscode(), context = fakeContext(t), client = fakeClient(() => sessionOf('codex')), clock = manualClock(), logs = [], asked = [];
+  const record = (...args) => { asked.push(args); return Promise.resolve({ file, format: 'codex' }); };
+  const sessions = [];
+  const session = key => { sessions.push(key); return null; };
+  const one = makeView(t, { session, record, vscode, context, client, clock, logs });
+  const two = makeView(t, { session, record, vscode, context, client, clock, logs });
+  one.view.show(); two.view.show();
+  const [panel, other] = vscode.panels;
+  say(panel, { v: 1, type: 'ready' }); say(other, { v: 1, type: 'ready' });
+  say(panel, { v: 1, type: 'scope', scope: 'all' });
+  one.view.setHubState('up');
+  const id = 'a:codex:' + SID;
+  await startAndLook({ panel, clock }, id);
+  one.view.thinking.stop();
+
+  const posts = thinkingPosts(panel);
+  assert.deepEqual(posts, [{ v: 1, type: 'thinking', id, state: 'recorded', thoughts: [{ at: Date.parse(at(3)), text: C.reasoning }], recorded: 1, unrecorded: 1, more: 0, whole: true }],
+    'the reasoning summary, once (its twin is not read), and the reasoning that kept no text counted');
+  assert.deepEqual(asked, [['codex', SID]], 'the record is asked for with the agent and the session id only');
+  assert.deepEqual(sessions, [], 'no Claude Code session file is looked up');
+  assert.deepEqual(client.asked, [{ id }]);
+  for (const where of [dir, file, path.basename(file)]) assert.ok(!holds(posts, where) && !holds(posts, JSON.stringify(where).slice(1, -1)), 'no path: ' + where);
+
+  const sinks = {
+    'the other panel': other.posted, 'the hub client (every argument it was given)': client.given, 'the output channel': logs,
+    'vscode: notifications, status bar, commands': vscode.calls, 'the status bar messages': vscode.status,
+    'workspaceState and globalState': [...context.state.entries(), ...context.updates], 'the console': seen.lines, 'unhandled rejections': seen.rejections,
+    'the record lookup\'s arguments': asked
+  };
+  assert.deepEqual(thinkingPosts(other), [], 'the second panel receives nothing');
+  for (const [name, value] of Object.entries(sinks)) assert.ok(!holds(value, C.reasoning), 'reasoning text in ' + name);
+  for (const [what, text] of Object.entries(C)) {
+    if (what === 'reasoning') continue;
     assert.ok(!holds(panel.posted, text), what + ' reached the page');
     for (const [name, value] of Object.entries(sinks)) assert.ok(!holds(value, text), what + ' in ' + name);
   }

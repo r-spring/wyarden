@@ -7,11 +7,12 @@
  *   - the workspace chips and the status line are new, and both only show what the host says;
  *   - a double-click or Ctrl+Enter on a file or an address asks the host to open it, and on a session
  *     or one of its subagents asks the host to show that session's terminal or chat panel (only to show
- *     it: nothing is started or changed); a click tells the host what was selected, and on a Claude Code
- *     session's agent also asks the host for that session's thinking; a click changes nothing;
+ *     it: nothing is started or changed); a click tells the host what was selected, and on the agent of
+ *     a Claude Code, Codex, Grok Build or Antigravity session also asks the host for that session's
+ *     thinking; a click changes nothing;
  *   - the camera, the look, the pressed view buttons and the selection survive a reload through
  *     the webview's state, because VS Code destroys a hidden tab's page;
- *   - a selected Claude Code session's thinking, which this window's host reads from its transcript, is
+ *   - a selected session's thinking, which this window's host reads from its transcript or record, is
  *     shown under the inspector as text, and is never saved, posted back or said aloud.
  *
  * Nothing here edits information: the chips choose what is shown, the other buttons change how it
@@ -223,8 +224,11 @@
   const AGENT_ID = /^a:[a-z]+:[A-Za-z0-9_-]{1,128}$/;     // what the host takes (lib/thinking-watch.js checkThinking)
   const THOUGHTS_MAX = 40, THOUGHT_MAX = 12000;            // lib/thinking.js LIMITS: a message past them is not the host's
   const DATE_MAX = 8.64e15;                                // the latest time a Date holds; a later one would make N.clock throw
+  /** The tools whose thinking the host reads: Claude Code's transcript, and the others' own records. */
+  const THINKING_KINDS = ['claude', 'codex', 'grok', 'antigravity'];
   let thinkingBox = null, thinkingStatus = null, thinkingList = null;
   let watched = '';                                         // the agent whose thinking is asked for, or ''
+  let watchedKind = '';                                     // its tool, for the status line's words; never sent
   /** The section, after #inspector and not in it, so renderInspector's replaceChildren never touches it. */
   function buildThinking() {
     const box = el('details');
@@ -237,19 +241,20 @@
   }
   /**
    * Start, move or stop the watch to match the selection: one message for each change, none when nothing changed.
-   * Only a Claude Code session's agent is asked about: the host reads Claude Code's transcript and no other,
-   * so another provider's agent gets no section and no message, as a tool gets none.
+   * Only the agent of a tool in THINKING_KINDS is asked about: the host reads those tools' records and no
+   * other, so an agent of another kind gets no section and no message, as a tool gets none.
    */
   function followThinking() {
     if (!thinkingBox) return;
     const n = state.selected ? model.nodes.get(state.selected) : null;
-    const want = n && n.cls === 'agent' && n.kind === 'claude' && typeof n.id === 'string' && n.id.length <= 200 && AGENT_ID.test(n.id) ? n.id : '';
+    const want = n && n.cls === 'agent' && THINKING_KINDS.includes(n.kind) && typeof n.id === 'string' && n.id.length <= 200 && AGENT_ID.test(n.id) ? n.id : '';
     if (want === watched) return;
     watched = want;
+    watchedKind = want ? n.kind : '';
     thinkingList.replaceChildren();
     if (want) {
       feed.post({ type: 'thinking', target: { class: 'agent', id: want } });
-      setText(thinkingStatus, 'Reading this session\'s transcript…');
+      setText(thinkingStatus, watchedKind === 'claude' ? 'Reading this session\'s transcript…' : 'Reading this session\'s record…');
       thinkingBox.hidden = false;
     } else {
       feed.post({ type: 'thinking', target: null });
@@ -278,23 +283,40 @@
     }
     return { id: m.id, state: m.state, recorded, unrecorded, more, whole: m.whole, thoughts };
   }
-  /** The status line: counts and states only, never any of the text. */
-  function thinkingLine(m) {
-    const endOnly = m.whole ? '' : ' Only the end of the transcript was read.';
+  /**
+   * The status line: counts and states only, never any of the text. Its words follow the watched agent's
+   * tool: Claude Code keeps a transcript; Codex, Grok Build and Antigravity keep records of their own, and
+   * the records of Grok Build and Antigravity cannot show reasoning that left no text.
+   */
+  function thinkingLine(m, kind) {
+    const claude = kind === 'claude', codex = kind === 'codex';
+    const endOnly = m.whole ? '' : claude ? ' Only the end of the transcript was read.' : ' Only the end of the record was read.';
     if (m.state === 'recorded') {
       let line = plural(m.recorded, 'thought', 'thoughts') + ' recorded.';
       if (m.more > 0) line += m.thoughts.length === 1 ? ' Only the newest is shown.' : ' The newest ' + m.thoughts.length + ' are shown.';
       if (m.unrecorded > 0) line += ' ' + m.unrecorded + ' more left no text.';
       return line + endOnly;
     }
-    if (m.state === 'unrecorded') return 'Claude thought ' + plural(m.unrecorded, 'time', 'times') + ' here, and Claude Code recorded no text for it. It records the text for a session started with --thinking-display summarized.' + endOnly;
+    if (m.state === 'unrecorded') {
+      if (claude) return 'Claude thought ' + plural(m.unrecorded, 'time', 'times') + ' here, and Claude Code recorded no text for it. It records the text for a session started with --thinking-display summarized.' + endOnly;
+      if (codex) return 'Codex reasoned ' + plural(m.unrecorded, 'time', 'times') + ' here and kept no readable text for it. It keeps a summary only when its reasoning summaries are on (model_reasoning_summary), and not for every step.' + endOnly;
+      // Grok Build and Antigravity never send this state: their records cannot tell it. Should one come, no setting is named.
+      return toolName(kind) + ' reasoned ' + plural(m.unrecorded, 'time', 'times') + ' here and kept no readable text for it.' + endOnly;
+    }
     // Thinking further back than the part that was read is not "none": the line says only the end was read.
-    if (m.state === 'none') return m.whole ? 'No thinking in this session yet.' : 'No thinking in the last part of the transcript. Only its end was read.';
-    if (m.state === 'not-yet') return 'This session\'s transcript is not written yet.';
+    if (m.state === 'none') {
+      if (claude) return m.whole ? 'No thinking in this session yet.' : 'No thinking in the last part of the transcript. Only its end was read.';
+      if (codex) return m.whole ? 'No reasoning in this session yet.' : 'No reasoning in the last part of the record. Only its end was read.';
+      // A record that cannot show reasoning without text cannot say there was no thinking: only that none left text.
+      return m.whole ? 'No thinking text in this session\'s record yet.' : 'No thinking text in the last part of the record. Only its end was read.';
+    }
+    if (m.state === 'not-yet') return claude ? 'This session\'s transcript is not written yet.' : 'This session\'s record was not found on disk. It is looked for again.';
     if (m.state === 'ended') return 'This session has ended.';
-    if (m.state === 'unreadable') return 'This session\'s transcript could not be read. It is tried again.';
+    if (m.state === 'unreadable') return claude ? 'This session\'s transcript could not be read. It is tried again.' : 'This session\'s record could not be read. It is tried again.';
     return 'The hub names no session for this node. It is asked again.';
   }
+  /** A tool's name as the status line says it: Grok's tool is Grok Build, as the collector line says. */
+  const toolName = kind => (kind === 'grok' ? 'Grok Build' : N.providerName(kind));
   /** The thoughts, newest first, as the host sends them. Rebuilt only when what is shown differs, so an identical answer changes no node. */
   function showThoughts(thoughts) {
     const items = thinkingList.children, label = x => (x.at === null ? '' : N.clock(x.at));
@@ -314,7 +336,7 @@
     try {
       const m = cleanThinking(message);
       if (!m || !watched || m.id !== watched) return;          // an answer for an earlier selection, or none asked for
-      setText(thinkingStatus, thinkingLine(m));
+      setText(thinkingStatus, thinkingLine(m, watchedKind));
       showThoughts(m.state === 'recorded' ? m.thoughts : []);
     } catch (error) { /* not counted with its message: feed.lastError and the console must never hold any of it */ }
   };

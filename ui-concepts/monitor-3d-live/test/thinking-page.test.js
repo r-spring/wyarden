@@ -55,8 +55,25 @@ describe('the thinking section in a headless browser', () => {
     await sleep(800);
     return s;
   }
-  /** The Claude Code sessions' agents: the only ones whose thinking is asked for. */
+  /** The Claude Code sessions' agents. */
   const agents = () => h.eval("[...Monitor3D.model.nodes.values()].filter(n => n.cls === 'agent' && n.kind === 'claude').map(n => n.id)");
+  /**
+   * The scene's first agent of each kind, after adding a Grok Build and an Antigravity session to it (the
+   * invented scene has Claude Code and Codex only), and one agent whose kind the test sets to an unknown one.
+   */
+  async function agentsByKind(s) {
+    let seq = s.stream.lastSeq();
+    const start = (agent, session, i) => ({ v: 1, t: s.model.now + 1000 + i, agent, session, ws: 'w1', ev: 'session.start', grade: 'derived', src: agent + ':example', root: { name: 'folder-' + agent }, seq: ++seq });
+    await h.deliver(S.eventRecords(s.scope, [start('grok', 'grok-example-1', 0), start('antigravity', 'antigravity-example-1', 1), start('codex', 'unknown-kind-example-1', 2)]));
+    await sleep(400);
+    // No feed names an unknown tool (the model refuses one), so a Codex agent's kind is changed here, in the page, for the test.
+    await h.eval("(Monitor3D.model.nodes.get('a:codex:unknown-kind-example-1').kind = 'zed', true)");
+    return h.eval(`(() => {
+      const out = {};
+      for (const n of Monitor3D.model.nodes.values()) if (n.cls === 'agent' && !(n.kind in out)) out[n.kind] = n.id;
+      return out;
+    })()`);
+  }
 
   it('1. an agent selected (a click, or Monitor3D.select) asks once; a tool or no selection stops once; a restored selection asks', T, async () => {
     await scene();
@@ -208,6 +225,64 @@ describe('the thinking section in a headless browser', () => {
     assert.deepEqual(h.errors, []);
   });
 
+  it('4b. Codex, Grok Build and Antigravity: every state\'s status line, in each tool\'s own words', T, async () => {
+    const s = await scene();
+    const kinds = await agentsByKind(s);
+    const one = id => [{ at: T1, text: 'One.' }];
+    const shared = id => [
+      [recorded(id, one(id)), '1 thought recorded.'],
+      [recorded(id, one(id), { recorded: 3, more: 2 }), '3 thoughts recorded. Only the newest is shown.'],
+      [recorded(id, [{ at: T1, text: 'One.' }, { at: T2, text: 'Two.' }], { recorded: 5, more: 3, unrecorded: 1 }), '5 thoughts recorded. The newest 2 are shown. 1 more left no text.'],
+      [recorded(id, one(id), { recorded: 2, more: 1, unrecorded: 4, whole: false }), '2 thoughts recorded. Only the newest is shown. 4 more left no text. Only the end of the record was read.'],
+      [recorded(id, one(id), { whole: false }), '1 thought recorded. Only the end of the record was read.'],
+      [message(id, 'not-yet'), 'This session\'s record was not found on disk. It is looked for again.'],
+      [message(id, 'unreadable'), 'This session\'s record could not be read. It is tried again.'],
+      [message(id, 'gone'), 'The hub names no session for this node. It is asked again.']
+    ];
+    const own = {
+      codex: id => [
+        [message(id, 'unrecorded', { unrecorded: 1 }), 'Codex reasoned 1 time here and kept no readable text for it. It keeps a summary only when its reasoning summaries are on (model_reasoning_summary), and not for every step.'],
+        [message(id, 'unrecorded', { unrecorded: 6 }), 'Codex reasoned 6 times here and kept no readable text for it. It keeps a summary only when its reasoning summaries are on (model_reasoning_summary), and not for every step.'],
+        [message(id, 'unrecorded', { unrecorded: 2, whole: false }), 'Codex reasoned 2 times here and kept no readable text for it. It keeps a summary only when its reasoning summaries are on (model_reasoning_summary), and not for every step. Only the end of the record was read.'],
+        [message(id, 'none'), 'No reasoning in this session yet.'],
+        [message(id, 'none', { whole: false }), 'No reasoning in the last part of the record. Only its end was read.']
+      ],
+      grok: id => [
+        [message(id, 'unrecorded', { unrecorded: 1 }), 'Grok Build reasoned 1 time here and kept no readable text for it.'],
+        [message(id, 'unrecorded', { unrecorded: 3, whole: false }), 'Grok Build reasoned 3 times here and kept no readable text for it. Only the end of the record was read.'],
+        [message(id, 'none'), 'No thinking text in this session\'s record yet.'],
+        [message(id, 'none', { whole: false }), 'No thinking text in the last part of the record. Only its end was read.']
+      ],
+      antigravity: id => [
+        [message(id, 'unrecorded', { unrecorded: 2 }), 'Antigravity reasoned 2 times here and kept no readable text for it.'],
+        [message(id, 'none'), 'No thinking text in this session\'s record yet.'],
+        [message(id, 'none', { whole: false }), 'No thinking text in the last part of the record. Only its end was read.']
+      ]
+    };
+    for (const kind of ['codex', 'grok', 'antigravity']) {
+      const id = kinds[kind];
+      assert.ok(id, 'the scene has a ' + kind + ' agent');
+      await h.clearPosted();
+      await h.eval(`Monitor3D.select(${JSON.stringify(id)}, 'model')`);
+      assert.deepEqual(await h.posted(), [start(id)], kind + ': one start message');
+      assert.equal((await h.eval(SECTION)).status, 'Reading this session\'s record…', kind + ': before the first answer');
+      for (const [m, line] of [...shared(id), ...own[kind](id)]) {
+        await h.deliver(m);
+        const got = await h.eval(SECTION);
+        assert.equal(got.status, line, kind + ' ' + m.state);
+        assert.equal(got.items.length, m.state === 'recorded' ? m.thoughts.length : 0, kind + ' ' + m.state + ': the list');
+        assert.equal(got.shown, true);
+      }
+    }
+    // Back to a Claude Code agent: its own words again.
+    const [claude] = await agents();
+    await h.eval(`Monitor3D.select(${JSON.stringify(claude)}, 'model')`);
+    assert.equal((await h.eval(SECTION)).status, 'Reading this session\'s transcript…');
+    await h.deliver(message(claude, 'none', { whole: false }));
+    assert.equal((await h.eval(SECTION)).status, 'No thinking in the last part of the transcript. Only its end was read.');
+    assert.deepEqual(h.errors, []);
+  });
+
   it('5. no control in the section: no button, link, input, select, textarea or contenteditable', T, async () => {
     await scene();
     const [id] = await agents();
@@ -292,26 +367,41 @@ describe('the thinking section in a headless browser', () => {
     assert.equal((await h.eval(exposed)).holds, false, 'and still not in what window.Monitor3D exposes');
   });
 
-  it('11. another provider\'s agent asks for nothing and shows no section; its "In VS Code" row is the old one', T, async () => {
-    await scene();
-    const otherKind = await h.eval("([...Monitor3D.model.nodes.values()].find(n => n.cls === 'agent' && n.kind !== 'claude') || {}).id");
-    assert.ok(otherKind, 'the scene has an agent of another provider');
-    const [claude] = await agents();
+  it('11. a Codex, Grok Build or Antigravity agent asks and shows the section; an agent of an unknown kind asks nothing; each kind\'s "In VS Code" row', T, async () => {
+    const s = await scene();
+    const kinds = await agentsByKind(s);
+    assert.deepEqual(Object.keys(kinds).sort(), ['antigravity', 'claude', 'codex', 'grok', 'zed']);
     const rows = "[...document.querySelectorAll('#inspector .actions li')].map(li => [...li.children].map(e => e.textContent))";
+    const transcriptRow = ['A click selects it', 'This window reads its thinking from the session\'s transcript and shows it under Thinking. Nothing else is done.'];
+    const recordRow = ['A click selects it', 'This window reads its thinking from the session\'s own record and shows it under Thinking. Nothing else is done.'];
+    const oldRow = ['A click selects it', 'The selection stays in this view. Nothing else happens.'];
+    for (const [kind, row, reading] of [['claude', transcriptRow, 'Reading this session\'s transcript…'], ['codex', recordRow, 'Reading this session\'s record…'],
+      ['grok', recordRow, 'Reading this session\'s record…'], ['antigravity', recordRow, 'Reading this session\'s record…']]) {
+      const id = kinds[kind];
+      await h.clearPosted();
+      await h.eval(`Monitor3D.select(${JSON.stringify(id)}, 'scene')`);
+      assert.deepEqual(await h.posted(), [{ v: 1, type: 'select', target: { class: 'agent', id } }, start(id)], kind + ': a select, then one start message');
+      const got = await h.eval(SECTION);
+      assert.deepEqual([got.shown, got.status, got.items], [true, reading, []], kind + ': the section is shown');
+      assert.deepEqual((await h.eval(rows))[1], row, kind + ': its "In VS Code" row');
+      await h.deliver(recorded(id, [{ at: T1, text: 'Invented, for ' + kind + '.' }]));
+      assert.deepEqual((await h.eval(SECTION)).items, [['03:04:05 UTC', 'Invented, for ' + kind + '.']]);
+    }
+    // An agent of a kind the host reads nothing for: one stop (from the agent before), no section, the old row.
+    const unknown = kinds.zed;
     await h.clearPosted();
-    await h.eval(`Monitor3D.select(${JSON.stringify(otherKind)}, 'scene')`);
-    assert.deepEqual(await h.posted(), [{ v: 1, type: 'select', target: { class: 'agent', id: otherKind } }], 'a select, and no thinking message');
+    await h.eval(`Monitor3D.select(${JSON.stringify(unknown)}, 'scene')`);
+    assert.deepEqual(await h.posted(), [{ v: 1, type: 'select', target: { class: 'agent', id: unknown } }, stop], 'a select and a stop, and no start');
     assert.equal((await h.eval(SECTION)).hidden, true, 'no section');
-    assert.deepEqual((await h.eval(rows))[1], ['A click selects it', 'The selection stays in this view. Nothing else happens.']);
-    // From a Claude Code session's agent to it: one stop, as for a tool.
-    await h.eval(`Monitor3D.select(${JSON.stringify(claude)}, 'model')`);
-    assert.deepEqual((await h.eval(rows))[1], ['A click selects it', 'This window reads its thinking from the session\'s transcript and shows it under Thinking. Nothing else is done.']);
+    assert.equal(await h.eval("document.querySelectorAll('#thinking li').length"), 0);
+    assert.deepEqual((await h.eval(rows))[1], oldRow);
     await h.clearPosted();
-    await h.eval(`Monitor3D.select(${JSON.stringify(otherKind)}, 'model')`);
-    assert.deepEqual(await h.posted(), [stop]);
-    assert.equal((await h.eval(SECTION)).hidden, true);
+    await h.eval("Monitor3D.select('', 'model')");
+    assert.deepEqual(await h.posted(), [], 'nothing was watched, so nothing to stop');
+    await h.eval(`Monitor3D.select(${JSON.stringify(unknown)}, 'model')`);
+    assert.deepEqual(await h.posted(), [], 'from nothing to it: nothing');
     // An answer for it, had one come, shows nothing.
-    await h.deliver(recorded(otherKind, [{ at: T1, text: 'Never asked for.' }]));
+    await h.deliver(recorded(unknown, [{ at: T1, text: 'Never asked for.' }]));
     assert.equal((await h.eval(SECTION)).hidden, true);
     assert.deepEqual(h.errors, []);
   });

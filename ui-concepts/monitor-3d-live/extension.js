@@ -23,6 +23,7 @@ const discover = require('./lib/discover.js');
 const install = require('./lib/install.js');
 const collectors = require('./lib/collectors.js');
 const procs = require('./lib/procs.js');
+const thinkingRecords = require('./lib/thinking-records.js');
 const { MonitorView, VIEW_TYPE, LEGACY_VIEW_TYPE } = require('./lib/view.js');
 
 const DIFF_SCHEME = 'wyarden-monitor-change';
@@ -71,6 +72,8 @@ function activate(context) {
     client, folders, collectors: () => collectorsNow, log: message => log('view', message),
     // For a double-click on a session: its own file, then its process's ancestors, read only then.
     session: key => key.startsWith('claude:') ? discover.liveClaudeSessions(discover.claudeConfigDirs()).find(s => s.key === key) || null : null,
+    // For the thinking of a selected Codex, Grok Build or Antigravity session: its record in that tool's own folder.
+    record: (agent, id) => thinkingRecords.recordOf(agent, id),
     ancestors: pid => procs.ancestors(pid),
     hostPid: process.pid,
     focusWindow: async () => {

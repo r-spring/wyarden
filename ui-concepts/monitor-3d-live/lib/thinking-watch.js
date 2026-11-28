@@ -1,12 +1,15 @@
 /* Wyarden 3D monitor, working mock-up: the thinking of the one session the owner has selected, kept current.
  *
- * When the owner selects a Claude Code session's agent node, the page sends that node's id and nothing
- * else. This file asks the hub what the node stands for, finds the session's transcript itself (the page
- * never names a path), reads its thinking with lib/thinking.js, and posts the answer to the page that
- * asked. While the agent stays selected it looks again every few seconds, and reads again only when the
- * file changed. The watch ends only when it is stopped or replaced, when the transcript's path is one
- * this window may not look at, or when the hub names another provider's session: a hub that does not
- * answer, or a session file caught half-written, is looked at again, so the view recovers by itself.
+ * When the owner selects a session's agent node (Claude Code, Codex, Grok Build or Antigravity), the page
+ * sends that node's id and nothing else. This file asks the hub what the node stands for, finds the
+ * session's record itself (the page never names a path), reads its thinking with lib/thinking.js in that
+ * tool's format, and posts the answer to the page that asked. A Claude Code session's record is the
+ * transcript its session file names; another tool's is what lib/thinking-records.js finds in that tool's
+ * own sessions folder. While the agent stays selected it looks again every few seconds, and reads again
+ * only when the file changed. The watch ends only when it is stopped or replaced, when a Claude Code
+ * transcript's path is one this window may not look at, or when the hub names a session of a tool whose
+ * record is not read: a hub that does not answer, a session file caught half-written, or a record not
+ * found yet is looked at again, so the view recovers by itself.
  *
  * A look that fails is not taken at its word. A negative ("gone", "ended", "unreadable", and a "none",
  * "unrecorded" or "not-yet" that would take back thoughts already shown) is said only when the next look
@@ -32,8 +35,13 @@ const C = require('./contract.js');
 const EVERY_MS = 3000;
 /** The first look waits this long, so stepping across agents with the arrow keys asks about the one it stops on, not each. */
 const FIRST_MS = 200;
-/** Once "gone" or "ended" is said, a look comes every fifth tick (15 s): each such look is a hub request and a session-file lookup. */
+/**
+ * Once "gone" or "ended" is said, or another tool's record is not found, a look comes every fifth tick
+ * (15 s): each such look is a hub request and a session-file lookup, or a search of hundreds of folders.
+ */
 const SLOW_TICKS = 5;
+/** The tools whose record lib/thinking-records.js finds and lib/thinking.js reads in their own format. Claude Code's transcript is found by its session file. */
+const RECORD_AGENTS = ['codex', 'grok', 'antigravity'];
 /** The longest node id taken from the page: an agent node is `a:<agent>:<session>`, and a session id is at most 128 characters. */
 const MAX_ID = 200;
 /** An agent node's id, exactly: no fourth part, so no path or member can ride along. */
@@ -111,10 +119,11 @@ function fromAnswer(answer) {
    the file, and a signature that holds no text: the state and the counts. */
 const NOTHING = { kind: 'nothing' };    // a look that tells nothing: no answer from the hub, a lookup that threw
 const SAME = { kind: 'same' };          // the transcript is as it was when last read
-const OTHER = { kind: 'other' };        // another provider's session: its transcript is not one this reader knows
-const REFUSED = { kind: 'refused' };    // a transcript path this window may not look at
-const result = (body, key) => ({
-  kind: 'state', state: body.state, body, key,
+const OTHER = { kind: 'other' };        // a session of a tool whose record is not read here
+const REFUSED = { kind: 'refused' };    // a Claude Code transcript path this window may not look at
+/** `slow`: once this result is said, the next look is SLOW_TICKS away. */
+const result = (body, key, slow) => ({
+  kind: 'state', state: body.state, body, key, slow: slow === true,
   sig: body.state === 'recorded' ? 'recorded' : [body.state, body.recorded, body.unrecorded, body.more, body.whole].join(':')
 });
 /** A result that is said only when the next look agrees. */
@@ -136,23 +145,28 @@ async function statOf(file) {
 /**
  * One watch at a time, for one page.
  *   deps.resolve(target)   -> the hub's answer; for an agent node {kind: 'session', agent, session, ...}
- *   deps.session(id)       -> that session's entry of discover.liveClaudeSessions ({transcript, ...}), or null
- *   deps.read(file)        -> lib/thinking.js readThinking's answer
+ *   deps.session(id)       -> a Claude Code session's entry of discover.liveClaudeSessions ({transcript, ...}), or null
+ *   deps.record(agent, id) -> another tool's record {file, format} (lib/thinking-records.js recordOf), or null
+ *   deps.read(file, opts)  -> lib/thinking.js readThinking's answer; Claude Code's with no opts, another tool's with {format}
  *   deps.stat(file)        -> {size, mtimeMs}; fs.promises.stat when left out
  *   deps.post(message)     -> to the page that asked, and to no other
  *   deps.schedule(fn, ms)  -> a function that cancels it; setTimeout when left out
  *   deps.everyMs           -> how often to look again (EVERY_MS)
  *
- * The first look comes FIRST_MS after `watch`: it asks the hub, then finds the transcript once (the
+ * The first look comes FIRST_MS after `watch`: it asks the hub, then finds the record once (the
  * lookup reads files) and reads it. A later look is one `stat`, and reads only when the size or time
  * changed. A look is scheduled only when the one before has finished, so two never overlap, and a read
  * never starts while one started by an earlier watch is still on the disk: one read at a time per view.
  * An answer is posted only while its watch is the current one: a slow answer for an earlier selection
- * is dropped. Another provider's session ends the watch without a word.
+ * is dropped. A session of any tool but the four ends the watch without a word.
+ *
+ * Another tool's record not found is "not-yet", said as Claude Code's is, and looked for again every
+ * fifth tick; such a tool has no session file, so there is no "ended" for it.
  */
 function createWatch(deps = {}) {
   const resolve = typeof deps.resolve === 'function' ? deps.resolve : async () => null;
   const session = typeof deps.session === 'function' ? deps.session : () => null;
+  const record = typeof deps.record === 'function' ? deps.record : async () => null;
   const read = typeof deps.read === 'function' ? deps.read : async () => null;
   const stat = typeof deps.stat === 'function' ? deps.stat : statOf;
   const post = typeof deps.post === 'function' ? deps.post : () => {};
@@ -187,7 +201,7 @@ function createWatch(deps = {}) {
     if (!live(w)) return;
     try { decide(w, r); } catch { /* nothing of it is kept or shown */ }
   }
-  /** Which session the node is, and where its transcript is; then the first read. */
+  /** Which session the node is, and where its record is; then the first read. */
   async function begin(w) {
     let found;
     try { found = await resolve({ id: w.id }); } catch { return NOTHING; }
@@ -196,6 +210,7 @@ function createWatch(deps = {}) {
     try { kind = found.kind; agent = found.agent; sessionId = found.session; } catch { return NOTHING; }
     // lib/hub-client.js answers {kind: 'none'} also when the hub did not answer: one such look says nothing.
     if (kind !== 'session' || !C.isSessionId(sessionId)) return result(empty('gone'));
+    if (RECORD_AGENTS.includes(agent)) return findRecord(w, agent, sessionId);
     if (agent !== 'claude') return OTHER;
     let entry;
     try { entry = await session(sessionId); } catch { return NOTHING; }
@@ -206,6 +221,23 @@ function createWatch(deps = {}) {
     if (!localPath(file)) return REFUSED;
     w.file = file;
     w.slow = false;                                   // a look that succeeds: every tick again
+    return load(w);
+  }
+  /**
+   * Another tool's record, from lib/thinking-records.js. Only an object with a `file` this window may look
+   * at and the agent's own `format` is a record; anything else is "no record", looked for again every
+   * fifth tick, since a search lists hundreds of folders. A lookup that throws tells nothing.
+   */
+  async function findRecord(w, agent, sessionId) {
+    let found;
+    try { found = await record(agent, sessionId); } catch { return NOTHING; }
+    if (!live(w)) return NOTHING;
+    let file, format;
+    try { if (found && typeof found === 'object') { file = found.file; format = found.format; } } catch { return NOTHING; }
+    if (format !== agent || !localPath(file)) return result(empty('not-yet'), undefined, true);
+    w.file = file;
+    w.format = format;
+    w.slow = false;                                   // found: every tick again
     return load(w);
   }
   /** A later look: one `stat`, and a read only when the file changed. */
@@ -237,7 +269,8 @@ function createWatch(deps = {}) {
       try { await reading; } catch { /* its own watch deals with it */ }
       if (!live(w)) return undefined;
     }
-    const pending = Promise.resolve().then(() => read(w.file));
+    // Claude Code's transcript is read as it always was, with no options; another tool's in its own format.
+    const pending = Promise.resolve().then(() => (w.format ? read(w.file, { format: w.format }) : read(w.file)));
     reading = pending;
     try { return await pending; } finally { if (reading === pending) reading = null; }
   }
@@ -251,18 +284,18 @@ function createWatch(deps = {}) {
     // A read that fails after something was said posts nothing: the page keeps what it has, and the next tick reads again.
     if (r.state === 'unreadable' && w.said) { w.seen = ''; return; }
     if (r.key !== undefined) w.seen = r.key;
+    w.slow = r.state === 'gone' || r.state === 'ended' || r.slow;    // the pace of the next look, whether or not this one is said
     if (r.state !== 'recorded' && r.sig === w.said) return;          // said already
     send(w, r.body);
     w.said = r.sig;
     if (r.state === 'recorded') w.shownThoughts = true;
-    w.slow = r.state === 'gone' || r.state === 'ended';
   }
 
   /** Watch the agent node `id`, in place of any earlier watch. Its first look is FIRST_MS away. */
   function watch(id) {
     stop();
     if (typeof id !== 'string') return;
-    const w = { id, file: '', seen: '', doubt: null, said: '', shownThoughts: false, slow: false, cancel: null };
+    const w = { id, file: '', format: '', seen: '', doubt: null, said: '', shownThoughts: false, slow: false, cancel: null };
     now = w;
     next(w, FIRST_MS);
   }
@@ -277,4 +310,4 @@ function createWatch(deps = {}) {
   return { watch, stop, current };
 }
 
-module.exports = { checkThinking, createWatch, EVERY_MS, FIRST_MS, SLOW_TICKS, MAX_ID, STATES };
+module.exports = { checkThinking, createWatch, EVERY_MS, FIRST_MS, SLOW_TICKS, MAX_ID, STATES, RECORD_AGENTS };

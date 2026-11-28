@@ -26,7 +26,7 @@ Written 26 November 2026. Section 6 was added the same day.
 - **Claude Code reports the most:** start, end, failure, duration, the subagent and the MCP server. Codex, Grok Build and Antigravity each miss some of that; a table says which is exact, derived or missing.
 - **Today's hooks are not enough:** they record a call's end only, and they are installed per card.
 - **Cost, measured:** a hook that starts Node costs 55 ms per event. A loopback HTTP post costs 0.13 ms on the receiving side.
-- **A privacy rule:** a fixed list of fields is kept. Command lines, file content, prompts, replies and absolute paths never are. One exception since the working mock-up's 0.1.7, your decision of 27 November: the thinking of the agent you select, which can repeat any of these, is shown in that monitor only and written nowhere ([05 section 8.6](05-working-mockup.md#86-thinking-for-the-selected-agent-since-017)).
+- **A privacy rule:** a fixed list of fields is kept. Command lines, file content, prompts, replies and absolute paths never are. One exception since the working mock-up's 0.1.7, your decision of 27 November: the thinking of the agent you select, which can repeat any of these, is shown in that monitor only and written nowhere. Since 0.2.1, at your request of 28 November, it covers a Codex, Grok Build or Antigravity agent as well as a Claude Code one ([05 section 8.6](05-working-mockup.md#86-thinking-for-the-selected-agent-since-017)).
 
 ### 3. The recommendation
 

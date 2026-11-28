@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 0.2.1: the **Thinking** section now works for Codex, Grok Build, and Antigravity agents too; their reasoning is read from each tool's own record of the session, by the editor window that opened the monitor, and written nowhere. Codex keeps reasoning text only while its reasoning summaries are on (`model_reasoning_summary`); in the Codex sessions measured, every turn since October ran with them off, so those show a count and no text.
 - 0.2.0 adds live Codex, Grok Build, and Antigravity sessions alongside Claude Code. The collector setup command previews the required provider configuration. The status command shows whether each provider is configured and whether Codex is waiting for hook approval.
 
 - 0.1.7: select a Claude Code agent to see the thinking its session has done, newest first, in a **Thinking** section under its details; it is read by the editor window that opened the monitor and by no other, kept current while the agent stays selected, and written nowhere. In the 14 transcripts measured, most thinking left only a count; in six probe sessions, Claude Code wrote the text only when started with `--thinking-display summarized`.
