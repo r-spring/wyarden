@@ -4,6 +4,7 @@
   "description": "Watch live Claude Code sessions, subagents, tools, files and MCP calls across your open editor windows.",
   "version": "0.1.6",
   "publisher": "r-spring",
+  "icon": "media/wyarden-icon.png",
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",

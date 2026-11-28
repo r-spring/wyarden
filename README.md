@@ -1,19 +1,19 @@
 # Wyarden 3D Monitor
 
-Wyarden shows what your Claude Code sessions are doing across your open VS Code windows. The 3D view connects agents and subagents to their tools, files, URLs, and MCP servers. Pick a window to focus on one project, or choose **All open** to see them together.
+Wyarden automatically finds supported coding-agent sessions already running in your open workspaces. It groups them by the folders they work in, including sessions launched from a separate terminal. The 3D view connects agents and subagents to their tools, files, URLs, and MCP servers.
 
-**0.1.3 preview** runs as a standalone editor extension. The current live feed supports Claude Code. [Download the VSIX](https://github.com/r-spring/wyarden/releases/tag/v0.1.3) · [User guide](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md)
+The current preview discovers live **Claude Code** sessions. [Download the VSIX](https://github.com/r-spring/wyarden/releases) · [User guide](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md)
 
 ![Wyarden showing a live Claude Code session in VS Code](https://raw.githubusercontent.com/r-spring/wyarden/main/docs/monitor-3d/img/live/vscode-0.1.1.png)
 
-## Install and see your first session
+## Install and see the agents already running
 
-1. Use VS Code 1.85 or a compatible newer 1.x editor on Windows or Linux. VS Code and VSCodium are the verified editor hosts on Windows.
-2. Download **wyarden-monitor-3d-0.1.3.vsix**. In the editor, open the Command Palette, run **Extensions: Install from VSIX…**, and select the downloaded file. Reload the window if prompted.
-3. Open a local folder. Start a signed-in Claude Code session in that folder and give it a task that reads a file in the project.
-4. Click **3D Monitor** in the status bar or run **Wyarden 3D Monitor: Open**. Choose the chip for that editor window. Tool calls read from Claude Code transcripts appear as **derived**.
+1. Download the preview VSIX and check the editor version supported by that release. In VS Code or a compatible editor, run **Extensions: Install from VSIX…** and reload if prompted.
+2. Open the project folder where your agent is running. Agents whose working directory is in an open folder or one of its subfolders are eligible. Open a sibling worktree as an additional folder if its path sits outside the workspace.
+3. Click **3D Monitor** in the status bar or run **Wyarden 3D Monitor: Open**. Pick the workspace chip for that editor window or choose **All open**.
+4. Give Wyarden a few seconds to discover existing Claude Code sessions, including idle ones. Activity from transcripts is marked **derived**.
 
-The monitor can use existing Claude Code session files and transcripts as soon as you install it. Optional collectors add direct call events after you review and approve changes to Claude Code settings. Use collectors only on a machine where you're the only user. [Collector setup and privacy](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md#optional-collectors)
+Wyarden can discover those sessions through Claude Code's existing session files. Optional collectors add direct call events after you review and approve changes to Claude Code settings. Use collectors only on a machine where you're the only user. [Collector setup and privacy](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md#optional-collectors)
 
 ## Learn and troubleshoot
 

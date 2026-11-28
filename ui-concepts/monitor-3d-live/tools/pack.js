@@ -17,7 +17,7 @@ const ROOT = path.resolve(__dirname, '..');
 const REPO = path.resolve(ROOT, '..', '..');
 /** What ships: the host's files, the page, and the two texts an editor shows. Tests and tools do not. */
 const SHIPPED = ['package.json', 'extension.js', 'README.md', 'lib', 'media'];
-const TYPES = { '.json': 'application/json', '.js': 'application/javascript', '.html': 'text/html', '.css': 'text/css', '.md': 'text/markdown', '.txt': 'text/plain', '.vsixmanifest': 'text/xml' };
+const TYPES = { '.json': 'application/json', '.js': 'application/javascript', '.html': 'text/html', '.css': 'text/css', '.md': 'text/markdown', '.txt': 'text/plain', '.png': 'image/png', '.vsixmanifest': 'text/xml' };
 
 function filesUnder(rel) {
   const full = path.join(ROOT, rel);
@@ -53,6 +53,7 @@ function manifest(pkg) {
     '  <Assets>\n' +
     '    <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true"/>\n' +
     '    <Asset Type="Microsoft.VisualStudio.Services.Content.Details" Path="extension/README.md" Addressable="true"/>\n' +
+    '    <Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/' + xml(pkg.icon) + '" Addressable="true"/>\n' +
     '    <Asset Type="Microsoft.VisualStudio.Services.Content.License" Path="extension/LICENSE.txt" Addressable="true"/>\n' +
     '  </Assets>\n' +
     '</PackageManifest>\n';

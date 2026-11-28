@@ -4,7 +4,7 @@ A live 3D view of the Claude Code sessions in your open workspaces. The preview 
 
 - **What it shows:** each live Claude Code session as a column: the agent, its subagents, the tools it calls, the files, folders and addresses those calls touch, and its MCP servers. A call is a line from its start to its end.
 - **How to read it:** an agent is an icosahedron and a subagent a dodecahedron, both in their provider's colour: Claude orange, Codex blue, Antigravity purple, Grok green. The tile an agent stands on carries the name of its workspace. Point at an agent to see the title of its tab under its name. Captions have no background, so they hide nothing.
-- **Which sessions:** only sessions working in a folder that an editor window has open right now. Close the window and its workspace leaves the list.
+- **Which sessions:** the monitor discovers existing Claude Code sessions whose working directory is in an open workspace folder or one of its subfolders. This includes sessions launched in external terminals.
 - **A workspace is a window.** One chip for each open editor window, named as the window is titled. A window that holds several folders (a workspace file) is still one chip.
 - **Which editors:** VS Code 1.88 and later, VSCodium and Code - OSS builds based on those versions, on Windows and Linux. One VSIX for all of them.
 - **This slice is Claude Code only.** Codex, Grok Build and Antigravity are later phases of [the wiring plan](../../docs/monitor-3d/04-wiring-plan.md).
@@ -12,12 +12,12 @@ A live 3D view of the Claude Code sessions in your open workspaces. The preview 
 ## Use it
 
 1. Install the downloaded VSIX in each editor you use with **Extensions: Install from VSIX…**. For a source build, run `node ui-concepts/monitor-3d-live/tools/pack.js` from the repository root.
-2. Open a local project folder and start a signed-in Claude Code session in it. Ask Claude Code to read a test file, then leave it running.
-3. Click **3D Monitor** in the status bar or run **Wyarden 3D Monitor: Open** to open the floating window. Use **All open** to see sessions from every open workspace, or choose a workspace chip to filter the scene.
+2. Open the project folder that contains your agent's working directory. Add its worktree as a workspace folder if that worktree lives elsewhere.
+3. Click **3D Monitor** in the status bar or run **Wyarden 3D Monitor: Open**. Pick a workspace chip or choose **All open**, then wait a few seconds for Wyarden to find the sessions already running there.
 
 **After an update:** a window runs the new version once it has been reloaded (**Developer: Reload Window**), and the list of workspaces comes from whichever window runs the hub. So an update is complete when every window has been reloaded, or the editor restarted. A reload restarts every extension in that window, so do it when no agent there is in the middle of something.
 
-It works at once, with nothing set up: live sessions come from Claude Code's own session files, and their calls from their transcripts. Those calls are marked *derived*.
+Discovery uses Claude Code's existing session files. Available transcripts supply call activity marked *derived*, while already-running idle sessions can appear before any new calls.
 
 For *exact* calls, run **Wyarden 3D Monitor: Set Up Collectors…**. It shows the first change to a Claude Code `settings.json` as a diff, names every file it would change, and asks once ("Show every change" opens the other diffs first). Then it adds eleven hook entries to each file; they post Claude Code's events to the monitor on this machine. **Remove Collectors** takes exactly those entries out again.
 
