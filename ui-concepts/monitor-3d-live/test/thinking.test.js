@@ -125,6 +125,17 @@ test('a missing file, a folder, a relative path and a non-string each give their
   assert.equal(stats, 1, 'a good path: one stat');
 });
 
+test('a path on another machine is missing, and is never looked up: no stat and no open', async t => {
+  let stats = 0, opens = 0;
+  wrap(t, 'stat', real => (...a) => { stats++; return real(...a); });
+  wrap(t, 'open', real => (...a) => { opens++; return real(...a); });
+  for (const value of ['\\\\server\\share\\projects\\-home-example-proj\\' + SID + '.jsonl', '//server/share/projects/' + SID + '.jsonl',
+    '\\\\?\\UNC\\server\\share\\' + SID + '.jsonl', '\\\\server/share/' + SID + '.jsonl']) {
+    assert.deepEqual(await readThinking(value), { ok: false, why: 'missing' }, value);
+  }
+  assert.deepEqual([stats, opens], [0, 0], 'nothing was asked of the disk, so no server was reached');
+});
+
 test('a file that cannot be read is unreadable: no throw, no exception text, and a failed read still closes', async t => {
   const file = write(t, reply([thought('Readable once the fault is gone.')]));
   const real = { stat: fs.promises.stat, open: fs.promises.open };
@@ -268,18 +279,18 @@ test('LIMITS are the documented ones, and cannot be changed by a caller', () => 
   assert.ok(Object.isFrozen(LIMITS));
 });
 
-test('limits: one long thought is cut to `thought` characters, `…` included, and marked; a cut never splits a surrogate pair', () => {
+test('limits: one long thought is cut to `thought` characters, the ellipsis included, and marked; a cut never splits a surrogate pair', () => {
   const [long] = thinkingIn([reply([thought('x'.repeat(LIMITS.thought + 500))])]).thoughts;
   assert.equal(long.text.length, LIMITS.thought);
-  assert.ok(long.text.endsWith('…'));
+  assert.ok(long.text.endsWith('\u2026'));
   assert.equal(long.cut, true);
   const cut = (text, max) => thinkingIn([reply([thought(text)], { at: T0 })], { thought: max }).thoughts[0];
-  assert.deepEqual(cut('abcdefghijklmnop', 10), { at: Date.parse(T0), text: 'abcdefghi…', cut: true });
+  assert.deepEqual(cut('abcdefghijklmnop', 10), { at: Date.parse(T0), text: 'abcdefghi\u2026', cut: true });
   assert.deepEqual(cut('abcdefghij', 10), { at: Date.parse(T0), text: 'abcdefghij' }, 'a thought that fits has no cut key');
   const pair = cut('abcdefgh\u{1F600}zzzz', 10).text;
-  assert.equal(pair, 'abcdefgh…');
+  assert.equal(pair, 'abcdefgh\u2026');
   assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(pair), 'no half of a pair');
-  assert.equal(cut('abc     defghijk', 8).text, 'abc…', 'no blank space before the mark');
+  assert.equal(cut('abc     defghijk', 8).text, 'abc\u2026', 'no blank space before the mark');
 });
 
 test('limits: `thoughts` and `chars` leave older thoughts out, more says how many, and the walk stops at the first that does not fit', () => {
@@ -303,7 +314,7 @@ test('limits: the newest thought is given even when it alone passes `chars`', ()
   assert.deepEqual(texts(got), ['z'.repeat(100)]);
   assert.equal(got.more, 1);
   const both = thinkingIn([reply([thought('Older.')]), reply([thought('z'.repeat(100))])], { chars: 50, thought: 20 });
-  assert.deepEqual(texts(both), ['z'.repeat(19) + '…', 'Older.'], 'the newest is cut to `thought` first');
+  assert.deepEqual(texts(both), ['z'.repeat(19) + '\u2026', 'Older.'], 'the newest is cut to `thought` first');
 });
 
 test('limits: the defaults apply, and an option that is not a positive integer falls back to them', async t => {
@@ -329,7 +340,7 @@ test('limits: the defaults apply, and an option that is not a positive integer f
 
 test('the tail: a window past byte 0 is not whole, and its cut first line is dropped, even when cut inside a character', async t => {
   const a = reply([said('An emoji \u{1F600} before the thought.'), thought('Older thought, cut by the window.')]);
-  const b = reply([thought('Newer thought: café — \u{1F600} done.')]);
+  const b = reply([thought('Newer thought: caf\u00e9 \u2014 \u{1F600} done.')]);
   const file = write(t, a + b, 'tail.jsonl');
   const bytesA = Buffer.from(a, 'utf8');
   const lenB = Buffer.byteLength(b, 'utf8');
@@ -340,11 +351,11 @@ test('the tail: a window past byte 0 is not whole, and its cut first line is dro
   assert.equal(inChar.ok, true);
   assert.equal(inChar.whole, false);
   assert.equal(inChar.size, total);
-  assert.deepEqual(texts(inChar), ['Newer thought: café — \u{1F600} done.']);
+  assert.deepEqual(texts(inChar), ['Newer thought: caf\u00e9 \u2014 \u{1F600} done.']);
   assert.equal(inChar.recorded, 1);
-  assert.ok(!JSON.stringify(inChar).includes('�'), 'no broken character');
+  assert.ok(!JSON.stringify(inChar).includes('\ufffd'), 'no broken character');
   const exact = await readThinking(file, { lookback: lenB });                    // starts exactly at `b`
-  assert.deepEqual([exact.whole, texts(exact)], [false, ['Newer thought: café — \u{1F600} done.']]);
+  assert.deepEqual([exact.whole, texts(exact)], [false, ['Newer thought: caf\u00e9 \u2014 \u{1F600} done.']]);
   const oneIn = await readThinking(file, { lookback: total - 1 });               // one byte into `a`
   assert.deepEqual([oneIn.whole, oneIn.recorded], [false, 1]);
   const all = await readThinking(file, { lookback: total });
@@ -411,10 +422,10 @@ test('the module keeps nothing: each call reflects the file as it is, and parall
   assert.deepEqual([texts(one), texts(two)], [['In the first file.'], ['In another file.']]);
 });
 
-test('the module needs only fs, path and crypto, holds no raw control character, and exports only its API', () => {
+test('the module needs only fs, path, crypto and lib/contract.js, holds no raw control character, and exports only its API', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'lib', 'thinking.js'), 'utf8');
   const needs = [...source.matchAll(/require\(\s*'([^']+)'\s*\)/g)].map(m => m[1]).sort();
-  assert.deepEqual(needs, ['node:crypto', 'node:fs', 'node:path']);
+  assert.deepEqual(needs, ['./contract.js', 'node:crypto', 'node:fs', 'node:path']);
   assert.ok(!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u2028\u2029]/.test(source), 'no raw control character');
   assert.deepEqual(Object.keys(require('../lib/thinking.js')), ['readThinking', 'thinkingIn', 'LIMITS']);
 });

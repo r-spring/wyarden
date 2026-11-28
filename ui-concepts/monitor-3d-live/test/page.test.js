@@ -193,7 +193,7 @@ describe('the live page in a headless browser', () => {
     const focus = [{ v: 1, type: 'act', action: 'focus', target: { class: 'agent', id: agent.id } }];
     assert.deepEqual(posted.filter(m => m.type === 'act'), focus, 'a double-click on an agent asks to show its session, once');
     assert.ok(posted.filter(m => m.type === 'select').length <= 1, 'one select for the two clicks of a double-click');
-    assert.equal(posted.filter(m => m.type !== 'act' && m.type !== 'select').length, 0);
+    assert.deepEqual(posted.filter(m => m.type !== 'act' && m.type !== 'select'), [{ v: 1, type: 'thinking', target: { class: 'agent', id: agent.id } }], 'and its thinking is asked for, once');
 
     await h.click(file.x, file.y);
     await sleep(200);
@@ -351,7 +351,7 @@ describe('the live page in a headless browser', () => {
       heads: 1, hint: 'P.hint: What is wired now. These are labels, not controls.', list: 'UL.actions',
       rows: [
         ['B: Double-click, or Ctrl+Enter: show its terminal or chat panel', 'SPAN: For a session in a terminal of this window, or in this window\'s Claude Code chat panel. For any other, a message says so and nothing is opened.'],
-        ['B: A click selects it', 'SPAN: The selection stays in this view. Nothing else happens.']
+        ['B: A click selects it', 'SPAN: This window reads its thinking from the session\'s transcript and shows it under Thinking. Nothing else is done.']
       ],
       shown: true
     }, 'a session\'s "In VS Code" section says what is wired now, as text');
@@ -854,7 +854,8 @@ describe('the live page in a headless browser', () => {
     posted = await h.posted();
     assert.deepEqual(posted.filter(m => m.type === 'act'), focus(agentId), 'a double-click on an agent\'s row asks to show its session, once');
     assert.deepEqual(posted.filter(m => m.type === 'select'), [{ v: 1, type: 'select', target: { class: 'agent', id: agentId } }]);
-    assert.equal(posted.length, 2);
+    assert.deepEqual(posted.filter(m => m.type === 'thinking'), [{ v: 1, type: 'thinking', target: { class: 'agent', id: agentId } }], 'its thinking is asked for, once');
+    assert.equal(posted.length, 3);
     await h.eval(`Monitor3D.select(${JSON.stringify(sub.id)}, 'model')`);
     await keysTo('twin');
     await h.clearPosted();

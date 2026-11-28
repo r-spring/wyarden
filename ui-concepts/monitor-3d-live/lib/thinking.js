@@ -35,7 +35,7 @@
  *   thoughts  40        newest thoughts returned: the view shows recent thinking, not all of it
  *   chars     60000     most characters of thinking text in one answer, so one message to the page
  *                       stays small
- *   thought   12000     one thought is cut to this many characters, `…` included, so one long
+ *   thought   12000     one thought is cut to this many characters, its closing ellipsis included, so one long
  *                       thought cannot fill an answer by itself
  *   MAX_PATH  4096      a longer path is not looked at, as in lib/contract.js
  */
@@ -43,6 +43,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { isNetworkPath } = require('./contract.js');
 
 const LIMITS = Object.freeze({
   lookback: 4 * 1024 * 1024,   // most bytes read from the end of the file for one answer
@@ -53,7 +54,7 @@ const LIMITS = Object.freeze({
 const MAX_PATH = 4096;
 const NL = 0x0a;
 const EMPTY = Buffer.alloc(0);
-const ELLIPSIS = '…';
+const ELLIPSIS = '\u2026';   // the mark that ends a cut thought
 
 /** C0 and C1 control characters except tab and newline, and the two Unicode line separators, built from codes so no raw control character sits in this file. */
 const code = String.fromCharCode;
@@ -80,7 +81,7 @@ function cleanThought(value) {
   return value.replace(/\r\n?/g, '\n').replace(CONTROL, ' ').trim().replace(/\n{3,}/g, '\n\n');
 }
 
-/** Cut to `max` characters, `…` included, never between the two halves of a surrogate pair. */
+/** Cut to `max` characters, the closing ellipsis included, never between the two halves of a surrogate pair. */
 function cutThought(text, max) {
   if (text.length <= max) return { text };
   let end = max - 1;
@@ -165,11 +166,12 @@ async function readRange(file, from, length) {
 /**
  * The thinking a transcript holds, newest first. Never rejects: a path that is not an absolute
  * path string (or is longer than MAX_PATH) is `missing` without touching the disk, a folder is
- * `not-a-file`, and any other failure to stat, open or read is `unreadable`.
+ * `not-a-file`, and any other failure to stat, open or read is `unreadable`. A path on another
+ * machine is `missing` too, and is never touched: that would sign this machine in to its server.
  */
 async function readThinking(file, opts) {
   try {
-    if (typeof file !== 'string' || file.length > MAX_PATH || file.includes('\0') || !path.isAbsolute(file)) return failed('missing');
+    if (typeof file !== 'string' || file.length > MAX_PATH || file.includes('\0') || !path.isAbsolute(file) || isNetworkPath(file)) return failed('missing');
     const max = limitsOf(opts);
     let st;
     try { st = await fs.promises.stat(file); } catch (e) { return failed(gone(e) ? 'missing' : 'unreadable'); }

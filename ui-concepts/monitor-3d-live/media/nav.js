@@ -144,6 +144,7 @@
     open: ['Double-click, or Ctrl+Enter: open it in the editor', 'A folder with several files lists them first; a searched folder is shown in the Explorer.'],
     url: ['Double-click, or Ctrl+Enter: open the address', 'VS Code shows the address and asks before it opens your browser.'],
     select: ['A click selects it', 'The selection stays in this view. Nothing else happens.'],
+    thinking: ['A click selects it', 'This window reads its thinking from the session\'s transcript and shows it under Thinking. Nothing else is done.'],
     context: ['Nothing is wired for this kind of resource yet', 'A web search or an MCP resource keeps no address that could be opened.'],
     agent: ['Double-click, or Ctrl+Enter: show its terminal or chat panel', 'For a session in a terminal of this window, or in this window\'s Claude Code chat panel. For any other, a message says so and nothing is opened.'],
     subagent: ['Double-click, or Ctrl+Enter: show its session', 'The terminal or chat panel of the session that started it, as for an agent.'],
@@ -195,7 +196,7 @@
       fact('Subagents', [...s.nodes].filter(id => (model.nodes.get(id) || {}).cls === 'subagent').length);
       const last = s.history.slice(-5).reverse().map(c => clock(c.t) + '  ' + c.what + '  ' + (c.ok ? 'ok' : 'failed: ' + c.error) + (c.ms == null ? '' : '  ' + c.ms + ' ms' + (c.msGrade ? ' (' + c.msGrade + ')' : '')));
       if (last.length) out.lists.push({ title: 'Last calls', items: last });
-      out.actions = actions(['agent', 'select']);
+      out.actions = actions(['agent', n.kind === 'claude' ? 'thinking' : 'select']);      // only Claude Code's transcript is read for thinking
     } else if (n.cls === 'subagent') {
       fact('Provider', providerName(providerOf(n, model))); fact('Type', n.type); fact('Id', n.sub); fact('Agent', ownerLabel(n, model)); fact('Calls seen', n.calls);
       if (n.reported != null) fact('Reported at stop', plural(n.reported, 'call') + (n.ms == null ? '' : ', ' + n.ms + ' ms'));
