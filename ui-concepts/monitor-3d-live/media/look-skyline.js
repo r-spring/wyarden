@@ -13,12 +13,14 @@
  * - The original coloured a tower by its state (amber needs you, red stalled, blue working, green ready for
  *   review, grey idle). Here those colours are the classes': an agent is the tall amber tower, an MCP server the red
  *   hexagonal one (the original's kiosk is a hexagon), a subagent the shorter blue tower, a tool the teal-green
- *   block, a resource a low grey block. A state is only the mark beside the shape and the word in the caption; the
- *   marks take colours none of the classes has: the original's violet and teal, ink, and its two quiet greys.
+ *   block, a resource a low pale grey block (the original's idle grey). A state is only the mark beside the shape
+ *   and the word in the caption; the marks keep clear of the five class colours: the original's violet for needs you,
+ *   its ink for failed, its dark title teal for working, its slate for the quiet ones.
  * - The arrangement is not carried: the four floors and the columns stay. A tower's height and roof no longer
  *   follow its state; each class has one.
  * - The original's slabs are white over the ground; a floor here has one colour for its tint and its outline, so
- *   the slab is the ground's colour with an ink outline. The stage's soft gradient is one colour.
+ *   the slab is the ground's colour with an ink outline. The stage's soft gradient is one colour. A shape has one
+ *   fill, so the original's solid roof over tinted glass walls is one even tint, at .6.
  * - The backdrop is the street round the blocks: a kerb round each column's ground block and the street's centre
  *   line, in faint ink. Nothing moves.
  *
@@ -31,9 +33,9 @@
 
   // skyline.gd, palette (lines 41-71).
   const O = {
-    bg: '#f3f1ea', panel: '#f8f7f2', line: '#cfd2c8', text: '#16262a', title: '#0f3a40', muted: '#586b6c', dim: '#75827f',
+    bg: '#f3f1ea', panel: '#f8f7f2', line: '#cfd2c8', text: '#16262a', title: '#0f3a40', muted: '#586b6c',
     teal: '#1f7a84', ink: '#1d2b2e',
-    amber: '#eda100', red: '#e34948', blue: '#2a78d6', green: '#1baf7a', grey: '#8a8a84', violet: '#7b61d9', idle: '#b5b4ac', clash: '#d03b3b'
+    amber: '#eda100', red: '#e34948', blue: '#2a78d6', green: '#1baf7a', violet: '#7b61d9', idle: '#b5b4ac', clash: '#d03b3b'
   };
 
   /** A square tower with a pointed roof: the original's tower with its pyramid roof. */
@@ -52,11 +54,11 @@
     captionSize: 12,                                 // caption_size 12
     palette: {
       bg: O.bg, panel: O.panel, line: O.line, ink: O.text, caption: O.text, muted: O.muted, accent: O.teal,
-      cls: { agent: O.amber, subagent: O.blue, tool: O.green, mcp: O.red, resource: O.grey },
+      cls: { agent: O.amber, subagent: O.blue, tool: O.green, mcp: O.red, resource: O.idle },
       // Every floor in ink: the outline of the original's blocks (draw(), 0.55 ink).
       floor: { agent: O.ink, mcp: O.ink, tool: O.ink, resource: O.ink },
-      // The marks: colours no class has. Needs you the original's violet, failed in ink, working the original's teal.
-      state: { needs: O.violet, failed: O.ink, working: O.teal, unclear: O.dim, idle: O.idle, done: O.muted },
+      // The marks: colours no class has. Needs you the original's violet, failed its ink, working its title teal.
+      state: { needs: O.violet, failed: O.ink, working: O.title, unclear: O.muted, idle: O.muted, done: O.muted },
       clash: O.clash,
       outline: O.ink,
       fill: .6, solid: 1, floorFill: 0, floorLine: .6, post: .35, captionBack: 0, captionHalo: .9
