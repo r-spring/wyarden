@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 0.1.6 opens **3D Monitor** in a dedicated floating window. Open files, reveal searched folders, and show agent sessions across open workspaces from that window.
+- 0.1.5: a new version number for the same code as 0.1.4, so that an installed copy can be told from an older 0.1.4 build. Nothing behaves differently.
 - 0.1.4: the output channel no longer logs "onState failed: ReferenceError" each time the extension starts. Nothing else was affected.
 - 0.1.5: select a Claude Code agent to see the thinking its session has done, newest first, in a **Thinking** section under its details; it is read by that window alone, kept current while the agent stays selected, and written nowhere. In the sessions measured, most showed only a count: Claude Code wrote the text only for one started with `--thinking-display summarized`.
 

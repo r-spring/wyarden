@@ -80,6 +80,9 @@ const isHookUrl = value => typeof value === 'string' && HOOK_URL.test(value);
 const AUTH_SCHEME = 'Wyarden';
 const keyed = (key, text) => crypto.createHmac('sha256', String(key)).update(text).digest('base64url');
 const newNonce = () => crypto.randomBytes(18).toString('base64url');
+// The action path is signed by the existing control protocol and binds it to the exact request body.
+const actionPath = body => '/v1/action/' + crypto.createHash('sha256').update(body).digest('hex');
+const ACTION_WAIT_MS = 23000;
 /** The Authorization header of a control request: `Wyarden <nonce>.<keyed hash of the method, the path and the nonce>`. */
 const signRequest = (control, method, pathname, nonce) => AUTH_SCHEME + ' ' + nonce + '.' + keyed(control, 'request\n' + method + '\n' + pathname + '\n' + nonce);
 /** The hub's side: the nonce when the header is a good signature of this request, else null. Never throws. */
@@ -311,7 +314,7 @@ module.exports = {
   VERSION, MARK, AGENTS, ALL, LIMITS,
   monitorHome, hubFile, readHubFile, ensureHubFile, validHub, token, pickPort,
   hookPath, hookUrl, HOOK_URL, isHookUrl,
-  AUTH_SCHEME, newNonce, signRequest, checkRequest, hubProof, sameText,
+  AUTH_SCHEME, newNonce, signRequest, checkRequest, hubProof, sameText, actionPath, ACTION_WAIT_MS,
   isWinPath, isPosixPath, isAbsolute, isNetworkPath, isFsRoot, flavour, lexical, realOf, normPath, wsKey, relativeIn, isInside, MAX_PATH, MAX_CLIMB,
   windowKey, windowKeyOf, windowName,
   sessionRoot, rootInfo, keptPath,

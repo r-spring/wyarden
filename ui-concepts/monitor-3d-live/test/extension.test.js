@@ -28,12 +28,16 @@ async function until(what, test, ms = 8000) {
 /** As much of `vscode` as extension.js, view.js and actions.js touch. */
 function fakeVscode(folders, answer, workspaceFile) {
   const uri = (scheme, p) => ({ scheme, path: p, fsPath: p, toString: () => scheme + ':' + p });
+  class TabInputWebview { constructor(viewType) { this.viewType = viewType; } }
+  const main = { viewColumn: 1, tabs: [] }, floating = { viewColumn: 2, tabs: [] };
+  const tabGroups = { activeTabGroup: main, all: [main, floating] };
   const v = {
+    TabInputWebview,
     commands_: new Map(), panels: [], calls: [], bars: [], output: [], providers: new Map(), modals: [],
     version: '0.0.0-test',
     ExtensionMode: { Production: 1, Development: 2, Test: 3 },
     StatusBarAlignment: { Left: 1, Right: 2 },
-    ViewColumn: { Active: -1, Beside: -2 },
+    ViewColumn: { Active: -1, Beside: -2, One: 1 },
     ColorThemeKind: { Light: 1, Dark: 2, HighContrast: 3, HighContrastLight: 4 },
     Uri: {
       file: p => uri('file', p),
@@ -51,6 +55,7 @@ function fakeVscode(folders, answer, workspaceFile) {
       registerTextDocumentContentProvider: (scheme, provider) => { v.providers.set(scheme, provider); return { dispose() {} }; }
     },
     window: {
+      tabGroups,
       activeColorTheme: { kind: 2 },
       activeTextEditor: undefined,
       onDidChangeActiveColorTheme: () => ({ dispose() {} }),
@@ -69,6 +74,8 @@ function fakeVscode(folders, answer, workspaceFile) {
           reveal() {}, onDidChangeViewState: fn => { panel.handlers.state = fn; }, onDidDispose: fn => { panel.handlers.dispose = fn; }
         };
         v.panels.push(panel);
+        main.activeTab = { input: new TabInputWebview(type) };
+        main.tabs = [main.activeTab];
         return panel;
       },
       terminals: [],
@@ -83,7 +90,13 @@ function fakeVscode(folders, answer, workspaceFile) {
     },
     commands: {
       registerCommand: (name, fn) => { v.commands_.set(name, fn); return { dispose() {} }; },
-      executeCommand: async (name, ...args) => { v.calls.push(['command', name, ...args.filter(a => typeof a === 'string')]); },
+      executeCommand: async (name, ...args) => {
+        if (name === 'workbench.action.moveEditorToNewWindow') {
+          floating.tabs = main.tabs; floating.activeTab = main.activeTab;
+          main.tabs = []; main.activeTab = undefined; tabGroups.activeTabGroup = floating;
+        }
+        v.calls.push(['command', name, ...args.map(a => a?.fsPath || a).filter(a => typeof a === 'string')]);
+      },
       // Claude Code's own command is listed, so nothing but the checks before it keeps it from running.
       getCommands: async () => [...v.commands_.keys(), 'claude-vscode.editor.open']
     }
@@ -102,7 +115,7 @@ function post(port, urlPath, body) {
   });
 }
 
-test('activated in a window: a hook payload reaches the tab, a double-click opens the file, and the collector goes in and comes out', async t => {
+test('the floating monitor opens local and peer resources, shows a peer terminal, and manages the collector', async t => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'wym-'));
   const home = path.join(base, 'home'), monitor = path.join(base, 'monitor'), project = path.join(base, 'example-project'), tools = path.join(base, 'example-tools');
   fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
@@ -155,7 +168,7 @@ test('activated in a window: a hook payload reaches the tab, a double-click open
   assert.equal(vscode.bars[0].tooltip, 'Wyarden 3D Monitor: 1 open workspace. Click to open.');
 
   // The tab: its page says it is ready, and gets the look, the hub state, the workspaces and a snapshot.
-  vscode.commands_.get('wyardenMonitor.open')();
+  await vscode.commands_.get('wyardenMonitor.open')();
   const panel = vscode.panels[0];
   assert.ok(panel.webview.html.includes('page.js') && !panel.webview.html.includes('{{'), 'the real page.html, filled');
   panel.handlers.message({ v: 1, type: 'ready' });
@@ -171,7 +184,7 @@ test('activated in a window: a hook payload reaches the tab, a double-click open
   assert.deepEqual(spaces.list.map(w => [w.key, w.name, w.windows, w.apps, w.folders]), [[own, 'Example Shop', 1, ['Example Editor'], ['example-project', 'example-tools']]]);
   assert.deepEqual(spaces.here, [own, C.wsKey(project), C.wsKey(tools)]);
   assert.equal(spaces.own, own);
-  assert.equal(spaces.scope, own, 'the window is shown its own workspace first');
+  assert.equal(spaces.scope, 'all', 'a new monitor shows all workspaces first');
   assert.equal(vscode.bars[0].tooltip, 'Wyarden 3D Monitor: 1 open workspace, 0 live sessions. Click to open.', 'with a tab open the hub has looked: now 0 is a count');
 
   // A hook payload, posted the way Claude Code posts it.
@@ -229,6 +242,45 @@ test('activated in a window: a hook payload reaches the tab, a double-click open
   await wait(50);
   assert.deepEqual(vscode.calls.slice(before), [['info', '3D Monitor: this session runs in this window, but not in a terminal or chat panel that can be shown from here.']]);
   assert.deepEqual(walked, [process.pid], 'the pid from the session file');
+  fs.rmSync(sessionPath);
+  procs.ancestors = realAncestors;
+
+  // A second editor participates through its hub connection even with no monitor open of its own.
+  const other = path.join(base, 'other-workspace'), remoteFile = path.join(other, 'src', 'other.js');
+  fs.mkdirSync(path.join(other, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(other, '.git'));
+  fs.writeFileSync(remoteFile, '// second workspace\n');
+  const peer = fakeVscode([other], () => undefined);
+  const peerState = new Map();
+  Module._load = function (request, ...rest) { return request === 'vscode' ? peer : realLoad.call(this, request, ...rest); };
+  delete require.cache[require.resolve('../extension.js')];
+  require('../extension.js').activate({ ...context, extensionUri: peer.Uri.file(ROOT), workspaceState: {
+    get: key => peerState.get(key), update: async (key, value) => { peerState.set(key, value); }
+  } });
+  await until('the second workspace', () => vscode.bars[0].tooltip.includes('2 open workspaces'));
+  const remoteSession = '99999999-2222-4333-8444-555555555555';
+  const remote = { ...common, session_id: remoteSession, cwd: other };
+  await post(hub.port, C.hookPath(hub.ingest, 'claude'), { ...remote, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: remoteFile }, tool_use_id: 'toolu_remote0001' });
+  await until('the second workspace file', () => events().some(e => e.session === remoteSession && e.ev === 'resource.touch'));
+  const act = (action, cls, id) => panel.handlers.message({ v: 1, type: 'act', action, target: { class: cls, id } });
+  act('open', 'resource', 'r:claude:' + remoteSession + ':file:src/');
+  await until('the peer to open the file', () => peer.calls.some(c => c[0] === 'showTextDocument' && c[1] === remoteFile));
+  assert.ok(!vscode.calls.some(c => c[0] === 'showTextDocument' && c[1] === remoteFile));
+
+  const searched = path.join(other, 'separate-folder');
+  fs.mkdirSync(searched);
+  await post(hub.port, C.hookPath(hub.ingest, 'claude'), { ...remote, hook_event_name: 'PreToolUse', tool_name: 'Grep', tool_input: { path: searched, pattern: 'example' }, tool_use_id: 'toolu_remote0002' });
+  await until('the second workspace folder', () => events().some(e => e.session === remoteSession && e.kind === 'dir'));
+  act('open', 'resource', 'r:claude:' + remoteSession + ':file:separate-folder/');
+  await until('the peer to reveal the folder', () => peer.calls.some(c => c[1] === 'revealInExplorer' && c[2] === searched));
+
+  fs.writeFileSync(sessionPath, JSON.stringify({ pid: process.pid, sessionId: remoteSession, cwd: other, entrypoint: 'cli', status: 'idle' }));
+  const terminalPid = process.pid + 100000;
+  procs.ancestors = async pid => ({ chain: [pid, terminalPid], known: true });
+  peer.window.terminals.push({ processId: Promise.resolve(terminalPid), show: () => peer.calls.push(['terminal.show']) });
+  act('focus', 'agent', 'a:claude:' + remoteSession);
+  await until('the peer terminal to show', () => peer.calls.some(c => c[0] === 'terminal.show'));
+  assert.equal(peer.panels.length, 0);
   fs.rmSync(sessionPath);
   procs.ancestors = realAncestors;
 

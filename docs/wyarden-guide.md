@@ -1,6 +1,6 @@
 # Wyarden user guide
 
-Wyarden 0.1.3 is a preview for watching live Claude Code work inside a desktop editor. You can use the monitor with a normal terminal session or a Claude Code editor session that is working in an open local folder.
+Wyarden shows coding-agent sessions already running in your editor's open workspace folders. It uses each session's working directory to decide where it belongs. For live monitoring, this preview supports Claude Code.
 
 ## Install and check the download
 
@@ -23,14 +23,21 @@ Get-FileHash -Algorithm SHA256 -LiteralPath .\wyarden-monitor-3d-0.1.3.vsix
 sha256sum -c SHA256SUMS
 ```
 
-## Find your first Claude Code session
+## See the agents already running in a workspace
 
-1. Open a local project folder in VS Code or VSCodium. Use a small test folder with a file you can ask Claude Code to read.
-2. Start Claude Code in that same folder and complete its sign-in. Ask it to read the test file while the session remains open.
-3. Click **3D Monitor** in the status bar or run **Wyarden 3D Monitor: Open**. Select that window's chip above the scene.
-4. Look for the session's agent and tool nodes. The monitor reads Claude Code's session files and available transcripts. Calls from transcripts are marked **derived**.
+1. In VS Code or VSCodium, open the folder where the agent is working, or a parent folder that contains it.
+2. Click **3D Monitor** in the status bar or run **Wyarden 3D Monitor: Open**. Pick the workspace chip above the scene, or choose **All open**.
+3. Give the monitor a few seconds to discover sessions. It can find a running Claude Code terminal, editor chat, or session launched outside the editor. It uses the session files it can read from the same environment. An idle session can appear before it has new tool activity.
+4. Select an agent to inspect its session. Tool activity sourced from transcripts is marked **derived**. The collectors are optional.
 
-Run **Wyarden 3D Monitor: Choose Workspace** if you prefer a list. Every chip represents one open editor window. A window can hold several project folders and still uses one chip. **All open** includes sessions from all windows connected to the monitor's local hub.
+Run **Wyarden 3D Monitor: Choose Workspace** if you prefer a list. A chip represents a connected editor workspace, which can contain several folders. **All open** combines these scopes. When two open folders overlap, Wyarden uses the closest matching folder. A Git worktree outside those folders has its own path, so add that worktree folder to the workspace or open it in another connected window.
+
+| Session | Where to find it |
+| --- | --- |
+| Claude Code already running in an open folder or subfolder | Its workspace chip and **All open**. |
+| Claude Code launched in a separate terminal | The same workspace chip, provided Wyarden can read its session files and its working directory matches the open folder. |
+| Claude Code in WSL, SSH, or a container | The editor environment where the session runs. Each environment has its own session files and hub. |
+| Codex, Grok, or Antigravity | The simulated view can illustrate these providers. Live discovery in this preview covers Claude Code. |
 
 ## Read and navigate the scene
 
@@ -64,7 +71,8 @@ Since 0.1.5, when you select a Claude Code agent, the window you selected it in 
 | Symptom | Check |
 | --- | --- |
 | No **3D Monitor** command | Open **Extensions** in this editor profile and confirm `r-spring.wyarden-monitor-3d` is installed and enabled. Try **Developer: Reload Window** after active work finishes. |
-| The window has a chip but no sessions | Run Claude Code from an open local project folder. Keep its session running while you open the monitor, then ask it to read a file. Try **All open** to verify the scope. |
+| An existing session doesn't appear | Confirm that it is a live Claude Code process in the same environment. Open the folder that contains its working directory and wait for discovery. Try **All open** if a closer open folder may own the session. |
+| An agent is working in a sibling Git worktree | Add that worktree's folder to the workspace or open it in another window with Wyarden installed. |
 | The first calls are marked **derived** | This is expected in transcript mode. After configuring collectors, start a new Claude Code session if you want direct events. |
 | Files or commands appear incomplete | The view depends on the events the provider supplies. Shell calls do not say which files a script read or wrote. |
 | An agent node can't open its session | Switch to the window that owns the session. Wait a moment if its terminal is still starting. If Wyarden can't match a Claude Code panel to its process, use the editor's existing panel or terminal. |

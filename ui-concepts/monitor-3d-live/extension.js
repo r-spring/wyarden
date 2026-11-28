@@ -4,9 +4,8 @@
  *   1. It tells the hub which folders this window has open, over one connection that stays open.
  *      That connection is how the hub knows the workspace is alive; when the window closes, it drops.
  *      If no hub is running, this window starts it (a worker thread; no new process).
- *   2. It offers the tab ("Wyarden 3D Monitor: Open", or the item in the status bar). A double-click on
- *      a session there reads this machine's process list once, to find that session's terminal or chat
- *      panel; on Windows that is one run of Windows PowerShell from the system folder.
+ *   2. It offers a floating monitor ("Wyarden 3D Monitor: Open", or the item in the status bar). A double-click on
+ *      a session checks this machine's process list to find the terminal or chat panel in its editor.
  *   3. It offers set-up and removal of Claude Code's collector. Nothing is installed on activation.
  *
  * It reads no workspace setting and runs nothing from a workspace, so it also works in a
@@ -23,7 +22,7 @@ const { createHubClient } = require('./lib/hub-client.js');
 const discover = require('./lib/discover.js');
 const install = require('./lib/install.js');
 const procs = require('./lib/procs.js');
-const { MonitorView, VIEW_TYPE } = require('./lib/view.js');
+const { MonitorView, VIEW_TYPE, LEGACY_VIEW_TYPE } = require('./lib/view.js');
 
 const DIFF_SCHEME = 'wyarden-monitor-change';
 
@@ -64,7 +63,11 @@ function activate(context) {
     // For a double-click on a session: its own file, then its process's ancestors, read only then.
     session: id => discover.liveClaudeSessions(discover.claudeConfigDirs()).find(s => s.session === id) || null,
     ancestors: pid => procs.ancestors(pid),
-    hostPid: process.pid
+    hostPid: process.pid,
+    focusWindow: async () => {
+      try { await vscode.commands.executeCommand('workbench.action.switchToMainWindow'); }
+      catch { await vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup'); }
+    }
   });
 
   client.onState = state => { log('hub', state + (client.role ? ' (' + client.role + ')' : '')); view.setHubState(state); showBar(); };
@@ -72,14 +75,14 @@ function activate(context) {
   context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => client.update({ folders: folders() })));
   context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(() => view.sendLook()));
 
-  /* ---------- the status bar item: where the tab is opened from ---------- */
+  /* ---------- the status bar item ---------- */
 
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
   bar.command = 'wyardenMonitor.open';
   context.subscriptions.push(bar);
   function showBar() {
     const f = view.figures();
-    // Sessions are counted only while a monitor tab is open somewhere: with none open the hub is not looking,
+    // Sessions are counted only while a monitor is open somewhere: with none open the hub is not looking,
     // and "0 live sessions" would be a guess. So the count, and the bell, are shown only when it is a count.
     bar.text = '$(pulse) 3D Monitor' + (f.counted && f.needs ? ' $(bell) ' + f.needs : '');
     bar.tooltip = view.hubState !== 'up' ? 'Wyarden 3D Monitor: the hub is ' + (view.hubState === 'blocked' ? 'blocked: another program holds its port' : 'starting')
@@ -93,12 +96,15 @@ function activate(context) {
   client.start();
   context.subscriptions.push({ dispose: () => client.stop() });
 
-  /* ---------- the tab ---------- */
+  /* ---------- the monitor ---------- */
 
-  const open = () => { refreshCollectors(); view.show(); };
+  const open = () => { refreshCollectors(); return view.show(); };
   context.subscriptions.push(vscode.commands.registerCommand('wyardenMonitor.open', open));
   context.subscriptions.push(vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
     async deserializeWebviewPanel(panel) { refreshCollectors(); view.restore(panel); }
+  }));
+  context.subscriptions.push(vscode.window.registerWebviewPanelSerializer(LEGACY_VIEW_TYPE, {
+    async deserializeWebviewPanel(panel) { panel.dispose(); }
   }));
 
   context.subscriptions.push(vscode.commands.registerCommand('wyardenMonitor.chooseWorkspace', async () => {
@@ -112,7 +118,7 @@ function activate(context) {
     const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Show which workspace in the 3D monitor? One for each editor window that is open now.' });
     if (!pick) return;
     view.setScope(pick.scope);
-    open();
+    await open();
   }));
 
   /* ---------- collectors ---------- */

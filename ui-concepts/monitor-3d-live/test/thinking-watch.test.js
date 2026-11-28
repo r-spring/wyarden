@@ -74,12 +74,17 @@ const prompt = text => line({ type: 'user', isSidechain: false, uuid: 'u-' + (++
 function fakeVscode() {
   const calls = [], status = [], panels = [];
   const uri = value => ({ value, fsPath: value, toString: () => value });
+  // Since 0.1.6 the monitor opens as a tab and is moved to a floating window: the two tab groups stand for that.
+  class TabInputWebview { constructor(viewType) { this.viewType = viewType; } }
+  const main = { viewColumn: 1, tabs: [] }, floating = { viewColumn: 2, tabs: [] };
+  const tabGroups = { activeTabGroup: main, all: [main, floating] };
   const vscode = {
-    calls, panels, status,
+    calls, panels, status, TabInputWebview,
     Uri: { joinPath: (base, ...parts) => uri([base.value, ...parts].join('/')), file: p => uri('file:' + p), parse: text => uri(text) },
-    ViewColumn: { Active: -1, Beside: -2 },
+    ViewColumn: { Active: -1, Beside: -2, One: 1 },
     ColorThemeKind: { Light: 1, Dark: 2, HighContrast: 3, HighContrastLight: 4 },
     window: {
+      tabGroups,
       activeColorTheme: { kind: 2 },
       createWebviewPanel(type, title, column, options) {
         const panel = {
@@ -90,11 +95,14 @@ function fakeVscode() {
             postMessage: message => { panel.posted.push(message); return Promise.resolve(true); },
             onDidReceiveMessage: fn => { panel.handlers.message = fn; }
           },
-          reveal() { panel.revealed++; },
+          reveal() { panel.revealed++; }, dispose() { panel.handlers.dispose(); },
           onDidChangeViewState: fn => { panel.handlers.state = fn; },
           onDidDispose: fn => { panel.handlers.dispose = fn; }
         };
         panels.push(panel);
+        main.activeTab = { input: new TabInputWebview(type) };
+        main.tabs = [main.activeTab];
+        tabGroups.activeTabGroup = main;
         return panel;
       },
       showTextDocument: async (u, options) => { calls.push(['showTextDocument', u.value, options]); },
@@ -105,7 +113,13 @@ function fakeVscode() {
       setStatusBarMessage: (text, hide) => { status.push(text); calls.push(['setStatusBarMessage', text]); return { dispose() {} }; }
     },
     commands: {
-      executeCommand: async (...args) => { calls.push(['executeCommand', ...args]); },
+      executeCommand: async (...args) => {
+        // The view's own move of the monitor into its floating window is not something a test of thinking counts.
+        if (args[0] === 'workbench.action.moveEditorToNewWindow') {
+          floating.tabs = main.tabs; floating.activeTab = main.activeTab;
+          main.tabs = []; main.activeTab = undefined; tabGroups.activeTabGroup = floating;
+        } else calls.push(['executeCommand', ...args]);
+      },
       getCommands: async () => { calls.push(['getCommands']); return []; }
     },
     env: { openExternal: async u => { calls.push(['openExternal', u.value]); return true; } }

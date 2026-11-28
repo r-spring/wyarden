@@ -79,7 +79,7 @@ describe('the live page in a headless browser', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'media', 'page.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
     assert.doesNotMatch(source, /<style|\sstyle\s*=|\son[a-z]+\s*=/i);
     const tags = source.match(/<script\b[^>]*>/g) || [];
-    assert.equal(tags.length, 8);
+    assert.equal(tags.length, 25);          // 7 of the page, looks.js, and one for each of the 18 looks
     for (const tag of tags) assert.match(tag, /^<script nonce="\{\{nonce\}\}" src="\{\{base\}\}\/[a-z-]+\.js">$/);
     for (const tag of source.match(/<link\b[^>]*>/g) || []) assert.match(tag, /href="\{\{base\}\}\/[a-z-]+\.css"/);
     assert.ok(source.includes('content="{{csp}}"'));
@@ -387,6 +387,16 @@ describe('the live page in a headless browser', () => {
     const budget = nodes <= 200 ? 8 : 8 + (Math.min(nodes, 500) - 200) * (16 - 8) / 300;
     measured.frame200.budgetMs = +budget.toFixed(2);
     assert.ok(median(ms) < budget, 'median frame ' + median(ms).toFixed(2) + ' ms at ' + nodes + ' nodes, budget ' + budget.toFixed(2) + ' ms');
+    // The same frame behind a look's backdrop at the engine's limits (1,500 segments in 10 paths, 500 dots, 40 texts), with NEXUS's
+    // own meshes, and the camera turning so that every frame projects the backdrop anew. test/looks.test.js holds each look to the same.
+    await h.eval(fs.readFileSync(path.join(__dirname, 'fixtures', 'looks', 'look-every-knob.js'), 'utf8'));
+    await h.eval('MonitorLooks["nexus-backdrop"] = Object.assign({}, MonitorLooks.nexus, { id: "nexus-backdrop", backdrop: MonitorLooks["every-knob"].backdrop }); Monitor3D.chooseLook("nexus-backdrop")');
+    await sleep(300);
+    const behind = await h.eval(`(() => { const v = Monitor3D.view, out = []; for (let i = 0; i < 5; i++) v.draw(new Set(['input'])); for (let i = 0; i < 41; i++) { v.camera.yaw += .01; v.draw(new Set(['input'])); out.push(v.stats.ms); } return out; })()`);
+    const backdrop = await h.eval('Monitor3D.view.backdropInfo');
+    measured.frame200.backdrop = { segments: backdrop.segments, dots: backdrop.dots, texts: backdrop.texts, paths: backdrop.styles, medianMs: +median(behind).toFixed(2) };
+    assert.ok(backdrop.segments >= 1000 && Object.keys(backdrop.over).length === 0 && !backdrop.error, 'a backdrop of 1,000 segments or more is drawn whole: ' + JSON.stringify(backdrop));
+    assert.ok(median(behind) < budget, 'median frame behind the backdrop ' + median(behind).toFixed(2) + ' ms at ' + nodes + ' nodes, budget ' + budget.toFixed(2) + ' ms');
   });
 
   it('13. at 800 x 600 with 8 workspaces the chips do not cover the scene, and nothing scrolls sideways', T, async () => {
@@ -426,6 +436,7 @@ describe('the live page in a headless browser', () => {
     await h.deliver({ v: 1, type: 'look', look: 'nexus' });
     assert.equal(await h.eval('Monitor3D.state.look'), 'nexus');
     await h.deliver({ v: 1, type: 'look', look: 'glasshouse' });
+    await h.eval('document.getElementById("look-name").click()');          // the look buttons are in the list that the look's name opens
     const at = await h.eval(`(() => { const r = document.querySelector('[data-look=nexus]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
     await h.click(at.x, at.y);
     await sleep(100);
@@ -452,7 +463,7 @@ describe('the live page in a headless browser', () => {
     const scene = S.scene({ agents: 4 });
     await h.deliver(scene.message);
     await sleep(500);
-    for (const selector of ['[data-look=glasshouse]', '#spread']) {
+    for (const selector of ['#look-name', '[data-look=glasshouse]', '#spread']) {
       const at = await h.eval(`(() => { const r = document.querySelector('${selector}').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
       await h.click(at.x, at.y);
       await sleep(150);

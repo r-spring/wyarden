@@ -1,4 +1,4 @@
-/* Wyarden 3D monitor, working mock-up: the tab.
+/* Wyarden 3D monitor: the floating editor window.
  *
  * One webview panel per window. This file builds its HTML from media/page.html, sets the content
  * security policy, and carries messages both ways: records, workspaces and hub state to the page;
@@ -20,7 +20,8 @@ const actions = require('./actions.js');
 const thinking = require('./thinking.js');
 const { checkThinking, createWatch } = require('./thinking-watch.js');
 
-const VIEW_TYPE = 'wyardenMonitor.view';
+const LEGACY_VIEW_TYPE = 'wyardenMonitor.view';
+const VIEW_TYPE = 'wyardenMonitor.window';
 const SCOPE_KEY = 'wyardenMonitor.scope';
 const HUB_STATES = ['connecting', 'up', 'blocked', 'stopped'];
 
@@ -61,10 +62,39 @@ class MonitorView {
 
   /* ---------- the panel ---------- */
 
-  show() {
+  async show() {
     if (this.panel) { this.panel.reveal(undefined, false); return; }
     const vscode = this.vscode;
-    this.adopt(vscode.window.createWebviewPanel(VIEW_TYPE, '3D Monitor', vscode.ViewColumn.Active, this.options()));
+    const column = vscode.ViewColumn.One;
+    const panel = vscode.window.createWebviewPanel(VIEW_TYPE, '3D Monitor', column, this.options());
+    this.adopt(panel);
+    const monitorTab = tab => tab?.input instanceof vscode.TabInputWebview &&
+      [VIEW_TYPE, 'mainThreadWebview-' + VIEW_TYPE].includes(tab.input.viewType);
+    const tabs = vscode.window.tabGroups;
+    try {
+      // Creation crosses the extension-host boundary. Wait for the monitor itself before moving the active editor.
+      const active = () => this.panel === panel && tabs.activeTabGroup?.viewColumn === column && monitorTab(tabs.activeTabGroup.activeTab);
+      if (!await this.waitForTab(panel, active) || !active()) throw new Error('the monitor editor could not be selected');
+      await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
+      if (!await this.waitForTab(panel, () => tabs.all.some(group => group.viewColumn !== column && group.tabs.some(monitorTab)))) {
+        throw new Error('the editor did not move the monitor into a floating window');
+      }
+    } catch (error) {
+      if (this.panel !== panel) return;
+      panel.dispose();
+      void vscode.window.showWarningMessage('3D Monitor: ' + error.message + '.');
+    }
+  }
+  waitForTab(panel, check) {
+    if (check()) return Promise.resolve(true);
+    return new Promise(resolve => {
+      const finish = value => { clearTimeout(timer); tabs.dispose(); groups.dispose(); closed.dispose(); resolve(value); };
+      const changed = () => { if (check()) finish(true); };
+      const tabs = this.vscode.window.tabGroups.onDidChangeTabs(changed);
+      const groups = this.vscode.window.tabGroups.onDidChangeTabGroups(changed);
+      const closed = panel.onDidDispose(() => finish(false));
+      const timer = setTimeout(() => finish(false), 3000);
+    });
   }
   options() {
     return { enableScripts: true, retainContextWhenHidden: false, localResourceRoots: [this.vscode.Uri.joinPath(this.context.extensionUri, 'media')] };
@@ -108,11 +138,10 @@ class MonitorView {
 
   /** The key of this window's own workspace: everything the window has open, as one. '' for a window with no folder. */
   own() { return C.windowKey(this.deps.folders().map(f => f.path)); }
-  /** The owner's last choice for this window, else this window's own workspace, else every open workspace. */
+  /** The owner's last filter, or all open workspaces. */
   wanted() {
     const saved = this.context.workspaceState.get(SCOPE_KEY);
-    if (validScope(saved)) return saved;
-    return this.own() || C.ALL;
+    return validScope(saved) ? saved : C.ALL;
   }
   setScope(scope) {
     if (!validScope(scope)) return;
@@ -139,17 +168,8 @@ class MonitorView {
     } else if (message.type === 'act') {
       const request = actions.checkAct(message);
       if (!request) return;
-      const resolve = target => this.deps.client.resolve(target);
       if (request.action === 'focus') {
-        // A view built without a way to find a session's process finds none: the owner is told, and nothing runs.
-        const d = this.deps;
-        const deps = {
-          resolve,
-          session: typeof d.session === 'function' ? d.session : () => null,
-          ancestors: typeof d.ancestors === 'function' ? d.ancestors : async () => ({ chain: [], known: false }),
-          hostPid: d.hostPid
-        };
-        const running = actions.focus(this.vscode, deps, request);
+        const running = actions.focus(this.vscode, this.actionDeps(), request);
         running.catch(error => {
           void this.vscode.window.showWarningMessage('3D Monitor: that could not be shown (' + error.message + ').');
         });
@@ -160,12 +180,38 @@ class MonitorView {
         }
         return;
       }
-      const deps = { resolve, folders: () => this.deps.folders().map(f => f.path) };
-      actions.open(this.vscode, deps, request).catch(error => {
+      actions.open(this.vscode, this.actionDeps(), request).catch(error => {
         void this.vscode.window.showWarningMessage('3D Monitor: that could not be opened (' + error.message + ').');
       });
     }
     // "select" itself needs nothing from the host: the selection lives in the page. A Claude Code session's agent also sends "thinking", above.
+  }
+
+  actionDeps() {
+    const { client, folders, session, ancestors, hostPid, focusWindow } = this.deps;
+    return {
+      resolve: target => client.resolve(target), folders: () => folders().map(f => f.path),
+      session: session || (() => null), ancestors, hostPid, focusWindow,
+      viewColumn: this.vscode.ViewColumn.One,
+      elsewhere: client.act && ((action, target) => client.act(action, target))
+    };
+  }
+
+  async fromPeer(message) {
+    const { client } = this.deps;
+    let result;
+    try {
+      const request = actions.checkAct(message);
+      if (request && ['open', 'focus'].includes(request.action)) {
+        const deps = this.actionDeps();
+        deps.elsewhere = undefined;
+        deps.claim = () => client.claim(message.id);
+        result = await actions[request.action](this.vscode, deps, request);
+      }
+    } catch {
+      result = 'failed';
+    }
+    await client.actionDone(message.id, result);
   }
 
   /* ---------- to the page ---------- */
@@ -174,6 +220,7 @@ class MonitorView {
     if (!message || typeof message !== 'object') return;
     if (message.type === 'records') this.post({ type: 'records', scope: message.scope, records: message.records });
     else if (message.type === 'workspaces') { this.workspaces = message; this.sendWorkspaces(); }
+    else if (message.type === 'action') void this.fromPeer(message);
   }
   setHubState(state) {
     this.hubState = HUB_STATES.includes(state) ? state : 'connecting';
@@ -217,4 +264,4 @@ class MonitorView {
   }
 }
 
-module.exports = { MonitorView, VIEW_TYPE, SCOPE_KEY, policy, fillTemplate, validScope };
+module.exports = { MonitorView, VIEW_TYPE, LEGACY_VIEW_TYPE, SCOPE_KEY, policy, fillTemplate, validScope };
