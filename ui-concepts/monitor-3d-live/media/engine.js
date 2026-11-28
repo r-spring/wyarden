@@ -6,8 +6,9 @@
  * Changed: there is no frame loop. A frame is drawn when data, selection, hover, camera or size
  * changes, and never otherwise. Layout, picking, captions, state marks and the look contract are new.
  *
- * A look (look-*.js) supplies palette, meshes and caption style. It is never asked where
- * anything goes, so switching looks cannot move a node.
+ * A look (look-*.js) supplies palette, meshes and caption style, and may add an outline colour, a
+ * caption size and a still backdrop behind the floors (LOOKS.md lists everything). It is never asked
+ * where anything goes, so switching looks cannot move a node; and it is never told a state or a time.
  */
 (function (root) {
   'use strict';
@@ -130,12 +131,121 @@
       if (closed) lines.push([vertices.length - 1, 0]);
       return { vertices, lines };
     },
+    /** A flat filled shape: its corners in order. It is outlined, and filled as drawn (not as its hull), so it may be a cross or a star. */
+    polygon(vertices) {
+      return { vertices, lines: vertices.map((v, i) => [i, (i + 1) % vertices.length]), faces: [vertices.map((v, i) => i)] };
+    },
+    /** Several meshes as one. When any of them has `faces`, the result is filled by the faces alone: a part without faces is lines only. */
     merge(...meshes) {
-      const vertices = [], lines = [];
-      for (const mesh of meshes) { const offset = vertices.length; vertices.push(...mesh.vertices); lines.push(...mesh.lines.map(([a, b]) => [a + offset, b + offset])); }
-      return { vertices, lines };
+      const vertices = [], lines = [], faces = [];
+      let own = false;
+      for (const mesh of meshes) {
+        const offset = vertices.length; vertices.push(...mesh.vertices); lines.push(...mesh.lines.map(([a, b]) => [a + offset, b + offset]));
+        if (mesh.faces) { own = true; faces.push(...mesh.faces.map(face => face.map(i => i + offset))); }
+      }
+      return own ? { vertices, lines, faces } : { vertices, lines };
     }
   };
+
+  /* What a mesh is filled by: its own faces when it has them (`faces: []` fills nothing), else the hull of its outline. */
+  const filled = (mesh, pts, outline) => (mesh.faces ? mesh.faces.map(face => face.map(i => pts[i])).filter(face => face.every(Boolean)) : [outline]);
+  function trace(ctx, polygons) {
+    ctx.beginPath();
+    for (const poly of polygons) { poly.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath(); }
+  }
+  /* How much larger than 10 px a look's captions are: look.captionSize is the resting caption's size, from 10 to 20. */
+  const captionScale = look => Math.max(1, Math.min(2, (Number(look.captionSize) || 10) / 10));
+
+  /* ---------- a look's backdrop: still, behind the floors ----------
+   * look.backdrop(scene) returns a list of items in the scene's own coordinates:
+   *   { lines: [[[x, y, z], [x, y, z], ...], ...], color, alpha, width, dash }   polylines, drawn as ONE path
+   *   { dots: [[x, y, z], ...], color, alpha, size }                             discs of `size` px, ONE path
+   *   { text: 'short', at: [x, y, z], color, alpha, size, align }                one line in the look's font
+   * It is asked once for a set of columns and a floor spacing, never for a frame: it gets no clock, no
+   * model and no state. The result is kept; each frame only projects it. The cost is bounded here, for
+   * every look: at most BACKDROP.segments line segments, .dots dots, .texts texts and .styles paths.
+   * What is over a limit is not drawn and is counted in view.backdropInfo.over, which the looks test refuses.
+   */
+  const BACKDROP = { segments: 1500, dots: 500, texts: 40, styles: 12 };
+  const isPoint = p => Array.isArray(p) && p.length === 3 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Number.isFinite(p[2]);
+  const unit = (value, otherwise) => (Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : otherwise);
+  const strokes = {
+    /** A closed ring round `center`, flat in XZ, then tilted about the X axis and about the Z axis (radians). One polyline. */
+    ring(center, radius, segments, tiltX, tiltZ) {
+      const n = Math.max(3, Math.min(96, Math.round(segments || 48))), cx = Math.cos(tiltX || 0), sx = Math.sin(tiltX || 0), cz = Math.cos(tiltZ || 0), sz = Math.sin(tiltZ || 0), out = [];
+      for (let i = 0; i <= n; i++) {
+        const a = (i % n) / n * TAU, x = Math.cos(a) * radius, z0 = Math.sin(a) * radius, y1 = -z0 * sx, z = z0 * cx;
+        out.push([center[0] + x * cz - y1 * sz, center[1] + x * sz + y1 * cz, center[2] + z]);
+      }
+      return out;
+    },
+    /** A flat grid at height y from (x0, z0) to (x1, z1), a line every `step`. A list of two-point polylines. */
+    grid(x0, z0, x1, z1, y, step) {
+      const out = [], d = Math.max(1, step || 100);
+      for (let x = x0; x <= x1 + 1e-6; x += d) out.push([[x, y, z0], [x, y, z1]]);
+      for (let z = z0; z <= z1 + 1e-6; z += d) out.push([[x0, y, z], [x1, y, z]]);
+      return out;
+    }
+  };
+  /** A fixed sequence of numbers from 0 up to 1 for a seed: where a backdrop wants scatter (stars), it is the same every time. */
+  function seeded(seed) {
+    let a = (seed >>> 0) || 1;
+    return () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  /** What a backdrop is told: where the floors of the shown columns are. Nothing about nodes, states or time. */
+  function backdropScene(cols, spread) {
+    const sessions = cols.filter(col => col !== L.DOCK), floors = {};
+    for (const floor of L.FLOORS) floors[floor] = L.floorY(floor, spread);
+    return {
+      bounds: L.bounds(sessions.length ? sessions : [0], spread, true),      // the box round every floor; an empty scene has its first column's
+      floors, cell: L.CELL, pitch: L.PITCH, rowPitch: L.ROW_PITCH,
+      columns: cols.map(col => {
+        const origin = L.columnOrigin(col), tiles = {};
+        for (const floor of L.floorsOf(col)) tiles[floor] = L.tile(col, floor, spread);
+        return { dock: col === L.DOCK, x: origin[0], z: origin[1], half: L.CELL / 2, tiles };
+      })
+    };
+  }
+  /** A backdrop's items as flat arrays, cut to the limits. Anything that is not of the shapes above is left out. */
+  function compileBackdrop(items, pal) {
+    const ops = [], count = { segments: 0, dots: 0, texts: 0, styles: 0 }, over = {};
+    const more = (key, n) => { over[key] = (over[key] || 0) + n; };
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!item || typeof item !== 'object') continue;
+      const color = typeof item.color === 'string' && item.color ? item.color : pal.line;
+      if (Array.isArray(item.lines)) {
+        if (count.styles >= BACKDROP.styles) { more('styles', 1); continue; }
+        const xyz = [], runs = [];
+        for (const line of item.lines) {
+          const points = Array.isArray(line) ? line.filter(isPoint) : [];
+          if (points.length < 2) continue;
+          const room = BACKDROP.segments - count.segments, take = Math.min(points.length - 1, room);
+          if (take < points.length - 1) more('segments', points.length - 1 - take);
+          if (take < 1) continue;
+          for (let i = 0; i <= take; i++) xyz.push(points[i][0], points[i][1], points[i][2]);
+          runs.push(take + 1); count.segments += take;
+        }
+        if (!runs.length) continue;
+        count.styles++;
+        ops.push({ kind: 'lines', color, alpha: unit(item.alpha, .5), width: Number.isFinite(item.width) ? Math.max(.25, Math.min(6, item.width)) : 1,
+          dash: Array.isArray(item.dash) && item.dash.every(Number.isFinite) ? item.dash.slice(0, 6) : NO_DASH, xyz: new Float32Array(xyz), runs });
+      } else if (Array.isArray(item.dots)) {
+        if (count.styles >= BACKDROP.styles) { more('styles', 1); continue; }
+        const points = item.dots.filter(isPoint), take = Math.min(points.length, BACKDROP.dots - count.dots), xyz = [];
+        if (take < points.length) more('dots', points.length - take);
+        if (take < 1) continue;
+        for (let i = 0; i < take; i++) xyz.push(points[i][0], points[i][1], points[i][2]);
+        count.dots += take; count.styles++;
+        ops.push({ kind: 'dots', color, alpha: unit(item.alpha, .7), size: Number.isFinite(item.size) ? Math.max(.4, Math.min(6, item.size)) : 1.2, xyz: new Float32Array(xyz) });
+      } else if (typeof item.text === 'string' && item.text && isPoint(item.at)) {
+        if (count.texts >= BACKDROP.texts) { more('texts', 1); continue; }
+        count.texts++;
+        ops.push({ kind: 'text', color, alpha: unit(item.alpha, .7), text: item.text.slice(0, 48), at: item.at.slice(), size: Number.isFinite(item.size) ? Math.max(6, Math.min(48, item.size)) : 10,
+          align: item.align === 'center' || item.align === 'right' ? item.align : 'left' });
+      }
+    }
+    return { ops, count, over };
+  }
 
   /* ---------- drawing on change ---------- */
 
@@ -201,10 +311,9 @@
     const mesh = look.mesh(key), camera = { yaw: -0.5, pitch: 0.42, distance: 84, target: [0, 11, 0] };
     const pts = mesh.vertices.map(v => project(v, camera, size, size));
     ctx.clearRect(0, 0, size, size);
-    ctx.globalAlpha = look.palette.fill * 1.6; ctx.fillStyle = color; ctx.beginPath();
-    hull(pts).forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-    ctx.closePath(); ctx.fill();
-    ctx.globalAlpha = 1; ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.lineJoin = 'round'; ctx.setLineDash(NO_DASH); ctx.beginPath();
+    ctx.globalAlpha = Math.min(1, look.palette.fill * 1.6); ctx.fillStyle = color;
+    trace(ctx, filled(mesh, pts, hull(pts))); ctx.fill();
+    ctx.globalAlpha = 1; ctx.strokeStyle = look.palette.outline || color; ctx.lineWidth = 1.2; ctx.lineJoin = 'round'; ctx.setLineDash(NO_DASH); ctx.beginPath();
     for (const [a, b] of mesh.lines) { ctx.moveTo(pts[a].x, pts[a].y); ctx.lineTo(pts[b].x, pts[b].y); }
     ctx.stroke();
   }
@@ -230,7 +339,7 @@
 
     /* ----- what the page may ask for ----- */
     setModel(model) { this.model = model; this.afterglow = []; this.pulses.clear(); this.seenLinks.clear(); this.isolated = null; this.redraw.request('data'); }
-    setLook(look) { this.look = look; this.meshes.clear(); this.redraw.request('input'); }
+    setLook(look) { this.look = look; this.meshes.clear(); this.backdropKept = null; this.redraw.request('input'); }
     setSelected(id) { if (id === this.selected) return; this.selected = id || ''; this.redraw.request('input'); }
     setSpread(spread) { this.spread = spread; this.redraw.request('input'); }
     setMotion(on) { this.motion = !!on; this.pulses.clear(); this.redraw.request('input'); }
@@ -346,6 +455,7 @@
 
       /* 1. Floors: one tile for each column on each floor it has. A tile never changes place or height. */
       const cols = [L.DOCK].concat(model.columnsInUse()).filter(shown), placed = this.keepClear.map(b => Object.assign({}, b)), titles = [];
+      this.drawBackdrop(cols);                             // the look's still backdrop, behind everything
       for (const floor of L.FLOORS) {
         // A floor has its class's colour, except the agents' floor: agents are coloured by provider, so their floor is a
         // neutral one that no provider's colour runs into.
@@ -390,6 +500,7 @@
       }
       stroke(pal.line, pal.post, .7);
       ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      const k = captionScale(look), px = size => size * k + 'px ';      // a look may raise the captions' size; everything of a caption grows with it
       const fit = (text, room) => {
         if (ctx.measureText(text).width <= room) return text;
         let cut = text;
@@ -399,11 +510,11 @@
       this.tileLabels = [];
       for (const t of titles) {
         if (!t.at) continue;
-        ctx.font = (t.text ? '10px ' : '9px ') + look.font;
-        const text = t.text ? fit(t.text, t.room) : L.FLOOR_TITLE[t.floor], box = { x: t.at.x - 2, y: t.at.y + 4, w: ctx.measureText(text).width + 4, h: 12 };
+        ctx.font = px(t.text ? 10 : 9) + look.font;
+        const text = t.text ? fit(t.text, t.room) : L.FLOOR_TITLE[t.floor], box = { x: t.at.x - 2, y: t.at.y + 4, w: ctx.measureText(text).width + 4, h: 12 * k };
         if (placed.some(b => overlap(b, box))) continue;
         // A workspace's name is a label to be read, so it has the captions' colour; a floor's own title has the floor's.
-        ctx.globalAlpha = t.text ? 1 : .85; ctx.fillStyle = t.text ? pal.caption : t.color; ctx.fillText(text, box.x + 2, box.y + 9.5);
+        ctx.globalAlpha = t.text ? 1 : .85; ctx.fillStyle = t.text ? pal.caption : t.color; ctx.fillText(text, box.x + 2, box.y + 9.5 * k);
         placed.push(box);
         if (t.text) this.tileLabels.push({ text, x: box.x, y: box.y, w: box.w, h: box.h });
       }
@@ -490,26 +601,26 @@
       this.hit = [];
       for (const item of order) {
         const n = item.n, v = item.v, chosen = n.id === this.selected, hovered = n.id === this.hover;
-        ctx.setLineDash(NO_DASH); ctx.beginPath();
-        item.hull.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
-        ctx.closePath();
+        ctx.setLineDash(NO_DASH);
+        trace(ctx, filled(item.mesh, item.pts, item.hull));
         ctx.globalAlpha = pal.solid; ctx.fillStyle = pal.bg; ctx.fill();
-        ctx.globalAlpha = pal.fill * (chosen || hovered ? 2 : 1); ctx.fillStyle = v.color; ctx.fill();
-        if (chosen || hovered) stroke(pal.ink, chosen ? 1 : .6, chosen ? 2.6 : 1.4, chosen ? NO_DASH : [3, 3]);
+        ctx.globalAlpha = Math.min(1, pal.fill * (chosen || hovered ? 2 : 1)); ctx.fillStyle = v.color; ctx.fill();
+        if (chosen || hovered) { if (item.mesh.faces) trace(ctx, [item.hull]); stroke(pal.ink, chosen ? 1 : .6, chosen ? 2.6 : 1.4, chosen ? NO_DASH : [3, 3]); }
         ctx.beginPath();
         for (const [a, b] of item.mesh.lines) seg(item.pts[a], item.pts[b]);
-        const dash = v.outline === 'dashed' ? [4, 4] : NO_DASH;
+        // The edges: the class's colour, or the look's one outline colour (palette.outline) over a fill in the class's colour.
+        const dash = v.outline === 'dashed' ? [4, 4] : NO_DASH, edge = pal.outline || v.color;
         if (look.glow) stroke(v.color, .16, look.lineWidth * 3.4, dash);
-        stroke(v.color, 1, look.lineWidth * (chosen ? 1.5 : 1), dash);
+        stroke(edge, 1, look.lineWidth * (chosen ? 1.5 : 1), dash);
         if (n.cls === 'mcp') {                              // the server's tools are ports on its rim
           for (const [name, port] of n.ports) {
             const at = portAt(item, name);
             if (!at) break;
             const a = P(at[0]), b = P(at[1]);
             if (!a || !b) continue;
-            ctx.beginPath(); seg(a, b); stroke(v.color, 1, look.lineWidth);
+            ctx.beginPath(); seg(a, b); stroke(edge, 1, look.lineWidth);
             ctx.beginPath(); ctx.arc(b.x, b.y, Math.max(2, 3.2 * b.scale + 1.2), 0, TAU);
-            ctx.globalAlpha = 1; ctx.fillStyle = port.open ? v.color : pal.bg; ctx.fill(); stroke(v.color, 1, look.lineWidth);
+            ctx.globalAlpha = 1; ctx.fillStyle = port.open ? v.color : pal.bg; ctx.fill(); stroke(edge, 1, look.lineWidth);
           }
         }
         if (n.cls === 'resource' && item.c.scale > .22) {   // read: a hollow ring on the left; write: a solid square on the right
@@ -551,15 +662,14 @@
       for (const { item, priority } of wanted) {
         const n = item.n, focus = priority < 2, s = item.c.scale;
         if (!focus && resting >= cap) { skipped++; continue; }
-        const size = focus ? 11 : 10;
         // Each line: its text, its font and its colour. The first names the node; the last gives its state.
-        const lines = [{ text: this.captionOf(n, focus), font: (focus ? 'bold ' : '') + size + 'px ' + look.font, color: focus ? pal.ink : pal.caption }];
+        const lines = [{ text: this.captionOf(n, focus), font: (focus ? 'bold ' : '') + px(focus ? 11 : 10) + look.font, color: focus ? pal.ink : pal.caption }];
         // The title of an agent's tab, under its name, only while the pointer is on the agent. It is shown as written.
         const title = n.id === this.hover ? this.titleOf(n) : '';
-        if (title) lines.push({ text: title, font: '10px ' + look.font, color: pal.ink, title: true });
-        if (n.cls !== 'stack' && (focus || (n.cls === 'agent' ? s >= .34 : s >= 1))) lines.push({ text: look.caption(this.detailOf(n)), font: '9px ' + look.font, color: pal.muted });
+        if (title) lines.push({ text: title, font: px(10) + look.font, color: pal.ink, title: true });
+        if (n.cls !== 'stack' && (focus || (n.cls === 'agent' ? s >= .34 : s >= 1))) lines.push({ text: look.caption(this.detailOf(n)), font: px(9) + look.font, color: pal.muted });
         const widths = lines.map(line => { ctx.font = line.font; return ctx.measureText(line.text).width; });
-        const bw = Math.max(...widths) + 8, bh = lines.length * 12 + 3, marks = n.cls === 'resource' ? 9 : 3;
+        const bw = Math.max(...widths) + 8, bh = lines.length * 12 * k + 3, marks = n.cls === 'resource' ? 9 : 3;
         // Four places to try. A node in the left or right third of its cell tries its outer side first, so a full cell can be read.
         const at = (x, y) => ({ x, y, w: bw, h: bh, id: n.id });
         // A state mark takes room up and to the right of its shape (see where it is drawn): a caption there starts beyond it.
@@ -580,7 +690,7 @@
         // in the background's colour, around the letters only, keeps it readable where a line runs through it.
         if (pal.captionBack > 0) { ctx.globalAlpha = pal.captionBack; ctx.fillStyle = pal.bg; ctx.fillRect(box.x, box.y, box.w, box.h); }
         lines.forEach((line, i) => {
-          const x = box.x + bw / 2, y = box.y + 11 + i * 12;
+          const x = box.x + bw / 2, y = box.y + (11 + i * 12) * k;
           ctx.font = line.font;
           if (pal.captionHalo > 0) { ctx.globalAlpha = pal.captionHalo; ctx.strokeStyle = pal.bg; ctx.lineWidth = 3; ctx.setLineDash(NO_DASH); ctx.strokeText(line.text, x, y); }
           ctx.globalAlpha = 1; ctx.fillStyle = line.color; ctx.fillText(line.text, x, y);
@@ -609,6 +719,58 @@
         const now = this.redraw.now();
         if (this.afterglow.some(g => g.until <= now)) this.redraw.request('decay'); else this.armGlow();
       }, Math.max(1, wait));
+    }
+
+    /**
+     * The look's backdrop, behind the floors. The look is asked for it once for these columns and this floor spacing; after
+     * that a frame only projects what was kept: one path for each item, whatever the number of segments in it.
+     */
+    drawBackdrop(cols) {
+      const look = this.look;
+      if (typeof look.backdrop !== 'function') { this.backdropKept = null; this.backdropInfo = null; return; }
+      const key = cols.join(',') + '|' + this.spread;
+      let kept = this.backdropKept;
+      if (!kept || kept.look !== look || kept.key !== key) {
+        let items = [], error = '';
+        try { items = look.backdrop(backdropScene(cols, this.spread)); } catch (e) { error = String(e && e.message || e); }      // a look's mistake must not stop the scene
+        kept = this.backdropKept = Object.assign(compileBackdrop(items, look.palette), { look, key });
+        this.backdropInfo = Object.assign({}, kept.count, { over: kept.over, error });
+      }
+      const ctx = this.ctx, c = this.camera, w = this.width, h = this.height, hw = w / 2, hh = h / 2, lens = Math.min(w, h) * 1.28;
+      const cy = Math.cos(c.yaw), sy = Math.sin(c.yaw), cp = Math.cos(c.pitch), sp = Math.sin(c.pitch), tx = c.target[0], ty = c.target[1], tz = c.target[2], far = c.distance;
+      for (const op of kept.ops) {
+        if (op.kind === 'text') {
+          const q = project(op.at, c, w, h);
+          if (!q) continue;
+          ctx.globalAlpha = op.alpha; ctx.fillStyle = op.color; ctx.font = op.size + 'px ' + look.font; ctx.textAlign = op.align; ctx.textBaseline = 'alphabetic';
+          ctx.fillText(op.text, q.x, q.y);
+          continue;
+        }
+        const xyz = op.xyz;
+        ctx.beginPath();
+        if (op.kind === 'lines') {
+          let at = 0;
+          for (const points of op.runs) {
+            let pen = false;
+            for (let i = 0; i < points; i++, at += 3) {
+              const x = xyz[at] - tx, y = xyz[at + 1] - ty, z = xyz[at + 2] - tz, rx = x * cy - z * sy, rz = x * sy + z * cy, depth = -y * sp + rz * cp + far;
+              if (depth < 20) { pen = false; continue; }
+              const scale = lens / depth, sx = hw + rx * scale, sy2 = hh - (y * cp + rz * sp) * scale;
+              if (pen) ctx.lineTo(sx, sy2); else { ctx.moveTo(sx, sy2); pen = true; }
+            }
+          }
+          ctx.globalAlpha = op.alpha; ctx.strokeStyle = op.color; ctx.lineWidth = op.width; ctx.setLineDash(op.dash); ctx.stroke();
+        } else {
+          for (let at = 0; at < xyz.length; at += 3) {
+            const x = xyz[at] - tx, y = xyz[at + 1] - ty, z = xyz[at + 2] - tz, rx = x * cy - z * sy, rz = x * sy + z * cy, depth = -y * sp + rz * cp + far;
+            if (depth < 20) continue;
+            const scale = lens / depth, sx = hw + rx * scale, sy2 = hh - (y * cp + rz * sp) * scale;
+            ctx.moveTo(sx + op.size, sy2); ctx.arc(sx, sy2, op.size, 0, TAU);
+          }
+          ctx.globalAlpha = op.alpha; ctx.fillStyle = op.color; ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1; ctx.setLineDash(NO_DASH);
     }
 
     /* ----- picking: the node whose outline holds the pointer; ties go to the nearest centre, then the nearest in depth ----- */
@@ -671,6 +833,6 @@
     }
   }
 
-  const api = { View, Redraw, project, arch, hull, inHull, overlap, shapes, drawBadge, drawIcon, DATA_GAP, GLOW_MS, MIN_HIT, MAX_GROWTH, CAMERA, PROVIDERS, TITLE_SHOWN };
+  const api = { View, Redraw, project, arch, hull, inHull, overlap, shapes, strokes, seeded, BACKDROP, backdropScene, compileBackdrop, drawBadge, drawIcon, DATA_GAP, GLOW_MS, MIN_HIT, MAX_GROWTH, CAMERA, PROVIDERS, TITLE_SHOWN };
   if (inNode) module.exports = api; else root.MonitorEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);
