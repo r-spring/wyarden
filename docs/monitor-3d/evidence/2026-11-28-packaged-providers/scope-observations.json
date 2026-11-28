@@ -1,0 +1,110 @@
+[
+  {
+    "observedAt": "2026-11-28T10:16:02.108Z",
+    "view": "All open",
+    "scope": [
+      {
+        "name": "All open, 3 live sessions",
+        "selected": true
+      },
+      {
+        "name": "Fixture-Alpha, 2 live sessions",
+        "selected": false
+      },
+      {
+        "name": "Fixture-Beta, 1 live session",
+        "selected": false
+      }
+    ],
+    "omitted": "left out 0 sessions, 0 clashes",
+    "nodes": [
+      "Agent: Antigravity, in Fixture-Beta, idle since 10:09:30 UTC. 1 call, 0 open, 0 failed.",
+      "Tool: read_file. at rest. 1 call, 0 open, 0 failed.",
+      "Resource, files in a folder: antigravity-fixture.txt. read 1, write 0.",
+      "Agent: Grok, in Fixture-Alpha, idle since 10:09:54 UTC. 1 call, 0 open, 0 failed.",
+      "Tool: read_file. at rest. 1 call, 0 open, 0 failed.",
+      "Resource, files in a folder: grok-fixture.txt. read 1, write 0.",
+      "Agent: Codex, in Fixture-Alpha, idle since 10:15:15 UTC. 1 call, 1 open, 0 failed.",
+      "Tool: Bash. working. 1 call, 1 open, 0 failed."
+    ]
+  },
+  {
+    "observedAt": "2026-11-28T10:16:02.447Z",
+    "view": "Fixture-Alpha",
+    "scope": [
+      {
+        "name": "All open, 3 live sessions",
+        "selected": false
+      },
+      {
+        "name": "Fixture-Alpha, 2 live sessions",
+        "selected": true
+      },
+      {
+        "name": "Fixture-Beta, 1 live session",
+        "selected": false
+      }
+    ],
+    "omitted": "left out 0 sessions, 0 clashes",
+    "nodes": [
+      "Agent: Grok, in Fixture-Alpha, idle since 10:09:54 UTC. 1 call, 0 open, 0 failed.",
+      "Tool: read_file. at rest. 1 call, 0 open, 0 failed.",
+      "Resource, files in a folder: grok-fixture.txt. read 1, write 0.",
+      "Agent: Codex, in Fixture-Alpha, idle since 10:15:15 UTC. 1 call, 1 open, 0 failed.",
+      "Tool: Bash. working. 1 call, 1 open, 0 failed."
+    ]
+  },
+  {
+    "observedAt": "2026-11-28T10:16:02.704Z",
+    "view": "Fixture-Beta",
+    "scope": [
+      {
+        "name": "All open, 3 live sessions",
+        "selected": false
+      },
+      {
+        "name": "Fixture-Alpha, 2 live sessions",
+        "selected": false
+      },
+      {
+        "name": "Fixture-Beta, 1 live session",
+        "selected": true
+      }
+    ],
+    "omitted": "left out 0 sessions, 0 clashes",
+    "nodes": [
+      "Agent: Antigravity, in Fixture-Beta, idle since 10:09:30 UTC. 1 call, 0 open, 0 failed.",
+      "Tool: read_file. at rest. 1 call, 0 open, 0 failed.",
+      "Resource, files in a folder: antigravity-fixture.txt. read 1, write 0."
+    ]
+  },
+  {
+    "observedAt": "2026-11-28T10:16:02.982Z",
+    "view": "All open",
+    "scope": [
+      {
+        "name": "All open, 3 live sessions",
+        "selected": true
+      },
+      {
+        "name": "Fixture-Alpha, 2 live sessions",
+        "selected": false
+      },
+      {
+        "name": "Fixture-Beta, 1 live session",
+        "selected": false
+      }
+    ],
+    "omitted": "left out 0 sessions, 0 clashes",
+    "nodes": [
+      "Agent: Antigravity, in Fixture-Beta, idle since 10:09:30 UTC. 1 call, 0 open, 0 failed.",
+      "Tool: read_file. at rest. 1 call, 0 open, 0 failed.",
+      "Resource, files in a folder: antigravity-fixture.txt. read 1, write 0.",
+      "Agent: Grok, in Fixture-Alpha, idle since 10:09:54 UTC. 1 call, 0 open, 0 failed.",
+      "Tool: read_file. at rest. 1 call, 0 open, 0 failed.",
+      "Resource, files in a folder: grok-fixture.txt. read 1, write 0.",
+      "Agent: Codex, in Fixture-Alpha, idle since 10:15:15 UTC. 1 call, 1 open, 0 failed.",
+      "Tool: Bash. working. 1 call, 1 open, 0 failed."
+    ]
+  }
+]
