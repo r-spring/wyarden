@@ -26,12 +26,13 @@
     "mcp"
   ],
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.88.0"
   },
   "main": "./extension.js",
   "activationEvents": [
     "onStartupFinished",
-    "onWebviewPanel:wyardenMonitor.view"
+    "onWebviewPanel:wyardenMonitor.view",
+    "onWebviewPanel:wyardenMonitor.window"
   ],
   "capabilities": {
     "untrustedWorkspaces": {

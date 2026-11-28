@@ -601,6 +601,24 @@ function createHubCore(options = {}) {
     if (!members.length) return none;
     return { kind: 'file', root, folder, members };
   };
+  /** Candidate hosts for the existing actions on nodes in active workspaces. */
+  core.actionWindows = function actionWindows(origin, action, target) {
+    if (!windows.has(origin)) return [];
+    const parsed = target && typeof target.id === 'string' && parseNodeId(target.id);
+    const session = parsed && sessions.get(parsed.key);
+    if (!session || !session.owners.length) return [];
+    const found = core.resolve(target);
+    const peers = [...windows.values()].filter(w => w.id !== origin);
+    // A terminal may belong to a host whose workspace differs from the session's current folder.
+    if (action === 'focus') return found.kind === 'session' && !session.ended ? peers.map(w => w.id) : [];
+    if (action !== 'open') return [];
+    const file = found.kind === 'dir' ? found.path :
+      found.kind === 'file' && typeof target.member === 'string' && found.members.length === 1 ? found.members[0].path : '';
+    if (!file) return [];
+    const depth = window => window.folders.reduce((best, folder) =>
+      contract.isInside(folder.norm, file) ? Math.max(best, folder.norm.length) : best, 0);
+    return peers.map(w => ({ id: w.id, depth: depth(w) })).filter(w => w.depth).sort((a, b) => b.depth - a.depth).map(w => w.id);
+  };
   /** The server fills in what only it knows: whether it runs in a worker, its tails, the sources it lacks. */
   core.setInfo = function setInfo(more) { if (more && typeof more === 'object') Object.assign(info, more); };
   core.status = function status() {

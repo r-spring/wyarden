@@ -148,7 +148,7 @@ function createHubClient(options = {}) {
     const hub = hubFile();
     if (!hub) { later(attach, timings.blockedMs); return; }
     const sent = version;
-    const body = JSON.stringify({ v: 1, window: { id: win.id, app: win.app, name: win.name, pid: win.pid, folders: win.folders }, scope });
+    const body = JSON.stringify({ v: 1, window: { id: win.id, app: win.app, name: win.name, pid: win.pid, folders: win.folders, actions: true }, scope });
     let gotHello = false, buffer = '', ended = false;
     // Whatever answers on the port gets a signature, never the token; our hub answers with a proof.
     const nonce = contract.newNonce();
@@ -225,7 +225,7 @@ function createHubClient(options = {}) {
 
   /* ---------- control requests ---------- */
 
-  function request(method, path, value) {
+  function request(method, path, value, timeout = timings.requestMs) {
     return new Promise(resolve => {
       const hub = contract.readHubFile(options.home);
       if (!hub) { resolve(null); return; }
@@ -235,7 +235,7 @@ function createHubClient(options = {}) {
       if (value !== undefined) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(body); }
       let done = false;
       const finish = result => { if (!done) { done = true; resolve(result); } };
-      const r = http.request({ host: '127.0.0.1', port: hub.port, method, path, agent: false, headers, timeout: timings.requestMs }, res => {
+      const r = http.request({ host: '127.0.0.1', port: hub.port, method, path, agent: false, headers, timeout }, res => {
         let text = '';
         res.setEncoding('utf8');
         res.on('data', c => { text += c; if (text.length > 16 * 1024 * 1024) r.destroy(); });
@@ -288,6 +288,13 @@ function createHubClient(options = {}) {
     const answer = await request('POST', '/v1/resolve', { window: win.id, target });
     return answer && typeof answer === 'object' && typeof answer.kind === 'string' ? answer : { kind: 'none' };
   };
+  const actionRequest = (value, timeout) => {
+    const body = { window: win.id, ...value };
+    return request('POST', contract.actionPath(JSON.stringify(body)), body, timeout);
+  };
+  client.act = async (action, target) => (await actionRequest({ action, target }, contract.ACTION_WAIT_MS + timings.requestMs))?.result;
+  client.claim = async id => (await actionRequest({ id, claim: true }))?.granted === true;
+  client.actionDone = (id, result) => actionRequest({ id, result });
   client.status = async function status() {
     const answer = await request('GET', '/v1/status');
     return answer && typeof answer === 'object' ? answer : null;
