@@ -1,9 +1,9 @@
 # Looks: every idea our interfaces and mock-ups show
 
-**What this is:** the list for card 9a8eb9, milestone 1. Every interface and mock-up in this repository, and each idea it shows, one entry per idea.
+**What this is:** the list of every interface and mock-up that was in this repository on 27 November 2026, and each idea it shows, one entry per idea. It was made for the run that built the looks.
 **What an entry is:** one thing you could pick as a look. Its id is fixed here: it becomes the look's file name, its button, and the name the checks use.
 **The count:** 18 ideas. All 18 are built as looks, since 28 November.
-**Where they live:** in the live 3D Monitor tab, with a browser preview of that same page. You chose this on 27 November; see the end.
+**Where they live:** in the live 3D Monitor tab, with a browser preview of that same page. The owner chose this on 27 November; see the end.
 **How to switch:** the next section.
 
 Written 27 November 2026.
@@ -11,6 +11,8 @@ Written 27 November 2026.
 **Changed the same day:** after this list was made, the Entomatical extension moved out of this repository into its own (commit `9f73bb0`). Section C and the table of interfaces with no look idea describe files as they stood here at commit `0a8c20c`. They are now in the Entomatical repository, and still in this repository's history.
 
 ## How to switch
+
+**Which version:** 0.2.0 and later. A window shows the new looks once it has been reloaded after the update (**Developer: Reload Window**).
 
 **In the 3D Monitor tab,** the bar at the top has "Look", then three buttons:
 
@@ -21,7 +23,9 @@ Written 27 November 2026.
 
 **In a browser, with nothing installed:** run `node ui-concepts/monitor-3d-live/tools/preview.js` from the repository's top folder and open the address it prints. It is the same page on invented data. Add `?look=<id>` to open on one look, for example `?look=synapse`.
 
-**All 18 at a glance:** the pictures are in [img/](img/), one for each id below, all of the same invented scene.
+**All 18 at a glance:** [the contact sheet](img/contact-sheet.png). Each look's own picture is in [img/](img/), one for each id below, all of the same invented scene.
+
+**How they were built and checked:** [run.md](run.md).
 
 ## What a look carries
 
@@ -75,7 +79,7 @@ These three interfaces are flat pages, so they show colours and lettering but no
 
 ### D. Named in this repository, shown only in Entridir (3 kept, 2 left out)
 
-This repository names five more ideas and borrows rules from them, but has no picture of them. You asked on 27 November for those that are quite different from the other looks, and not the derivatives. Each was looked at in Entridir: the four Godot looks in `docs/verification/godot-looks/looks.png`, Signal House by opening its page.
+This repository names five more ideas and borrows rules from them, but has no picture of them. The owner asked on 27 November for those that are quite different from the other looks, and not the derivatives. Each was looked at in Entridir: the four Godot looks in `docs/verification/godot-looks/looks.png`, Signal House by opening its page.
 
 | id | Look | Shown in (Entridir) | What it looks like | Now |
 |---|---|---|---|---|
@@ -106,13 +110,13 @@ The first four are Entomatical's, at commit `0a8c20c`. So are the test harness p
 
 ## Where the looks live
 
-**Decided on 27 November: the live 3D Monitor tab, with a browser preview of that same page.** One set of look files, in `ui-concepts/monitor-3d-live/media/`. You switch in the real tab on your own sessions. The preview shows the same page with invented data, so every look can be photographed and checked with nothing installed.
+**Decided on 27 November: the live 3D Monitor tab, with a browser preview of that same page.** One set of look files, in `ui-concepts/monitor-3d-live/media/`. A look is switched in the real tab, on real sessions. The preview shows the same page with invented data, so every look can be photographed and checked with nothing installed.
 
 The repository did not say. The same two looks already lived in two places whose files have grown apart, and the main extension has no place for a look at all. The places that were weighed:
 
 | Place | What it is | For | Against |
 |---|---|---|---|
-| The live 3D Monitor tab | `ui-concepts/monitor-3d-live/`, the VSIX you installed | It is what you use, on your real sessions. Its drawing code is the newer one: provider colours, both solids, captions with or without a plate. | Card 7917d5 is changing its page files now. You must install the new VSIX and reload each window. |
-| A browser preview | A page opened from a local address, with invented data | Nothing to install. Every look can be photographed and checked. | It is not your real sessions. |
+| The live 3D Monitor tab | `ui-concepts/monitor-3d-live/`, the installed VSIX | It is what the owner uses, on real sessions. Its drawing code is the newer one: provider colours, both solids, captions with or without a plate. | Another card was changing its page files then. A new VSIX must be installed and each window reloaded. |
+| A browser preview | A page opened from a local address, with invented data | Nothing to install. Every look can be photographed and checked. | It is not real sessions. |
 | The simulated mock-up page | `ui-concepts/monitor-3d/` | It exists, and nobody else is changing it. | Its drawing code is the older one: no provider colours, no icosahedrons, until they are carried back. |
 | The Entomatical board | `media/board.css` | It is the main extension. | A board has no 3D scene: only colours and lettering would carry over, so most of the ideas would lose their shapes and backdrops. |
