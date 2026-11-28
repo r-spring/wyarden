@@ -2,12 +2,26 @@
 
 **What this is:** the list for card 9a8eb9, milestone 1. Every interface and mock-up in this repository, and each idea it shows, one entry per idea.
 **What an entry is:** one thing you could pick as a look. Its id is fixed here: it becomes the look's file name, its button, and the name the checks use.
-**The count:** 18 ideas. 4 are looks today (2 in each monitor page), 14 are not built as looks.
-**Where they will live:** in the live 3D Monitor tab, with a browser preview of that same page. You chose this on 27 November; see the end.
+**The count:** 18 ideas. All 18 are built as looks, since 28 November.
+**Where they live:** in the live 3D Monitor tab, with a browser preview of that same page. You chose this on 27 November; see the end.
+**How to switch:** the next section.
 
 Written 27 November 2026.
 
 **Changed the same day:** after this list was made, the Entomatical extension moved out of this repository into its own (commit `9f73bb0`). Section C and the table of interfaces with no look idea describe files as they stood here at commit `0a8c20c`. They are now in the Entomatical repository, and still in this repository's history.
+
+## How to switch
+
+**In the 3D Monitor tab,** the bar at the top has "Look", then three buttons:
+
+- **The look's name** opens the list of all 18, in four groups: Monitor, Original mock-ups, Board and landing page, From Entridir. Click one. Escape closes the list.
+- **‹ and ›** step to the previous and the next look, so you can go through them all without opening the list.
+- **Until you choose,** the editor's theme picks: NEXUS in a dark theme, Glasshouse in a light one. Once you choose, the tab keeps your look, also after a reload.
+- **Nothing moves when you switch.** Every look draws the same things in the same places.
+
+**In a browser, with nothing installed:** run `node ui-concepts/monitor-3d-live/tools/preview.js` from the repository's top folder and open the address it prints. It is the same page on invented data. Add `?look=<id>` to open on one look, for example `?look=synapse`.
+
+**All 18 at a glance:** the pictures are in [img/](img/), one for each id below, all of the same invented scene.
 
 ## What a look carries
 
@@ -21,41 +35,41 @@ The rule is this repository's own ([the critique](../monitor-3d/01-mockup-critiq
 
 ## The list
 
-### A. The 3D monitor's looks that exist today (4)
+### A. The 3D monitor's own looks (4)
 
 Source is in this repository. Each pair is one idea in two versions that look different, so each version is an entry.
 
-| id | Look | Shown in | What it looks like | Today |
+| id | Look | Shown in | What it looks like | Now |
 |---|---|---|---|---|
-| `nexus` | NEXUS lattice, as the live tab draws it | `ui-concepts/monitor-3d-live/media/look-nexus.js` · [screenshot](../monitor-3d/img/live/vscode-0.1.1.png) | Blue-black, glowing wireframe, capitals in a monospace font. An agent is an icosahedron and a subagent a dodecahedron, in their provider's colour (Claude orange, Codex blue, Antigravity purple, Grok green). Mint cubes for tools, amber hexagons for MCP servers, violet sheets and globes for resources. Captions have no plate. | A look in the live tab |
-| `glasshouse` | Glasshouse, as the live tab draws it | `ui-concepts/monitor-3d-live/media/look-glasshouse.js` | Pale grey-green with tinted glass floors, no glow, ordinary sans-serif lettering. The same two solids in darker provider colours; green braced crates, burnt-orange hexagons, purple resources. | A look in the live tab |
-| `nexus-mockup` | NEXUS lattice, as the simulated mock-up draws it | `ui-concepts/monitor-3d/look-nexus.js` · [screenshot](../monitor-3d/img/after/nexus.png) | The same dark wireframe with one colour for each class: a cyan octahedron for an agent, a blue pyramid for a subagent. Captions sit on a dark plate. | A look in the simulated page |
-| `glasshouse-mockup` | Glasshouse, as the simulated mock-up draws it | `ui-concepts/monitor-3d/look-glasshouse.js` · [screenshot](../monitor-3d/img/after/glasshouse.png) | Light. An agent is a teal stepped tower with a mast, a subagent a blue two-step chip; green crates, orange hexagons. Captions sit on a pale plate. | A look in the simulated page |
+| `nexus` | NEXUS lattice, as the live tab draws it | `ui-concepts/monitor-3d-live/media/look-nexus.js` · [screenshot](../monitor-3d/img/live/vscode-0.1.1.png) | Blue-black, glowing wireframe, capitals in a monospace font. An agent is an icosahedron and a subagent a dodecahedron, in their provider's colour (Claude orange, Codex blue, Antigravity purple, Grok green). Mint cubes for tools, amber hexagons for MCP servers, violet sheets and globes for resources. Captions have no plate. | Built · [picture](img/nexus.png) |
+| `glasshouse` | Glasshouse, as the live tab draws it | `ui-concepts/monitor-3d-live/media/look-glasshouse.js` | Pale grey-green with tinted glass floors, no glow, ordinary sans-serif lettering. The same two solids in darker provider colours; green braced crates, burnt-orange hexagons, purple resources. | Built · [picture](img/glasshouse.png) |
+| `nexus-mockup` | NEXUS lattice, as the simulated mock-up draws it | `ui-concepts/monitor-3d/look-nexus.js` · [screenshot](../monitor-3d/img/after/nexus.png) | The same dark wireframe with one colour for each class: a cyan octahedron for an agent, a blue pyramid for a subagent. Captions sit on a dark plate. | Built · [picture](img/nexus-mockup.png) |
+| `glasshouse-mockup` | Glasshouse, as the simulated mock-up draws it | `ui-concepts/monitor-3d/look-glasshouse.js` · [screenshot](../monitor-3d/img/after/glasshouse.png) | Light. An agent is a teal stepped tower with a mast, a subagent a blue two-step chip; green crates, orange hexagons. Captions sit on a pale plate. | Built · [picture](img/glasshouse-mockup.png) |
 
 ### B. The seven original mock-ups (7)
 
 Shown in this repository as screenshots and [a critique](../monitor-3d/01-mockup-critique.md). Their source is in the Entridir repository at commit `63197c31`, under `nexus-3d/ui-concepts/` (GPL v3, as this repository; the two looks above were carried over from the same place).
 
-| id | Look | Shown in | What it looks like | Today |
+| id | Look | Shown in | What it looks like | Now |
 |---|---|---|---|---|
-| `lattice` | NEXUS lattice, the original | [lattice.png](../monitor-3d/img/before/lattice.png) | Blue-black, with a ground grid and rings round the centre. Glowing wireframe octahedrons, cubes and rings in eight colours: cyan for control, blue for tasks, mint for tools, amber for delivery, violet for accounts and context. Small capitals in a monospace font. | Not built |
-| `circuit-city` | 01 Circuit City | [city.png](../monitor-3d/img/before/city.png) | Navy. Agents are tall cyan wireframe towers; the rest are amber and cyan blocks, on a blueprint street grid with district outlines. Wide-spaced capitals. | Not built |
-| `orbital` | 02 Orbital Mechanics | [orbit.png](../monitor-3d/img/before/orbit.png) | Indigo, nearly black, with stars and tilted orbit rings. Lilac latticed spheres, peach rings and small pyramids. An italic serif title and rounded panels. | Not built |
-| `glasshouse-original` | 03 Glasshouse, the original | [glass.png](../monitor-3d/img/before/glass.png) | Pale daylight. Stacked glass floors with lift shafts; flat stepped chips in teal and sage only. A serif title. | Not built |
-| `synapse` | 04 Synapse | [synapse.png](../monitor-3d/img/before/synapse.png) | Dark plum. Pink beads and mint diamonds joined by curved nerve strands. An italic serif title and pill-shaped buttons. | Not built |
-| `event-horizon` | 05 Event Horizon | [horizon.png](../monitor-3d/img/before/horizon.png) | Near-black. Rings inside rings, like a tunnel; every node is a round clock face in amber or pale cyan. Thin, wide-spaced capitals. | Not built |
-| `signal-terrain` | 06 Signal Terrain | [terrain.png](../monitor-3d/img/before/terrain.png) | Dark green. A wireframe landscape with contour lines and a north arrow; every node is a small beacon in olive or gold. An italic serif title in cream. | Not built |
+| `lattice` | NEXUS lattice, the original | [lattice.png](../monitor-3d/img/before/lattice.png) | Blue-black, with a ground grid and rings round the centre. Glowing wireframe octahedrons, cubes and rings in eight colours: cyan for control, blue for tasks, mint for tools, amber for delivery, violet for accounts and context. Small capitals in a monospace font. | Built · [picture](img/lattice.png) |
+| `circuit-city` | 01 Circuit City | [city.png](../monitor-3d/img/before/city.png) | Navy. Agents are tall cyan wireframe towers; the rest are amber and cyan blocks, on a blueprint street grid with district outlines. Wide-spaced capitals. | Built · [picture](img/circuit-city.png) |
+| `orbital` | 02 Orbital Mechanics | [orbit.png](../monitor-3d/img/before/orbit.png) | Indigo, nearly black, with stars and tilted orbit rings. Lilac latticed spheres, peach rings and small pyramids. An italic serif title and rounded panels. | Built · [picture](img/orbital.png) |
+| `glasshouse-original` | 03 Glasshouse, the original | [glass.png](../monitor-3d/img/before/glass.png) | Pale daylight. Stacked glass floors with lift shafts; flat stepped chips in teal and sage only. A serif title. | Built · [picture](img/glasshouse-original.png) |
+| `synapse` | 04 Synapse | [synapse.png](../monitor-3d/img/before/synapse.png) | Dark plum. Pink beads and mint diamonds joined by curved nerve strands. An italic serif title and pill-shaped buttons. | Built · [picture](img/synapse.png) |
+| `event-horizon` | 05 Event Horizon | [horizon.png](../monitor-3d/img/before/horizon.png) | Near-black. Rings inside rings, like a tunnel; every node is a round clock face in amber or pale cyan. Thin, wide-spaced capitals. | Built · [picture](img/event-horizon.png) |
+| `signal-terrain` | 06 Signal Terrain | [terrain.png](../monitor-3d/img/before/terrain.png) | Dark green. A wireframe landscape with contour lines and a north arrow; every node is a small beacon in olive or gold. An italic serif title in cream. | Built · [picture](img/signal-terrain.png) |
 
 ### C. The Entomatical board and the landing page (4)
 
 The Entomatical board was this repository's main extension when the list was made. It has no look switch of any kind: nothing sets a theme, a skin or a density. It shows two styles of its own (paths below are Entomatical's, at commit `0a8c20c` here). The landing page, which is still here, shows a third in two versions.
 
-| id | Look | Shown in | What it looks like | Today |
+| id | Look | Shown in | What it looks like | Now |
 |---|---|---|---|---|
-| `editor-theme` | The board's own skin (F52) | `media/board.css` lines 1 to 33 | No colours of its own: it takes the editor's theme, so it is dark, light or high contrast as the editor is. On top of that, the board's provider colours (Claude terracotta, Codex sky blue, Grok green, Antigravity lavender) and its status colours (blue running, amber needs input, green review). The editor's font, small pill chips, 4 px corners. | Not built |
-| `battle-neon` | Battle Royale's neon (F105) | `media/board.css` lines 23 to 26 and 297 to 348 | Near-black with neon orange, electric blue, acid green and hot pink, each with a glow. Headings in a heavy, slanted, capital poster face. | Not built |
-| `paper` | The landing page, light | `public/index.html` | Warm paper, dark brown-black ink, hairline rules, Palatino serif, a very large title. No accent colour at all. | Not built |
-| `paper-dark` | The landing page, dark | `public/index.html` lines 19 to 22 | The same page turned over: brown-black with cream ink. | Not built |
+| `editor-theme` | The board's own skin (F52) | `media/board.css` lines 1 to 33 | No colours of its own: it takes the editor's theme, so it is dark, light or high contrast as the editor is. On top of that, the board's provider colours (Claude terracotta, Codex sky blue, Grok green, Antigravity lavender) and its status colours (blue running, amber needs input, green review). The editor's font, small pill chips, 4 px corners. | Built · [picture](img/editor-theme.png) |
+| `battle-neon` | Battle Royale's neon (F105) | `media/board.css` lines 23 to 26 and 297 to 348 | Near-black with neon orange, electric blue, acid green and hot pink, each with a glow. Headings in a heavy, slanted, capital poster face. | Built · [picture](img/battle-neon.png) |
+| `paper` | The landing page, light | `public/index.html` | Warm paper, dark brown-black ink, hairline rules, Palatino serif, a very large title. No accent colour at all. | Built · [picture](img/paper.png) |
+| `paper-dark` | The landing page, dark | `public/index.html` lines 19 to 22 | The same page turned over: brown-black with cream ink. | Built · [picture](img/paper-dark.png) |
 
 These three interfaces are flat pages, so they show colours and lettering but no 3D shapes. As looks in the monitor they would bring their colours, lettering and line style; the shapes would be the plain wireframe ones.
 
@@ -63,11 +77,11 @@ These three interfaces are flat pages, so they show colours and lettering but no
 
 This repository names five more ideas and borrows rules from them, but has no picture of them. You asked on 27 November for those that are quite different from the other looks, and not the derivatives. Each was looked at in Entridir: the four Godot looks in `docs/verification/godot-looks/looks.png`, Signal House by opening its page.
 
-| id | Look | Shown in (Entridir) | What it looks like | Today |
+| id | Look | Shown in (Entridir) | What it looks like | Now |
 |---|---|---|---|---|
-| `skyline` | Skyline, from the Godot build | `godot/looks/skyline.gd` | Off-white. Solid glass blocks and towers outlined in dark ink: teal-green blocks, with amber, red and blue towers. The only light city, and the only look with solid, ink-outlined shapes. | Not built |
-| `control-room` | Control Room, from the Godot build | `godot/looks/control_room.gd` | Black. Flat, heavy, solid marks (triangle, cross, disc, diamond, square, dot), large lettering and thin grey rules, like a wall chart. Its colours were chosen to stay apart for colour-blind eyes. | Not built |
-| `signal-house` | Signal House | `nexus-3d/ui-concepts/signal-house-29d4d1/` | Warm paper beside dark slate panels. Slate ink with vermilion, sage green and blue; large serif headings with an italic flourish; small spaced capitals. `paper` is its plainer relative: one ink and no accent. | Not built |
+| `skyline` | Skyline, from the Godot build | `godot/looks/skyline.gd` | Off-white. Solid glass blocks and towers outlined in dark ink: teal-green blocks, with amber, red and blue towers. The only light city, and the only look with solid, ink-outlined shapes. | Built · [picture](img/skyline.png) |
+| `control-room` | Control Room, from the Godot build | `godot/looks/control_room.gd` | Black. Flat, heavy, solid marks (triangle, cross, disc, diamond, square, dot), large lettering and thin grey rules, like a wall chart. Its colours were chosen to stay apart for colour-blind eyes. | Built · [picture](img/control-room.png) |
+| `signal-house` | Signal House | `nexus-3d/ui-concepts/signal-house-29d4d1/` | Warm paper beside dark slate panels. Slate ink with vermilion, sage green and blue; large serif headings with an italic flourish; small spaced capitals. `paper` is its plainer relative: one ink and no accent. | Built · [picture](img/signal-house.png) |
 
 **Left out as derivatives:**
 
