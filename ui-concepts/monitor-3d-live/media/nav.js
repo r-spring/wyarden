@@ -173,7 +173,11 @@
   const sourceOf = n => (n.collector
     ? 'exact, from ' + (n.kind === 'claude' ? "Claude Code's" : "the agent's") + ' hooks'
     : 'derived, read from the transcript; set up the collector for exact calls');
-  const result = n => (n.lastOk == null ? 'none yet' : (n.lastOk ? 'ok' : 'failed (' + (n.lastError || 'failed') + ')') + (n.lastMs == null ? '' : ', ' + n.lastMs + ' ms'));
+  const result = n => {
+    if (n.lastOk == null) return n.lastUnobservedCall ? 'end not observed' : 'none yet';
+    const outcome = n.lastOk ? 'ok' : 'failed (' + (n.lastError || 'failed') + ')';
+    return outcome + (n.lastMs == null ? '' : ', ' + n.lastMs + ' ms');
+  };
   const ownerLabel = (n, model) => { const s = model.sessions.get(n.owner); const a = s && model.nodes.get(s.agentId); return a ? agentName(a) : ''; };
 
   /** Everything the inspector shows for a node: facts as label and value, lists, and the "In VS Code" labels. */
@@ -194,7 +198,9 @@
       if (n.wait) fact('Waiting for', n.wait.why + (n.wait.tool ? ' for ' + n.wait.tool : '') + ', since ' + clock(n.wait.since) + ' (' + n.wait.grade + ')');
       fact('Turn', n.turn); fact('Calls made', n.calls + ', ' + n.open + ' open, ' + n.failed + ' failed');
       fact('Subagents', [...s.nodes].filter(id => (model.nodes.get(id) || {}).cls === 'subagent').length);
-      const last = s.history.slice(-5).reverse().map(c => clock(c.t) + '  ' + c.what + '  ' + (c.ok ? 'ok' : 'failed: ' + c.error) + (c.ms == null ? '' : '  ' + c.ms + ' ms' + (c.msGrade ? ' (' + c.msGrade + ')' : '')));
+      const last = s.history.slice(-5).reverse().map(c => clock(c.t) + '  ' + c.what + '  ' +
+        (c.ok === null ? 'end not observed' : c.ok ? 'ok' : 'failed: ' + c.error) +
+        (c.ms == null ? '' : '  ' + c.ms + ' ms' + (c.msGrade ? ' (' + c.msGrade + ')' : '')));
       if (last.length) out.lists.push({ title: 'Last calls', items: last });
       out.actions = actions(['agent', n.kind === 'claude' ? 'thinking' : 'select']);      // only Claude Code's transcript is read for thinking
     } else if (n.cls === 'subagent') {
