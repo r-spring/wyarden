@@ -422,10 +422,21 @@ test('the module keeps nothing: each call reflects the file as it is, and parall
   assert.deepEqual([texts(one), texts(two)], [['In the first file.'], ['In another file.']]);
 });
 
-test('the module needs only fs, path, crypto and lib/contract.js, holds no raw control character, and exports only its API', () => {
+test('format \'claude\', or a format left undefined, is this reader as it always was: the same answer as no option at all', async t => {
+  const file = write(t,
+    reply([thought('A recorded thought.')], { at: '2026-01-02T03:00:01.000Z' }) + reply([blank()]) + reply([redacted()]) +
+    reply([thought('The newest thought.')], { at: '2026-01-02T03:00:02.000Z' }));
+  const plain = await readThinking(file);
+  assert.deepEqual([texts(plain), plain.recorded, plain.unrecorded], [['The newest thought.', 'A recorded thought.'], 2, 2]);
+  assert.deepEqual(await readThinking(file, { format: 'claude' }), plain);
+  assert.deepEqual(await readThinking(file, { format: undefined }), plain);
+  assert.deepEqual(await readThinking(file, { format: 'claude', thoughts: 1, lookback: 64 }), await readThinking(file, { thoughts: 1, lookback: 64 }));
+});
+
+test('the module needs only fs, path, crypto, lib/contract.js and lib/thinking-formats.js, holds no raw control character, and exports only its API', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'lib', 'thinking.js'), 'utf8');
   const needs = [...source.matchAll(/require\(\s*'([^']+)'\s*\)/g)].map(m => m[1]).sort();
-  assert.deepEqual(needs, ['./contract.js', 'node:crypto', 'node:fs', 'node:path']);
+  assert.deepEqual(needs, ['./contract.js', './thinking-formats.js', 'node:crypto', 'node:fs', 'node:path']);
   assert.ok(!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u2028\u2029]/.test(source), 'no raw control character');
   assert.deepEqual(Object.keys(require('../lib/thinking.js')), ['readThinking', 'thinkingIn', 'LIMITS']);
 });

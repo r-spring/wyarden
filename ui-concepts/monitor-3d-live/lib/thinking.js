@@ -23,6 +23,15 @@
  * else: no prompt, no answer text, no tool input, no signature, no path, no session id, and no
  * exception text. Nothing is kept between calls: no cache, no global.
  *
+ * Codex, Grok Build and Antigravity keep their own record of a session, each in its own JSON-lines
+ * format; lib/thinking-formats.js says what was seen of each. A call's `format` option names the one
+ * to read: 'claude' when it is left out, or 'codex', 'grok', 'antigravity'. Any other value is
+ * `unreadable`, and the disk is not touched. Every format goes through the same steps here: the one
+ * stat and the bounded tail read, the window's cut first line dropped, the cheap line filter (each
+ * format's own mark), a thought counted once (by a short hash of the key its format gives), the
+ * cleaning, the cut, the limits and the walk, and the same answer, with the same guarantees. A format
+ * that cannot tell "thought, but no text was recorded" always says `unrecorded` 0.
+ *
  * A call is one `stat`, then the file is opened, read and closed in one go, since on Windows an
  * open handle can stop the CLI from replacing its file. It uses fs.promises, so the extension host
  * is not blocked while it reads. `size` and `mtimeMs` come from that stat, so a caller can skip a
@@ -44,6 +53,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { isNetworkPath } = require('./contract.js');
+const { FORMATS, READERS } = require('./thinking-formats.js');
 
 const LIMITS = Object.freeze({
   lookback: 4 * 1024 * 1024,   // most bytes read from the end of the file for one answer
@@ -132,6 +142,12 @@ function thinkingIn(lines, limits) {
       else unrecorded++;       // blank once cleaned, not a string, or redacted
     }
   }
+  const thoughts = newestFirst(found, max);
+  return { thoughts, recorded: found.length, unrecorded, more: found.length - thoughts.length };
+}
+
+/** The walk every format shares: from recorded thoughts in file order, the ones the limits let through, newest first. */
+function newestFirst(found, max) {
   // From the newest back. The newest is always given; after it, the first that does not fit ends the walk.
   const thoughts = [];
   let used = 0;
@@ -140,6 +156,59 @@ function thinkingIn(lines, limits) {
     if (thoughts.length && used + text.length > max.chars) break;
     used += text.length;
     thoughts.push(cut ? { at: found[i].at, text, cut } : { at: found[i].at, text });
+  }
+  return thoughts;
+}
+
+/**
+ * The reader a call's options name: undefined for Claude ('claude', or no `format`), null for a
+ * format this module does not read. Only a name in FORMATS is looked up, so a name such as
+ * 'constructor' finds nothing.
+ */
+function readerOf(opts) {
+  const format = opts && typeof opts === 'object' ? opts.format : undefined;
+  if (format === undefined || format === 'claude') return undefined;
+  return typeof format === 'string' && FORMATS.includes(format) && Object.hasOwn(READERS, format) ? READERS[format] : null;
+}
+
+/**
+ * The pure part for Codex, Grok Build and Antigravity, beside thinkingIn and through the same steps:
+ * from complete lines in file order, the newest thoughts first, within the limits, and the counts.
+ * Only a line that holds the format's mark is parsed; a line that does not parse, or is not an
+ * object, is passed over. The format's `items` says what the record holds as reasoning. A thought is
+ * counted once, named by a short hash of its key, so the set of names seen holds no id and no text.
+ * A blank one counts as unrecorded only in a format that can tell (`tellsUnrecorded`), and is
+ * passed over in the others.
+ */
+function readerIn(lines, reader, limits) {
+  const max = limitsOf(limits);
+  const seen = new Set();
+  const found = [];            // recorded thoughts in file order: {at, text, tool}, text already cleaned
+  let unrecorded = 0;
+  for (const line of Array.isArray(lines) ? lines : []) {
+    if (typeof line !== 'string' || !line.includes(reader.mark)) continue;
+    let r;
+    try { r = JSON.parse(line); } catch { continue; }
+    if (!r || typeof r !== 'object' || Array.isArray(r)) continue;
+    const items = reader.items(r);
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!item || typeof item !== 'object') continue;
+      const text = typeof item.text === 'string' ? cleanThought(item.text) : '';
+      if (!text && !reader.tellsUnrecorded) continue;
+      const basis = typeof item.key === 'string' ? item.key : 'text\n' + text;
+      const key = crypto.createHash('sha256').update(basis).digest('hex').slice(0, 16);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const at = typeof item.at === 'number' && Number.isFinite(item.at) ? item.at : null;
+      if (text) found.push({ at, text, tool: item.cut === true });
+      else unrecorded++;       // the format can tell: the model reasoned, and no text was recorded
+    }
+  }
+  const thoughts = newestFirst(found, max);
+  // A thought the tool itself cut (Antigravity) is marked as cut too; thoughts[j] came from found[n - 1 - j].
+  for (let j = 0; j < thoughts.length; j++) {
+    const x = thoughts[j];
+    if (found[found.length - 1 - j].tool && !x.cut) thoughts[j] = { at: x.at, text: x.text, cut: true };
   }
   return { thoughts, recorded: found.length, unrecorded, more: found.length - thoughts.length };
 }
@@ -168,9 +237,13 @@ async function readRange(file, from, length) {
  * path string (or is longer than MAX_PATH) is `missing` without touching the disk, a folder is
  * `not-a-file`, and any other failure to stat, open or read is `unreadable`. A path on another
  * machine is `missing` too, and is never touched: that would sign this machine in to its server.
+ * `opts.format` names the format ('claude' when left out); an unknown one is `unreadable` before
+ * anything else is looked at, the path included, and the disk is not touched.
  */
 async function readThinking(file, opts) {
   try {
+    const reader = readerOf(opts);
+    if (reader === null) return failed('unreadable');
     if (typeof file !== 'string' || file.length > MAX_PATH || file.includes('\0') || !path.isAbsolute(file) || isNetworkPath(file)) return failed('missing');
     const max = limitsOf(opts);
     let st;
@@ -188,6 +261,7 @@ async function readThinking(file, opts) {
     // Decoded only after the cut, so a character split by the window start is thrown away whole.
     // The last line may have no newline yet: it is tried, and passed over if it does not parse.
     const lines = body.toString('utf8').split('\n');
+    if (reader) return { ok: true, size: st.size, mtimeMs: st.mtimeMs, whole: start === 0, ...readerIn(lines, reader, max) };
     return { ok: true, size: st.size, mtimeMs: st.mtimeMs, whole: start === 0, ...thinkingIn(lines, max) };
   } catch (e) {
     return failed(gone(e) ? 'missing' : 'unreadable');
