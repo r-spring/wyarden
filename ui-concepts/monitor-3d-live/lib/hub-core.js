@@ -245,10 +245,11 @@ function createHubCore(options = {}) {
     const t = Number.isFinite(opts.t) ? opts.t : now();
     counts.received++;
     let out;
-    try { out = normaliser.feed(payload, { t, hint: opts.hint }); } catch (error) { counts.rejected++; log('warn', 'the normaliser failed: ' + className(error)); return; }
+    try { out = normaliser.feed(payload, { t, hint: opts.hint, route: opts.route, source: opts.source }); } catch (error) { counts.rejected++; log('warn', 'the normaliser failed: ' + className(error)); return; }
     if (!out || typeof out !== 'object' || typeof out.key !== 'string' || !out.agent || typeof out.session !== 'string' || !out.session) { counts.rejected++; return; }
     // The session id becomes part of every node id and key: one that could hold a ':' could pose as another.
-    if (!Model.AGENT_KINDS.includes(out.agent) || !contract.isSessionId(out.session) || out.key !== out.agent + ':' + out.session) { counts.rejected++; return; }
+    if (!Model.AGENT_KINDS.includes(out.agent) || !contract.isSessionId(out.session) || out.key !== out.agent + ':' + out.session ||
+        (out.source !== 'hook' && out.source !== 'transcript')) { counts.rejected++; return; }
     let s = sessions.get(out.key);
     // A replayed payload is a transcript payload like any other: the same duplicates, the same "hook wins".
     if (s && out.source === 'transcript' && s.hookSeen) { counts.ignored++; return; }

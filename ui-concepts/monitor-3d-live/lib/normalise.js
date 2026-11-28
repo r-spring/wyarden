@@ -16,6 +16,7 @@
 'use strict';
 const crypto = require('node:crypto');
 const contract = require('./contract.js');
+const { createProviderRouter } = require('./provider-router.js');
 
 /* The only ways a string from a payload reaches an event: safeId (ids), safeName (names),
    keptPath (paths), cleanUrl (addresses), the scheme pattern below, and comparison with the fixed
@@ -58,11 +59,24 @@ const MCP_TARGETS = ['path', 'file_path', 'url', 'uri'];
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 /** An own field only: a payload's prototype is never consulted. */
 const own = (o, k) => (isObj(o) && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
+const hasOwn = (o, k) => {
+  try { return isObj(o) && Object.prototype.hasOwnProperty.call(o, k); } catch { return false; }
+};
 const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 /** A raw string, or '' for anything else. It is only compared or parsed, never put in an event as it is. */
 const str = v => (typeof v === 'string' ? v : '');
 /** A raw string that may be a path or an address, or '' when it is not one worth reading. */
 const target = v => (typeof v === 'string' && v.length < BIG ? v : '');
+
+/** Claude's snake_case shape. The hook route is only a candidate filter; this shape is its identity. */
+function isClaudePayload(payload) {
+  if (!isObj(payload)) return false;
+  try {
+    for (const k of FOREIGN) if (hasOwn(payload, k)) return false;
+    return typeof own(payload, 'hook_event_name') === 'string' && !!own(payload, 'hook_event_name') &&
+      isSessionId(own(payload, 'session_id'));
+  } catch { return false; }
+}
 
 /**
  * What a tool's name says: an MCP call (server and tool) or a plain tool with its class.
@@ -138,14 +152,16 @@ function createNormaliser(options) {
 
   function feedUnsafe(payload, opts) {
     if (!isObj(payload)) return null;
-    for (const k of FOREIGN) if (own(payload, k) !== undefined) return null;
+    for (const k of FOREIGN) if (hasOwn(payload, k)) return null;
     // A session id that is not made of id characters is not a session (a path, a command): refused whole.
     const event = str(own(payload, 'hook_event_name')), session = own(payload, 'session_id');
     if (!event || !isSessionId(session)) return null;
 
     const t = num(own(opts, 't')) ?? Date.now();
     const wy = own(payload, '_wy');
-    const fromTranscript = isObj(wy) && own(wy, 'src') === 'transcript';
+    const explicitSource = own(opts, 'source');
+    const fromTranscript = explicitSource === 'transcript' ||
+      (explicitSource !== 'hook' && isObj(wy) && own(wy, 'src') === 'transcript');
     const at = fromTranscript ? num(own(wy, 'at')) : undefined;
     const key = 'claude:' + session;
     const s = sessionFor(key);
@@ -406,18 +422,29 @@ function createNormaliser(options) {
     return out;
   }
 
-  return {
-    /** A payload -> {agent, session, key, cwd, root, source, events}, or null. Never throws. */
-    feed(payload, opts) {
-      try { return feedUnsafe(payload, opts); } catch { return null; }
-    },
-    /** Forget one session: `<agent>:<session>`, or the bare session id. */
+  const claude = {
+    provider: 'claude',
+    routes: ['claude'],
+    matches: isClaudePayload,
+    normalise(payload, context) { return feedUnsafe(payload, context); },
     forget(key) {
       if (typeof key !== 'string') return;
       sessions.delete(key.startsWith('claude:') ? key : 'claude:' + key);
     },
     size: () => sessions.size
   };
+  const adapters = [claude, ...((options && Array.isArray(options.adapters)) ? options.adapters : [])];
+  const router = createProviderRouter(adapters, { rootInfo });
+  return {
+    /** A payload -> {agent, session, key, cwd, root, source, events}, or null. Never throws. */
+    feed(payload, opts) {
+      try { return router.feed(payload, opts); } catch { return null; }
+    },
+    /** Forget one session: `<agent>:<session>`, or the bare Claude session id. */
+    forget(key) { router.forget(key); },
+    size: () => router.size(),
+    planConfig: (provider, ...args) => router.planConfig(provider, ...args)
+  };
 }
 
-module.exports = { createNormaliser, MAX_SESSIONS, MAX_CALLS };
+module.exports = { createNormaliser, createProviderRouter, MAX_SESSIONS, MAX_CALLS };
