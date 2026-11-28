@@ -6,7 +6,9 @@
  * the nerve strand line 141, environment lines 198-227, shapes lines 228-237), world.js (line 16: which type
  * takes which of the two colours) and worlds.css (lines 1, 2 and 10: the page's lettering and panels).
  * Changed:
- * - The strands no longer breathe: the original's wave is taken at time 0 and kept. Nothing else moved.
+ * - Nothing moves. The strands no longer breathe: the original's wave is taken at time 0 and kept. The original
+ *   also breathed active nodes (line 193) and its renderer pulsed a ring under them and ran dots along active
+ *   calls; none of that is carried over.
  * - The strands cannot run to nodes (a backdrop is told only where the floors are): the trunk rises behind
  *   the floors to "one shared outcome", and a limb grows from the root to each column, up through its
  *   floors to the agent's, with three small dendrites at its tip; roots spread under the lowest floor.

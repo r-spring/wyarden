@@ -8,7 +8,9 @@
  * Changed:
  * - The floors are the monitor's four (agents, MCP servers, tools, resources), not the original's six; each
  *   takes the colour of the original floor it stands for, and the lowest is the original's salmon.
- * - The lift cars no longer circle: each stands still at its own height. Nothing else moved in the original.
+ * - Nothing moves. The lift cars no longer circle: each stands still at its own height. The original also lifted
+ *   an active agent (line 78) and its renderer turned the workspace, pulsed a ring under active nodes and ran
+ *   dots along active calls; none of that is carried over.
  * - The original coloured a blocked node in its alert colour and a waiting one in its second colour. Here a
  *   state is only the mark beside the shape and the word in the caption; the classes keep the two colours.
  * - The original had no MCP server, URL or folded pile: an MCP server takes the original's integration slab
