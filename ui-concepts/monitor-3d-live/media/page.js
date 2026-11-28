@@ -159,14 +159,20 @@
     const ctx = c.getContext('2d'); ctx.scale(2, 2);
     E.drawIcon(ctx, LOOKS[state.look], key, color, size);
     c.setAttribute('aria-hidden', 'true');
+    return backed(c);
+  }
+  /** A swatch on a panel. Where the look's panels have their own ink, it stands on the stage's colour (looks.js, swatchBack). */
+  function backed(c) {
+    const back = K.swatchBack(LOOKS[state.look]);
+    if (back) { c.style.background = back; c.style.borderRadius = '3px'; }
     return c;
   }
   function badge(status, size) {
     const c = el('canvas'), look = LOOKS[state.look]; c.width = c.height = size * 2; c.style.width = c.style.height = size + 'px';
     const ctx = c.getContext('2d'); ctx.scale(2, 2);
-    E.drawBadge(ctx, M.STATES[status].shape, size / 2, size / 2, size * .3, look.palette.state[status], look.palette.panel);
+    E.drawBadge(ctx, M.STATES[status].shape, size / 2, size / 2, size * .3, look.palette.state[status], K.swatchBack(look) || look.palette.panel);
     c.setAttribute('aria-hidden', 'true');
-    return c;
+    return backed(c);
   }
   function renderInspector() {
     const box = $('inspector'), n = model.nodes.get(state.selected);
@@ -256,7 +262,7 @@
   function sample(draw) {
     const c = el('canvas'); c.width = 68; c.height = 28; c.style.width = '34px'; c.style.height = '14px'; c.setAttribute('aria-hidden', 'true');
     const ctx = c.getContext('2d'); ctx.scale(2, 2); ctx.lineCap = 'round'; draw(ctx);
-    return c;
+    return backed(c);
   }
   function buildLegend() {
     const look = LOOKS[state.look], pal = look.palette, body = $('legend-body');
@@ -265,8 +271,8 @@
     // An agent's and a subagent's colour is its provider's, so their shapes are shown here in a neutral colour,
     // and the providers get a group of their own. A look with no provider colours still draws a legend.
     // A look that gives no provider a colour of its own (palette.provider is absent) shows the two in their class's colour,
-    // and has no group of providers. `neutral` is drawn on a panel, so it is the panel's muted colour where a look has one.
-    const byProvider = !!pal.provider, neutral = K.onPanel(look, 'muted') || pal.caption, agentColor = byProvider ? neutral : pal.cls.agent;
+    // and has no group of providers.
+    const byProvider = !!pal.provider, neutral = pal.muted || pal.caption, agentColor = byProvider ? neutral : pal.cls.agent;
     const classes = el('div', 'legend-grid'), agentMark = icon('agent', agentColor, 22);
     agentMark.dataset.color = agentColor;         // the colour each swatch was drawn in, for the tests
     classes.append(
@@ -287,7 +293,7 @@
     calls.append(
       item(line(pal.cls.tool, []), 'Tool call, while it is open'),
       item(line(pal.cls.mcp, [], ctx => { ctx.beginPath(); ctx.arc(31, 7, 2.5, 0, 7); ctx.fill(); }), 'MCP call, to the tool’s port on the server'),
-      item(line(pal.cls.resource, [5, 4], ctx => { ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(4, 7, 2.6, 0, 7); ctx.fillStyle = pal.panel; ctx.fill(); ctx.stroke(); }), 'Read (dashed); a ring marks a resource that was read'),
+      item(line(pal.cls.resource, [5, 4], ctx => { ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(4, 7, 2.6, 0, 7); ctx.fillStyle = K.swatchBack(look) || pal.panel; ctx.fill(); ctx.stroke(); }), 'Read (dashed); a ring marks a resource that was read'),
       item(line(pal.cls.resource, [], ctx => { ctx.beginPath(); ctx.moveTo(33, 7); ctx.lineTo(26, 3.5); ctx.lineTo(26, 10.5); ctx.closePath(); ctx.fill(); ctx.fillRect(1.4, 4.4, 5.2, 5.2); }), 'Write (solid, with a head); a square marks a resource that was written'),
       item(line(pal.cls.resource, [1, 4]), 'Search (dotted)'),
       item(line(pal.cls.tool, [2, 6]), 'A call that has just ended; a cross if it failed'),
@@ -610,5 +616,5 @@
   K.watchTheme(document, refreshLook);
   feed.start();
 
-  window.Monitor3D = { view, feed, state, select, get model() { return model; } };      // for the measuring script and the tests
+  window.Monitor3D = { view, feed, state, select, chooseLook, get model() { return model; } };      // for the measuring script and the tests
 })();

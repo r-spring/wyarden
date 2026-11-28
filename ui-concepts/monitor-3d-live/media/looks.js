@@ -94,11 +94,14 @@
       if (value) style.setProperty(PAGE[key], value); else style.removeProperty(PAGE[key]);
     }
   }
-  /** A colour for something drawn on a panel (the legend's swatches): the look's panel colour when it has one. */
-  function onPanel(look, key) {
-    const own = { ink: 'panelInk', caption: 'panelText', muted: 'panelMuted', line: 'panelLine', accent: 'panelAccent' }[key];
-    const page = look.page || {};
-    return (own && typeof page[own] === 'string' && page[own].trim()) || look.palette[key];
+  /**
+   * The colour behind a swatch that is drawn on a panel (the legend's and the inspector's shapes and marks).
+   * A look's class and state colours are made for the stage. Where its panels have their own ink they may not show
+   * on a panel, so there each swatch stands on the stage's colour. '' for every other look: nothing behind a swatch.
+   */
+  function swatchBack(look) {
+    const page = look.page && typeof look.page === 'object' ? look.page : {};
+    return ['panelInk', 'panelText', 'panelMuted'].some(key => typeof page[key] === 'string' && page[key].trim()) ? look.palette.bg : '';
   }
   /**
    * Call `changed` when the editor's theme changes under the page. VS Code rewrites the variables on
@@ -207,6 +210,6 @@
     return { show, open, close: () => close(false), get isOpen() { return isOpen; } };
   }
 
-  const api = { GROUPS, LIST, PAGE, ids, entry, stub, reader, refresh, signature, applyPage, onPanel, watchTheme, switcher };
+  const api = { GROUPS, LIST, PAGE, ids, entry, stub, reader, refresh, signature, applyPage, swatchBack, watchTheme, switcher };
   if (inNode) module.exports = api; else root.MonitorLookRegistry = api;
 })(typeof window === 'undefined' ? globalThis : window);
