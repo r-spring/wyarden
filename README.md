@@ -1,19 +1,19 @@
 # Wyarden 3D Monitor
 
-Wyarden automatically finds supported coding-agent sessions already running in your open workspaces. It groups them by the folders they work in, including sessions launched from a separate terminal. The 3D view connects agents and subagents to their tools, files, URLs, and MCP servers.
+Wyarden shows coding agents working in your open workspaces, including sessions launched from a separate terminal. The 3D view connects each session to the tools, files, URLs, and MCP servers its provider reports.
 
-The current preview discovers live **Claude Code** sessions. [Download the VSIX](https://github.com/r-spring/wyarden/releases) · [User guide](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md)
+The **0.2.0 source build** supports live **Claude Code, Codex, Grok Build, and Antigravity** sessions. Build the VSIX from this checkout using the commands below. For a published build, check the provider support listed with that release. [Release downloads](https://github.com/r-spring/wyarden/releases) · [User guide](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md)
 
 ![Wyarden showing a live Claude Code session in VS Code](https://raw.githubusercontent.com/r-spring/wyarden/main/docs/monitor-3d/img/live/vscode-0.1.1.png)
 
 ## Install and see the agents already running
 
-1. Download the preview VSIX and check the editor version supported by that release. In VS Code or a compatible editor, run **Extensions: Install from VSIX…** and reload if prompted.
+1. Install the VSIX using **Extensions: Install from VSIX…**. After an update, reload your connected editor windows when their active work is finished.
 2. Open the project folder where your agent is running. Agents whose working directory is in an open folder or one of its subfolders are eligible. Open a sibling worktree as an additional folder if its path sits outside the workspace.
 3. Click **3D Monitor** in the status bar or run **Wyarden 3D Monitor: Open**. Pick the workspace chip for that editor window or choose **All open**.
-4. Give Wyarden a few seconds to discover existing Claude Code sessions, including idle ones. Activity from transcripts is marked **derived**.
+4. Run **Wyarden 3D Monitor: Set Up Collectors…** and review the proposed changes. Restart Codex and approve the Wyarden commands in `/hooks`. Restart Grok Build and Antigravity to load their hooks. Give each provider a task in an open project, such as reading a project file. Its name and tool activity appear under that workspace and **All open**.
 
-Wyarden can discover those sessions through Claude Code's existing session files. Optional collectors add direct call events after you review and approve changes to Claude Code settings. Use collectors only on a machine where you're the only user. [Collector setup and privacy](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md#optional-collectors)
+Claude Code sessions can also appear from their existing session files, with transcript activity marked **derived**. Codex can show threads loaded by a reachable local app server before hook activity arrives. Use collectors on a single-user machine and keep an editor window with Wyarden open. [Collector setup and privacy](https://github.com/r-spring/wyarden/blob/main/docs/wyarden-guide.md#optional-collectors)
 
 ## Learn and troubleshoot
 

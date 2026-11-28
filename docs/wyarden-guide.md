@@ -1,23 +1,25 @@
 # Wyarden user guide
 
-Wyarden shows coding-agent sessions already running in your editor's open workspace folders. It uses each session's working directory to decide where it belongs. For live monitoring, this preview supports Claude Code.
+Wyarden 0.2.0 shows live Claude Code, Codex, Grok Build, and Antigravity sessions. A session's working directory determines which workspace chip it appears under. **All open** shows the sessions across connected editor windows.
 
 ## Install and check the download
 
-Download **wyarden-monitor-3d-0.1.3.vsix** and **SHA256SUMS** from the release page. Open your editor's Command Palette and select **Extensions: Install from VSIX…**. Select the VSIX, then reload the window if prompted. [Release downloads](https://github.com/r-spring/wyarden/releases/tag/v0.1.3)
+For the four-provider source build, run `node ui-concepts/monitor-3d-live/tools/pack.js` from the repository root. The packer writes `wyarden-monitor-3d-0.2.0.vsix` in `ui-concepts/monitor-3d-live/dist/`. In the Command Palette, choose **Extensions: Install from VSIX…** and select that file. After an update, reload each connected window once its active work is finished. Published previews list their own version, supported providers, and downloads. [Release downloads](https://github.com/r-spring/wyarden/releases)
 
-You can also install from a shell in the directory containing the download:
+You can also install the 0.2.0 build from a shell in the directory containing the VSIX.
 
 ```sh
-code --install-extension wyarden-monitor-3d-0.1.3.vsix
-codium --install-extension wyarden-monitor-3d-0.1.3.vsix
+code --install-extension wyarden-monitor-3d-0.2.0.vsix
+codium --install-extension wyarden-monitor-3d-0.2.0.vsix
 ```
 
-Use the command for the editor you want. Install the extension in each editor or profile where you want Wyarden to see the windows. You can compare the downloaded file's SHA-256 with the value in **SHA256SUMS**:
+Use the command for your editor. Install the extension in each editor profile whose windows you want Wyarden to see. On Windows, the following command prints the local build's SHA-256. For a published VSIX, compare its hash with the checksum supplied for that version.
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath .\wyarden-monitor-3d-0.1.3.vsix
+Get-FileHash -Algorithm SHA256 -LiteralPath .\wyarden-monitor-3d-0.2.0.vsix
 ```
+
+For a release that supplies `SHA256SUMS`, run this command in the download directory.
 
 ```sh
 sha256sum -c SHA256SUMS
@@ -27,8 +29,8 @@ sha256sum -c SHA256SUMS
 
 1. In VS Code or VSCodium, open the folder where the agent is working, or a parent folder that contains it.
 2. Click **3D Monitor** in the status bar or run **Wyarden 3D Monitor: Open**. Pick the workspace chip above the scene, or choose **All open**.
-3. Give the monitor a few seconds to discover sessions. It can find a running Claude Code terminal, editor chat, or session launched outside the editor. It uses the session files it can read from the same environment. An idle session can appear before it has new tool activity.
-4. Select an agent to inspect its session. Tool activity sourced from transcripts is marked **derived**. The collectors are optional.
+3. Run **Wyarden 3D Monitor: Set Up Collectors…** for direct provider events. Review the changes, then follow the provider instructions below. Start or resume a session in the open workspace and ask it to read a file there.
+4. Select the agent to inspect its calls and resources. Claude Code sessions and loaded Codex app-server threads can appear before a new call. Claude Code activity read from transcripts is marked **derived**.
 
 Run **Wyarden 3D Monitor: Choose Workspace** if you prefer a list. A chip represents a connected editor workspace, which can contain several folders. **All open** combines these scopes. When two open folders overlap, Wyarden uses the closest matching folder. A Git worktree outside those folders has its own path, so add that worktree folder to the workspace or open it in another connected window.
 
@@ -37,7 +39,9 @@ Run **Wyarden 3D Monitor: Choose Workspace** if you prefer a list. A chip repres
 | Claude Code already running in an open folder or subfolder | Its workspace chip and **All open**. |
 | Claude Code launched in a separate terminal | The same workspace chip, provided Wyarden can read its session files and its working directory matches the open folder. |
 | Claude Code in WSL, SSH, or a container | The editor environment where the session runs. Each environment has its own session files and hub. |
-| Codex, Grok, or Antigravity | The simulated view can illustrate these providers. Live discovery in this preview covers Claude Code. |
+| Codex | The matching workspace and **All open**. Wyarden can discover loaded threads through an available local app server. Approved hooks report new calls from CLI sessions. |
+| Grok Build | The matching workspace and **All open** after the first supported event from a session with the Wyarden hooks loaded. |
+| Antigravity | The matching workspace and **All open** after its command hook reports a conversation or tool step. |
 
 ## Read and navigate the scene
 
@@ -50,11 +54,18 @@ Run **Wyarden 3D Monitor: Choose Workspace** if you prefer a list. A chip repres
 
 ## Optional collectors
 
-Transcript mode is the simplest setup. When you want direct Claude Code events for supported calls, run **Wyarden 3D Monitor: Set Up Collectors…**. It lists the Claude Code settings files it plans to edit and shows a diff. Use **Show every change** to review all diffs before confirming. Typical locations include the settings in `~/.claude`, `~/.claude-accounts`, and the directory selected by `CLAUDE_CONFIG_DIR` when set.
+Run **Wyarden 3D Monitor: Set Up Collectors…**. Wyarden lists changes to the provider profiles found on this machine. Choose **Show every change** to inspect the redacted previews, then confirm. If a provider profile is missing, start that provider once and run setup again. Codex and Antigravity command hooks require Node.js on the editor's PATH and Windows PowerShell on Windows.
 
-Use collectors only on a single-user machine. Claude Code sends the local hook request before Wyarden can filter its contents, so transcript mode is the appropriate choice on a shared machine. Keep an editor window with Wyarden open while using collectors. Restart an existing Claude Code session if its new events remain derived after setup.
+| Provider | What setup changes | How to see the next call |
+| --- | --- | --- |
+| Claude Code | Adds monitor entries to the discovered account `settings.json` files. | Restart an existing session if its calls still show as derived. Transcript discovery also works without setup. |
+| Codex | Adds Wyarden command hooks to `hooks.json` in the Codex profile. | Restart Codex, open `/hooks`, review and approve the Wyarden commands, then start or resume a session. |
+| Grok Build | Adds `hooks/wyarden-monitor.json` in the Grok profile. | Restart Grok, complete its normal workspace trust review if prompted, and start a turn. |
+| Antigravity | Adds the `wyarden-monitor-antigravity` group to `~/.gemini/config/hooks.json`. | Restart Antigravity, complete its normal workspace trust review if prompted, and start a turn. |
 
-To undo the settings changes, run **Wyarden 3D Monitor: Remove Collectors**. Review the target files before confirming.
+Use collectors only on a single-user machine and keep an editor window with Wyarden open. Providers send their hook payloads to the local hub, where Wyarden filters them for the scene. **Wyarden 3D Monitor: Status** shows the setup state for each provider, including Codex hooks awaiting approval.
+
+To undo the settings changes, run **Wyarden 3D Monitor: Remove Collectors**. Review the target files, confirm, and restart the affected providers.
 
 ## Privacy and local state
 
@@ -71,13 +82,13 @@ Since 0.1.7, when you select a Claude Code agent, the editor window that opened 
 | Symptom | Check |
 | --- | --- |
 | No **3D Monitor** command | Open **Extensions** in this editor profile and confirm `r-spring.wyarden-monitor-3d` is installed and enabled. Try **Developer: Reload Window** after active work finishes. |
-| An existing session doesn't appear | Confirm that it is a live Claude Code process in the same environment. Open the folder that contains its working directory and wait for discovery. Try **All open** if a closer open folder may own the session. |
+| A session doesn't appear | Open the folder that contains its working directory and try **All open**. Check **Wyarden 3D Monitor: Status** for that provider, restart it after setup, and ask it to read a local project file. For Codex, review the Wyarden entries in `/hooks`. |
 | An agent is working in a sibling Git worktree | Add that worktree's folder to the workspace or open it in another window with Wyarden installed. |
 | The first calls are marked **derived** | This is expected in transcript mode. After configuring collectors, start a new Claude Code session if you want direct events. |
 | Files or commands appear incomplete | The view depends on the events the provider supplies. Shell calls do not say which files a script read or wrote. |
 | An agent node can't open its session | Switch to the window that owns the session. Wait a moment if its terminal is still starting. If Wyarden can't match a Claude Code panel to its process, use the editor's existing panel or terminal. |
 | New and old windows show different views after an update | Reload every window with the extension, or restart the editor after work finishes. One of the windows hosts the shared hub. |
-| A session stays briefly after exit | The hub detects the exit from the session file and retains the ended session for 20 seconds. |
+| A session stays after exit | Claude Code session discovery tracks process exit. Providers with a session-end hook report closure. An Antigravity conversation without an end signal expires after 30 minutes of silence. |
 
 Run **Wyarden 3D Monitor: Status** to open the Output panel. For a bug report, include your editor and extension versions, operating system, transcript or collector mode, and steps to reproduce with a disposable folder. Remove credentials, prompts, session titles, thinking text, and private paths before posting. [Open an issue](https://github.com/r-spring/wyarden/issues)
 
