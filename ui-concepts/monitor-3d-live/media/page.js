@@ -7,9 +7,12 @@
  *   - the workspace chips and the status line are new, and both only show what the host says;
  *   - a double-click or Ctrl+Enter on a file or an address asks the host to open it, and on a session
  *     or one of its subagents asks the host to show that session's terminal or chat panel (only to show
- *     it: nothing is started or changed); a click tells the host what was selected and does nothing else;
+ *     it: nothing is started or changed); a click tells the host what was selected, and on a Claude Code
+ *     session's agent also asks the host for that session's thinking; a click changes nothing;
  *   - the camera, the look, the pressed view buttons and the selection survive a reload through
- *     the webview's state, because VS Code destroys a hidden tab's page.
+ *     the webview's state, because VS Code destroys a hidden tab's page;
+ *   - a selected Claude Code session's thinking, which this window's host reads from its transcript, is
+ *     shown under the inspector as text, and is never saved, posted back or said aloud.
  *
  * Nothing here edits information: the chips choose what is shown, the other buttons change how it
  * is shown, a click or a key selects, and the "In VS Code" list is text. The page's own panels are
@@ -112,6 +115,7 @@
     // The owner's own selection is told to the host; one the model made (a node left) is not.
     if (n && state.selected !== before && (from === 'scene' || from === 'twin' || from === 'keys')) feed.post({ type: 'select', target: { class: n.cls, id: n.id } });
     if (state.selected !== before) save();
+    followThinking();        // every change of the selection comes through here, the model's own and a restored one too
   }
   /** The selection is kept by id. A selected node that folds becomes its stack; one that leaves becomes its agent.
       After a snapshot (`fresh`), a node that is gone clears the selection. */
@@ -189,6 +193,112 @@
     parts.push(el('h3', '', 'In VS Code'), el('p', 'hint', 'What is wired now. These are labels, not controls.'), acts);
     box.replaceChildren(...parts);
   }
+
+  /* ---------- thinking: the selected session's own, read by this window's host ----------
+   * The one exception to "no prompt, answer or file content is shown", asked for by the owner. The page
+   * sends only the agent node's id (to start) or null (to stop); the host finds and reads the transcript
+   * (lib/thinking-watch.js) and answers this page alone. The text reaches the DOM as textContent only.
+   * It is never saved, never posted back, never written to #live, and it leaves the DOM when the
+   * selection leaves the agent. Nothing here asks for a frame or starts a timer: the host polls. */
+  const THINKING_STATES = ['recorded', 'unrecorded', 'none', 'not-yet', 'ended', 'gone', 'unreadable'];
+  const AGENT_ID = /^a:[a-z]+:[A-Za-z0-9_-]{1,128}$/;     // what the host takes (lib/thinking-watch.js checkThinking)
+  const THOUGHTS_MAX = 40, THOUGHT_MAX = 12000;            // lib/thinking.js LIMITS: a message past them is not the host's
+  const DATE_MAX = 8.64e15;                                // the latest time a Date holds; a later one would make N.clock throw
+  let thinkingBox = null, thinkingStatus = null, thinkingList = null;
+  let watched = '';                                         // the agent whose thinking is asked for, or ''
+  /** The section, after #inspector and not in it, so renderInspector's replaceChildren never touches it. */
+  function buildThinking() {
+    const box = el('details');
+    box.id = 'thinking'; box.open = true; box.hidden = true; box.setAttribute('aria-label', 'Thinking');
+    thinkingStatus = el('p', 'hint');
+    thinkingList = el('ol', 'thoughts');
+    box.append(el('summary', '', 'Thinking'), thinkingStatus, thinkingList);
+    $('inspector').after(box);
+    thinkingBox = box;
+  }
+  /**
+   * Start, move or stop the watch to match the selection: one message for each change, none when nothing changed.
+   * Only a Claude Code session's agent is asked about: the host reads Claude Code's transcript and no other,
+   * so another provider's agent gets no section and no message, as a tool gets none.
+   */
+  function followThinking() {
+    if (!thinkingBox) return;
+    const n = state.selected ? model.nodes.get(state.selected) : null;
+    const want = n && n.cls === 'agent' && n.kind === 'claude' && typeof n.id === 'string' && n.id.length <= 200 && AGENT_ID.test(n.id) ? n.id : '';
+    if (want === watched) return;
+    watched = want;
+    thinkingList.replaceChildren();
+    if (want) {
+      feed.post({ type: 'thinking', target: { class: 'agent', id: want } });
+      setText(thinkingStatus, 'Reading this session\'s transcript…');
+      thinkingBox.hidden = false;
+    } else {
+      feed.post({ type: 'thinking', target: null });
+      setText(thinkingStatus, '');
+      thinkingBox.hidden = true;
+    }
+  }
+  /**
+   * The host's message, copied when every part has the kind and size the host sends, else null. A
+   * message that does not fit is ignored whole: nothing in rendering it can then throw, so no error,
+   * which could carry some of it, reaches feed.lastError or the console.
+   */
+  function cleanThinking(m) {
+    if (!m || typeof m !== 'object' || typeof m.id !== 'string' || !THINKING_STATES.includes(m.state)) return null;
+    const count = v => (Number.isSafeInteger(v) && v >= 0 ? v : -1);
+    const recorded = count(m.recorded), unrecorded = count(m.unrecorded), more = count(m.more);
+    if (recorded < 0 || unrecorded < 0 || more < 0 || typeof m.whole !== 'boolean') return null;
+    if (!Array.isArray(m.thoughts) || m.thoughts.length > THOUGHTS_MAX) return null;
+    const thoughts = [];
+    for (let i = 0; i < m.thoughts.length; i++) {
+      const x = m.thoughts[i];
+      if (!x || typeof x !== 'object' || Array.isArray(x) || typeof x.text !== 'string' || !x.text || x.text.length > THOUGHT_MAX) return null;
+      const at = x.at;
+      if (at !== null && !(typeof at === 'number' && Number.isFinite(at) && Math.abs(at) <= DATE_MAX)) return null;
+      thoughts.push({ at, text: x.text });
+    }
+    return { id: m.id, state: m.state, recorded, unrecorded, more, whole: m.whole, thoughts };
+  }
+  /** The status line: counts and states only, never any of the text. */
+  function thinkingLine(m) {
+    const endOnly = m.whole ? '' : ' Only the end of the transcript was read.';
+    if (m.state === 'recorded') {
+      let line = plural(m.recorded, 'thought', 'thoughts') + ' recorded.';
+      if (m.more > 0) line += m.thoughts.length === 1 ? ' Only the newest is shown.' : ' The newest ' + m.thoughts.length + ' are shown.';
+      if (m.unrecorded > 0) line += ' ' + m.unrecorded + ' more left no text.';
+      return line + endOnly;
+    }
+    if (m.state === 'unrecorded') return 'Claude thought ' + plural(m.unrecorded, 'time', 'times') + ' here, and Claude Code recorded no text for it. It records the text for a session started with --thinking-display summarized.' + endOnly;
+    // Thinking further back than the part that was read is not "none": the line says only the end was read.
+    if (m.state === 'none') return m.whole ? 'No thinking in this session yet.' : 'No thinking in the last part of the transcript. Only its end was read.';
+    if (m.state === 'not-yet') return 'This session\'s transcript is not written yet.';
+    if (m.state === 'ended') return 'This session has ended.';
+    if (m.state === 'unreadable') return 'This session\'s transcript could not be read. It is tried again.';
+    return 'The hub names no session for this node. It is asked again.';
+  }
+  /** The thoughts, newest first, as the host sends them. Rebuilt only when what is shown differs, so an identical answer changes no node. */
+  function showThoughts(thoughts) {
+    const items = thinkingList.children, label = x => (x.at === null ? '' : N.clock(x.at));
+    const same = items.length === thoughts.length && thoughts.every((x, i) => {
+      const time = items[i].querySelector('time'), text = items[i].querySelector('.thought-text');
+      return (time ? time.textContent : '') === label(x) && !!text && text.textContent === x.text;
+    });
+    if (same) return;
+    thinkingList.replaceChildren(...thoughts.map(x => {
+      const li = el('li');
+      if (x.at !== null) { const time = el('time', '', label(x)); time.dateTime = new Date(x.at).toISOString(); li.append(time); }
+      li.append(el('p', 'thought-text', x.text));
+      return li;
+    }));
+  }
+  feed.onThinking = message => {
+    try {
+      const m = cleanThinking(message);
+      if (!m || !watched || m.id !== watched) return;          // an answer for an earlier selection, or none asked for
+      setText(thinkingStatus, thinkingLine(m));
+      showThoughts(m.state === 'recorded' ? m.thoughts : []);
+    } catch (error) { /* not counted with its message: feed.lastError and the console must never hold any of it */ }
+  };
 
   /* ---------- the list twin ---------- */
 
@@ -574,6 +684,7 @@
   /* ---------- start ---------- */
 
   buildHud();
+  buildThinking();
   view.resize();
   applyLook();
   if (saved.spread) setSpread(true);

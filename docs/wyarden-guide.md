@@ -37,6 +37,7 @@ Run **Wyarden 3D Monitor: Choose Workspace** if you prefer a list. Every chip re
 - An agent is an icosahedron, and a subagent is a dodecahedron. The workspace name appears on the tile beneath the agent. Point to an agent to see its session title.
 - The view arranges each session's activity in a column with related tool, MCP server, and resource nodes. Lines show calls between nodes. The preview draws up to 12 sessions per view and reports how many are left out.
 - Select a node to see its details. Double-click a file or press **Ctrl+Enter** on it to open it beside the monitor. For a grouped set of files Wyarden offers a picker. It asks before opening a URL in your browser.
+- Since 0.1.5, select a Claude Code agent to see the thinking its session has done, newest first, in the **Thinking** section under its details. It stays current while the agent is selected. In the sessions measured, most showed only a count: Claude Code wrote thinking text only for a session started with the hidden `--thinking-display summarized` flag. For a session that has thought without that flag, the section counts the thoughts and says no text was recorded. A subagent's thinking is not shown.
 - Double-click an agent or press **Ctrl+Enter** to show its terminal or Claude Code panel when Wyarden can confirm the session is in this editor window. A subagent opens its parent session. For a session in another window, switch to that window first.
 - Switch between **NEXUS** and **Glasshouse** to change the appearance while keeping the layout. New sessions are framed automatically until you move the camera.
 
@@ -50,11 +51,13 @@ To undo the settings changes, run **Wyarden 3D Monitor: Remove Collectors**. Rev
 
 ## Privacy and local state
 
-Wyarden's hub listens on loopback on the machine where the editor extension runs. The monitor filters transcript and hook data to the fields needed by the scene, including names, relative paths, timestamps, and call outcomes. Prompts, file contents, and command lines are dropped from the view. Session titles may appear in the view, so check them before sharing a screenshot.
+Wyarden's hub listens on loopback on the machine where the editor extension runs. The monitor filters transcript and hook data to the fields needed by the scene, including names, relative paths, timestamps, and call outcomes. Prompts, file contents, and command lines are dropped from the view, except where an agent's thinking repeats them (see below). Session titles and the **Thinking** section may appear in the view, so check them before sharing a screenshot.
 
 The hub keeps connection details in `~/.wyarden-monitor/hub.json`. The editor remembers the scope and view for each workspace. When no monitor tab is open, Wyarden pauses its session and transcript polling. Remote editor environments have their own sessions and hub.
 
 When you open a session from its agent node, the monitor checks the local process list to match the session to this window. It keeps that information in memory only for the lookup.
+
+Since 0.1.5, when you select a Claude Code agent, the window you selected it in reads that session's thinking from its Claude Code transcript and shows it in that window only. Thinking is the model's own text, not yours, and it can repeat a prompt, a file's contents, or a command line. Wyarden sends it neither to another window nor to the shared hub, writes it nowhere, and clears it when you select something else. Check the **Thinking** section before you share a screenshot or paste it into a bug report.
 
 ## Troubleshoot
 
@@ -68,7 +71,7 @@ When you open a session from its agent node, the monitor checks the local proces
 | New and old windows show different views after an update | Reload every window with the extension, or restart the editor after work finishes. One of the windows hosts the shared hub. |
 | A session stays briefly after exit | The hub detects the exit from the session file and retains the ended session for 20 seconds. |
 
-Run **Wyarden 3D Monitor: Status** to open the Output panel. For a bug report, include your editor and extension versions, operating system, transcript or collector mode, and steps to reproduce with a disposable folder. Remove credentials, prompts, session titles, and private paths before posting. [Open an issue](https://github.com/r-spring/wyarden/issues)
+Run **Wyarden 3D Monitor: Status** to open the Output panel. For a bug report, include your editor and extension versions, operating system, transcript or collector mode, and steps to reproduce with a disposable folder. Remove credentials, prompts, session titles, thinking text, and private paths before posting. [Open an issue](https://github.com/r-spring/wyarden/issues)
 
 ## Update or uninstall
 

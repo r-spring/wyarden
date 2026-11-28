@@ -383,7 +383,7 @@ Never kept:
 
 - `tool_input` values other than the path and URL fields of section 12; `tool_response` and `toolResult`; ACP `rawInput`, `rawOutput`, `content`, diffs.
 - Command lines, search patterns and queries, web search queries, MCP arguments and results, MCP resource URIs beyond their scheme, elicitation content.
-- Prompt text, assistant text (`prompt`, `last_assistant_message`, `lastUserInput`, `lastAssistantMessage`), error and notification message text.
+- Prompt text, assistant text (`prompt`, `last_assistant_message`, `lastUserInput`, `lastAssistantMessage`), error and notification message text. One exception, since the working mock-up's 0.1.5, by the owner's decision of 27 November: the thinking of the one agent the owner has selected, which is the model's own text and can repeat a prompt, a file or a command line, is read from its transcript by the window that was asked and shown on that window's page only, never sent to the hub or another window and never written ([05 section 8.6](05-working-mockup.md#86-thinking-for-the-selected-agent-since-015)).
 - URL query strings, fragments and user info; HTTP headers; environment variables.
 - Absolute paths, `transcript_path`, `agent_transcript_path`, `cwd`, home folders, user and machine names: the monitor keeps them in memory only, to route and locate, and writes the workspace key `ws` instead.
 

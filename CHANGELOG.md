@@ -3,6 +3,7 @@
 ## Unreleased
 
 - 0.1.4: the output channel no longer logs "onState failed: ReferenceError" each time the extension starts. Nothing else was affected.
+- 0.1.5: select a Claude Code agent to see the thinking its session has done, newest first, in a **Thinking** section under its details; it is read by that window alone, kept current while the agent stays selected, and written nowhere. In the sessions measured, most showed only a count: Claude Code wrote the text only for one started with `--thinking-display summarized`.
 
 ## 0.1.3 preview
 
