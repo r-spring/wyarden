@@ -29,8 +29,8 @@ Live editor work uses one lane. Card `1ce761` owns the monitor window and cross-
 | `bb64b7` | Step 2, Codex sessions and tools | Done. Integrated `ab8c74d` at `b8d5e35`. 10 focused tests passed. Native 0.172.0 reported the new hooks pending user trust. The loopback model test passed. |
 | `1018a5` | Step 3, Grok Build sessions and tools | Done. Integrated `aa186df` at `cc1bd2e`. 6 focused tests passed. Native CLI 1.0.92 with a disposable local model delivered the same call through two routes. The real hub counted it once. |
 | `68479f` | Step 4, Antigravity sessions and tools | Done. Integrated `a61df48` at `251ad00`. 8 focused tests passed. Signed-in CLI 1.5.19 sent a real failed read to the hub and continued when the hub closed. |
-| `432088` | Step 5, editor activation and reviewed collector setup | Launch confirmed after all four dependencies. Version 0.2.0 proposed locally. |
-| Step 6 | Live packaged editor evidence | Awaiting editor integration |
+| `432088` | Step 5, editor activation and reviewed collector setup | Done. Integrated `4e06abe` at `bc6a7ad`. Windows suite 476 passed, 4 skipped, 5 TODO from looks, 0 failed. Four providers, two workspace scopes, cancellation and repeat setup exercised through the production host. |
+| `56e6ee` | Step 6, live packaged editor evidence | Launch confirmed. Root-built 0.2.0 candidate SHA-256 `83359B3E86F9579457DDFDC69E79B684E2C45A60E7A66A1409D1CEB80D99413C`. |
 
 ---
 
