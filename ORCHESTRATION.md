@@ -34,6 +34,13 @@ Live editor work uses one lane. Card `1ce761` owns the monitor window and cross-
 | `2b5fe8` | Repair call tracking after live acceptance findings | Done. Integrated `1d97cb2` at `ec164c6`. A matching Codex stop closes missing results as unknown. Antigravity links survive equal step indices in separate sessions. Windows suite 481 passed, 4 skipped, 5 TODO, 0 failed. |
 | `cbe1fe` | Final installed editor acceptance on the repaired package | Launch confirmed after `56e6ee` and `2b5fe8`. The first repaired package was `E91A9371`. The concurrent looks finishing pass reached main at `47efcb8`. Delivery candidate `afe5c20` includes that pass, 56 entries and SHA-256 `BDF7E4711A4A2BFD291C6C4F22D488FA4EF7CF03FCBD829BD08BAF142058A616`. |
 
+
+### Installation in Robert's normal VS Code profile
+
+On 28 November the normal VS Code profile changed from 0.1.7 to 0.2.0 using the signed-in-tested `BDF7E471` VSIX. All 54 installed payload files matched the archive, allowing for VS Code's installation metadata in the manifest. The setup command on a separate Windows desktop used the normal provider profiles and hub. **Show every change** and **Add to 4 files** installed ten Codex entries, eleven Grok entries, six Antigravity entries and their shared local bridge. The three Claude profiles already had their hooks. A fresh probe reported all four providers installed and zero proposed changes. Codex's native inventory matched and reported all ten reviewed user hooks as trusted after individual review in `/hooks`.
+
+The disposable editors closed. The normal shared hub was already running before installation. Existing editor windows adopt 0.2.0 when reloaded, and running Codex, Grok Build and Antigravity sessions load the new hooks on restart.
+
 ---
 
 # Looks run 9a8eb9: every look idea, switchable
