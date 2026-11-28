@@ -856,8 +856,9 @@ describe('the looks in a headless browser', () => {
       const picture = await h.eval(PICTURE);
       assert.equal(picture.nodes, [...FIXED.model().nodes.values()].filter(n => !n.folded).length, 'every standing node is drawn');
       assert.deepEqual(picture.ground, ['', ''], 'the background is drawn without an error');
-      // More than the background is drawn, and the background is still most of the picture (a ground that was not the one drawn would count as all of it).
-      assert.ok(picture.drawn > .02 && picture.drawn < .6, 'what is drawn over the background: ' + (picture.drawn * 100).toFixed(1) + ' % of the canvas');
+      assert.ok(picture.drawn > .02, 'more than the background is drawn: ' + (picture.drawn * 100).toFixed(1) + ' % of the canvas');
+      // Under a ground the comparison is with the gradient: were it not the one drawn, every pixel would count as drawn over it.
+      if (LOOKS[id].palette.ground !== undefined) assert.ok(picture.drawn < .6, 'the ground is still most of the picture: ' + (picture.drawn * 100).toFixed(1) + ' % of the canvas is drawn over it');
       (measured.drawn = measured.drawn || {})[id] = +(picture.drawn * 100).toFixed(1);
       assert.ok(picture.captions >= 6, 'captions: ' + picture.captions);
       if (picture.backdrop) assert.deepEqual([picture.backdrop.over, picture.backdrop.error], [{}, ''], 'the backdrop is inside its limits');
