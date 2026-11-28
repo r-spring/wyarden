@@ -6,8 +6,9 @@
  * Taken as they are: the palette (modes-horizon-terrain.js line 13), the one clock mesh for every node at its two radii
  * (clockMesh(), lines 5 to 9), which type takes the primary amber and which the secondary cyan (world.js line 16), the
  * tunnel's amber and grey-cyan rings, its eight long lines, the cyan ring of the present, the cyan streaks on the wall and
- * the words PRESENT, PAST and CONSEQUENCE (environment(), lines 23 to 34), and the page's colours and lettering
- * (worlds.css, the .horizon rules and the base rules).
+ * the words PRESENT, PAST and CONSEQUENCE (environment(), lines 23 to 34), each label in its node's colour (engine.js
+ * line 75), and the page's colours and lettering and the viewport's light with its dark edges (worlds.css, the
+ * .horizon rules and the base rules).
  * Changed: the original's twelve types are given to the monitor's five classes (agent the large amber clock, as its
  * workspace and orchestrator; subagent a small cyan clock; tool a small amber clock; MCP server a cyan clock, as its main
  * branch, drawn at 18 so it differs from a tool; resource a small cyan clock, as its context). The agent's clock is turned
@@ -49,7 +50,9 @@
     caption: text => text.toUpperCase(),
     page: {
       ui: "Consolas, 'Liberation Mono', monospace",
-      headFont: "Consolas, 'Liberation Mono', monospace",
+      // The inspector's heading: .horizon .node-title, 22px --sans. The small labels stay the page's --mono (.panel-label, .node-type).
+      headFont: "'Segoe UI', Arial, sans-serif",
+      labelFont: "Consolas, 'Liberation Mono', monospace",
       // The world's title: .horizon .world-title h1, 300 38px --sans, uppercase, 7px apart. The bar holds 20 px at most:
       // the spacing is cut in the same proportion.
       titleFont: "'Segoe UI', Arial, sans-serif",
@@ -74,6 +77,11 @@
       // done: the darker amber of the time panel's border (.horizon .special, #726049).
       state: { needs: '#f6bf77', failed: '#ff6574', working: '#e9dfcc', unclear: '#9de2e9', idle: '#9b9386', done: '#726049' },
       clash: '#ff6574',
+      // worlds.css .horizon .viewport: radial-gradient(ellipse at 50% 40%, #1a1a1d, #05080d 80%): a grey light above the
+      // middle, dark edges.
+      ground: { shape: 'round', at: [.5, .4], stops: [[0, '#1a1a1d'], [.8, '#05080d']] },
+      // The original's engine.js line 75: a node's label is in the node's own colour (the selected one in the text colour).
+      captionNode: true,
       // Wireframe, as the original drew it. captionHalo: its labels had a shadow of the background (blur 4).
       fill: 0, solid: 0, floorFill: 0, floorLine: .35, post: .3, captionBack: 0, captionHalo: .8
     },
