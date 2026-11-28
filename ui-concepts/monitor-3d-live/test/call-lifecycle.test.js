@@ -150,6 +150,7 @@ test('Antigravity sessions with the same native step keep both drawable tool and
       [key, 'touch', 'step-3', 't:' + key + ':view_file', 'r:' + key + ':file:src/']];
   });
   assert.deepEqual(pictures(model), expected);
+  assert.equal(model.links.get('step-3').session, 'antigravity:' + second);
   const saved = model.serialize();
   const legacy = JSON.parse(saved).state;
   const legacyIds = new Map(legacy.links.$map.map(([id, link]) => [id, link.kind === 'touch' ? link.call + ' > ' + link.to : link.call]));
@@ -160,11 +161,14 @@ test('Antigravity sessions with the same native step keep both drawable tool and
     assert.deepEqual(pictures(loaded).sort(), expected.slice().sort());
     apply(loaded, 'PostToolUse', first);
     assert.deepEqual(pictures(loaded), expected.slice(2));
+    assert.equal(loaded.links.get('step-3').session, 'antigravity:' + second);
+    assert.equal(loaded.links.get('step-3 > ' + expected[3][4]).kind, 'touch');
     assert.deepEqual(loaded.takeClosed().map(l => [l.session, l.kind]), expected.slice(0, 2).map(l => l.slice(0, 2)));
     assert.equal(loaded.sessions.get('antigravity:' + second).calls.get('step-3').links.length, 2);
     assert.equal(loaded.nodes.get(expected[3][4]).open, 1);
     apply(loaded, 'PostToolUse', second);
     assert.equal(loaded.links.size, 0);
+    assert.equal(loaded.links.has('step-3'), false);
     assert.equal(loaded.nodes.get(expected[3][4]).open, 0);
   }
 });

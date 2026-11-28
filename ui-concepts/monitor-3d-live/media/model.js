@@ -60,6 +60,21 @@
   const short = id => (id.length > 8 ? id.slice(0, 6) : id);
   const linkId = (session, call, resource) => JSON.stringify(resource === undefined ? [session, call] : [session, call, resource]);
 
+  class LiveLinks extends Map {
+    get(id) {
+      const scoped = super.get(id);
+      // Scoped keys start with '['. Native provider IDs start with a safe identifier character.
+      if (scoped || typeof id !== 'string' || id.startsWith('[')) return scoped;
+      let match;
+      for (const link of this.values()) {
+        const previousId = link.kind === 'touch' ? link.call + ' > ' + link.to : link.call;
+        if (previousId === id) match = link;
+      }
+      return match;
+    }
+    has(id) { return this.get(id) !== undefined; }
+  }
+
   function validate(e) {
     if (!e || typeof e !== 'object') fail('an event must be an object');
     if (e.v !== VERSION) fail('unknown schema version ' + e.v);
@@ -110,7 +125,7 @@
       this.columns = [];            // column index -> session key, or null for a gap
       this.sessions = new Map();    // session key -> session record
       this.overflow = new Set();    // sessions with no column to stand in
-      this.links = new Map();       // link id -> open call, or a touch made by an open call
+      this.links = new LiveLinks(); // link id -> open call, or a touch made by an open call
       this.arcs = new Map();        // clash arcs between two agents' copies of one written file
       this.writers = new Map();     // "ws|path" -> Map(session key -> resource node id)
       this.closed = [];             // calls that ended since the view last asked
@@ -671,6 +686,7 @@
     if (wrong) fail('a snapshot of the wrong shape: ' + wrong);
     for (const key of SNAPSHOT) model[key] = data.state[key];
     scopeRestoredLinks(model);
+    model.links = new LiveLinks(model.links);
     model.changed = new Set(model.nodes.keys()); model.structure = true;
     return model;
   }
