@@ -27,6 +27,7 @@ const KNOBS = require('./fixtures/looks/look-every-knob.js');
 const KNOBS_SOURCE = fs.readFileSync(path.join(__dirname, 'fixtures', 'looks', 'look-every-knob.js'), 'utf8');
 const { findBrowser, Harness, sleep } = require('./page-harness.js');
 const S = require('./fixtures/stream/streams.js');
+const SHOOT = require('../tools/shoot-looks.js');
 
 /* The allowance for stubs. The acceptance run deletes it (sets it to false): from then on a look that is not built fails the suite. */
 const STUBS_ALLOWED = true;
@@ -195,6 +196,10 @@ function problems(look) {
     if (!size || +size[1] < 10 || +size[1] > 20) bad('page.titleSize must be from 10px to 20px: the bar keeps its height');
   }
   for (const key of ['fromPage', 'backdrop']) if (look[key] !== undefined && typeof look[key] !== 'function') bad(key + ' must be a function');
+  if (look.samples !== undefined) {
+    if (typeof look.fromPage !== 'function') bad('samples are for a look that has fromPage');
+    try { SHOOT.samplesOf(look); } catch (error) { bad(error.message); }
+  }
   for (const key of MESH_KEYS) {
     let mesh;
     try { mesh = look.mesh(key); } catch (error) { bad('mesh("' + key + '") throws: ' + error.message); continue; }
@@ -264,6 +269,10 @@ for (const id of BUILT) {
   test('look ' + id + ': its backdrop is still, inside the limits, and asks for no clock; its colours have fixed fall-backs', () => {
     const look = LOOKS[id];
     if (typeof look.fromPage === 'function') {
+      for (const [name, vars] of SHOOT.samplesOf(look)) {
+        look.fromPage((key, fallback) => (Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : fallback));
+        assert.deepEqual(problems(look), [], 'after fromPage under its sample "' + name + '"');
+      }
       look.fromPage((name, fallback) => fallback);        // a page with none of the variables: the fall-backs
       assert.deepEqual(problems(look), [], 'after fromPage with nothing to read');
     }
@@ -422,6 +431,24 @@ test('the contract: colours read from the page, with fixed fall-backs, and a sig
   const again = R.signature(look);
   assert.equal(R.signature(R.refresh(look, doc)), again, 'nothing changed: the same signature');
   assert.equal(R.refresh(LOOKS.nexus, doc), LOOKS.nexus, 'a look without fromPage is left as it is');
+});
+
+test('the shoot tool takes built looks only, and a look\'s samples are sets of the editor\'s variables', () => {
+  const { wanted, refused } = SHOOT.sort(['nexus-mockup', STUBS[0] || 'nexus', 'no-such-look', 'nexus-mockup', 'toString']);
+  assert.deepEqual(wanted, STUBS.length ? ['nexus-mockup'] : ['nexus-mockup', 'nexus']);
+  assert.equal(refused.length, STUBS.length ? 3 : 2);
+  if (STUBS.length) assert.match(refused[0], /^[a-z-]+: not built yet/);
+  assert.match(refused[refused.length - 1], /^toString: not a look/);
+  assert.equal(path.relative(REPO, SHOOT.OUT).split(path.sep).join('/'), 'docs/looks/img');
+  assert.deepEqual(SHOOT.samplesOf(LOOKS.nexus), []);
+  assert.deepEqual(SHOOT.samplesOf(KNOBS), [['dark', KNOBS.samples.dark]]);
+  for (const samples of [7, { Dark: {} }, { 'a/b': {} }, { dark: null }, { dark: { '--bg': '#000' } }, { dark: { '--vscode-editor-background': 7 } }])
+    assert.throws(() => SHOOT.samplesOf({ id: 'x', samples }), /^Error: x: /, JSON.stringify(samples));
+  // A look's sample changes what fromPage reads, and the look is still a complete look under it.
+  const look = Object.assign({}, KNOBS, { palette: Object.assign({}, KNOBS.palette), page: undefined });
+  look.fromPage((key, fallback) => KNOBS.samples.dark[key] || fallback);
+  assert.equal(look.palette.bg, '#1e1e1e');
+  assert.deepEqual(problems(look), []);
 });
 
 /* ---------- in the browser ---------- */
@@ -739,6 +766,18 @@ describe('the looks in a headless browser', () => {
     after = await h.counters();
     assert.deepEqual([after[0] - before[0], after[1] - before[1], (await h.eval(LOOK_STATE)).look], [0, 0, 'nexus']);
     await noErrors('colours from the page');
+  });
+
+  it('the shoot tool writes one picture for the look named and no other, where it is told to', T, async () => {
+    const out = path.join(SHOTS, 'shoot'), committed = path.join(REPO, 'docs', 'looks', 'img');
+    const listing = dir => (fs.existsSync(dir) ? fs.readdirSync(dir).map(f => f + ' ' + fs.statSync(path.join(dir, f)).mtimeMs).sort() : []);
+    for (const file of fs.existsSync(out) ? fs.readdirSync(out) : []) fs.unlinkSync(path.join(out, file));
+    const before = listing(committed);
+    const written = await SHOOT.shoot(['glasshouse-mockup'], { out });
+    assert.deepEqual(fs.readdirSync(out), ['glasshouse-mockup.png']);
+    assert.deepEqual(written.map(w => [w.id, w.sample, w.nodes]), [['glasshouse-mockup', '', [...FIXED.model().nodes.values()].filter(n => !n.folded).length]]);
+    assert.ok(written[0].bytes > 20000, 'a real picture: ' + written[0].bytes + ' bytes');
+    assert.deepEqual(listing(committed), before, 'the committed pictures are not touched by a test');
   });
 
   it('every built look draws a frame at about 200 nodes inside the plan\'s budget, and so does a backdrop at the engine\'s limits', T, async () => {

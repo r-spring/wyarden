@@ -34,6 +34,8 @@
       panelInk: '#f8fafc', panelText: '#d7dde5', panelMuted: '#9aa4b2', panelLine: '#475569', panelAccent: '#f59e0b',
       notAKey: 'ignored'
     },
+    // Sets of the editor's variables to be photographed under (tools/shoot-looks.js), and that the test tries fromPage with.
+    samples: { dark: { '--vscode-editor-background': '#1e1e1e', '--vscode-editor-foreground': '#d4d4d4' } },
     /** Colours from the page, each time the look is applied: the editor's background and foreground, else the fixed ones. */
     fromPage(read) {
       this.palette.bg = read('--vscode-editor-background', FALLBACK.bg);
