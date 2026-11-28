@@ -86,7 +86,11 @@
 |---|---|---|---|
 | 9a8eb9 | Root | Running | List written and delivered (`docs/looks/README.md`); where and which settled with Robert; approved 27 November 14:17, not a governed run; `monitor-live-tests` on main (e7082f3) |
 | e9327e | 1. Foundation, first try | Cancelled 14:26 | Opened 14:19; its session was interrupted at 14:23 when the board's windows restarted; it had read and changed nothing |
-| 575957 | 1. Foundation | Running. Opened 27 November 14:27, Claude Fable, effort high, check `monitor-live-tests`. Cut off at 14:38 by a window reload with nothing changed; fast-forwarded to `4704617` and resumed 28 November 01:20, told to commit after each part | |
+| 575957 | 1. Foundation | Done. Integrated 28 November 02:19 as `ab7b9a8` (its head `721c7da`); check passed | Registry `media/looks.js` and `docs/looks/looks.json` with the 18 ids; a switcher opened from the current look's name, with previous and next; 4 looks built, 14 stubs marked "not built"; a look may carry `backdrop`, `page`, `fromPage`, `samples`, `palette.outline`, mesh `faces`, `captionSize`, `claims`; `test/looks.test.js`; `tools/shoot-looks.js`; `LOOKS.md`. Suite at its head: 417 tests, 399 pass, 0 fail, 4 skipped, 14 to do. Root looked at the switcher at 800 x 600 and at two of its four pictures |
+| 9520d4 | 2. `lattice` | Opened 28 November 02:20, Claude Opus, effort high, check `monitor-live-tests` | |
+| 993a2d | 3. `circuit-city`, `orbital` | Opened 28 November 02:20, as above | |
+| 153f06 | 4. `glasshouse-original`, `synapse` | Opened 28 November 02:20, as above | |
+| 86bd88 | 9. The preview | Opened 28 November 02:20, as above | |
 
 ## Risks
 
