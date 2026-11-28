@@ -12,6 +12,8 @@ Written 27 November 2026.
 
 ## How to switch
 
+**Which version:** 0.2.0 and later. A window shows the new looks once it has been reloaded after the update (**Developer: Reload Window**).
+
 **In the 3D Monitor tab,** the bar at the top has "Look", then three buttons:
 
 - **The look's name** opens the list of all 18, in four groups: Monitor, Original mock-ups, Board and landing page, From Entridir. Click one. Escape closes the list.

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - 0.2.0 adds live Codex, Grok Build, and Antigravity sessions alongside Claude Code. The collector setup command previews the required provider configuration. The status command shows whether each provider is configured and whether Codex is waiting for hook approval.
+- 0.2.0 also has 18 looks for the scene, where there were two. **Look** in the bar opens the list, and **‹** and **›** step through them. Until you choose one, the editor's theme picks NEXUS or Glasshouse. A look changes colours, shapes, lettering and a still backdrop; it moves nothing. From source, `node ui-concepts/monitor-3d-live/tools/preview.js` shows the same page in a browser on invented data. [The 18 looks](https://github.com/r-spring/wyarden/blob/main/docs/looks/README.md)
 
 - 0.1.7: select a Claude Code agent to see the thinking its session has done, newest first, in a **Thinking** section under its details; it is read by the editor window that opened the monitor and by no other, kept current while the agent stays selected, and written nowhere. In the 14 transcripts measured, most thinking left only a count; in six probe sessions, Claude Code wrote the text only when started with `--thinking-display summarized`.
 - 0.1.6 opens **3D Monitor** in a dedicated floating window. Open files, reveal searched folders, and show agent sessions across open workspaces from that window.

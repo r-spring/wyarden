@@ -45,13 +45,13 @@ Run **Wyarden 3D Monitor: Choose Workspace** if you prefer a list. A chip repres
 
 ## Read and navigate the scene
 
-- An agent is an icosahedron, and a subagent is a dodecahedron. The workspace name appears on the tile beneath the agent. Point to an agent to see its session title.
+- In NEXUS and Glasshouse, an agent is an icosahedron and a subagent is a dodecahedron. Other looks draw them in their own shapes, and the legend shows which. The workspace name appears on the tile beneath the agent. Point to an agent to see its session title.
 - The view arranges each session's activity in a column with related tool, MCP server, and resource nodes. Lines show calls between nodes. The preview draws up to 12 sessions per view and reports how many are left out.
 - Select a node to see its details. Double-click a file or press **Ctrl+Enter** on it to open it beside the monitor. For a grouped set of files Wyarden offers a picker. It asks before opening a URL in your browser.
 - Since 0.1.7, select a Claude Code agent to see the thinking its session has done, newest first, in the **Thinking** section under its details. It stays current while the agent is selected. In the 14 transcripts measured, most thinking left only a count. In six probe sessions, Claude Code wrote thinking text only when the session was started with the hidden `--thinking-display summarized` flag. For a session that has thought without that flag, the section counts the thoughts and says no text was recorded. A subagent's thinking is not shown.
 - If a Codex turn ends before its tool reports a result, the inspector shows **end not observed** and clears the open call. A later result updates that same call.
 - Double-click a Claude Code agent or press **Ctrl+Enter** to show its terminal or chat panel when Wyarden can confirm the session is in this editor window. A subagent opens its parent session. For a session in another window, switch to that window first.
-- Switch between **NEXUS** and **Glasshouse** to change the appearance while keeping the layout. New sessions are framed automatically until you move the camera.
+- Since 0.2.0, use **Look** in the bar to change the appearance while keeping the layout. Its name opens a list of 18 looks, and **‹** and **›** step through them. Until you choose one, the editor's theme picks **NEXUS** (dark) or **Glasshouse** (light); after that the tab keeps your choice. [The 18 looks, with a picture of each](https://github.com/r-spring/wyarden/blob/main/docs/looks/README.md) New sessions are framed automatically until you move the camera.
 
 ## Optional collectors
 
