@@ -79,7 +79,7 @@ describe('the live page in a headless browser', () => {
     const source = fs.readFileSync(path.join(__dirname, '..', 'media', 'page.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
     assert.doesNotMatch(source, /<style|\sstyle\s*=|\son[a-z]+\s*=/i);
     const tags = source.match(/<script\b[^>]*>/g) || [];
-    assert.equal(tags.length, 8);
+    assert.equal(tags.length, 25);          // 7 of the page, looks.js, and one for each of the 18 looks
     for (const tag of tags) assert.match(tag, /^<script nonce="\{\{nonce\}\}" src="\{\{base\}\}\/[a-z-]+\.js">$/);
     for (const tag of source.match(/<link\b[^>]*>/g) || []) assert.match(tag, /href="\{\{base\}\}\/[a-z-]+\.css"/);
     assert.ok(source.includes('content="{{csp}}"'));
@@ -426,6 +426,7 @@ describe('the live page in a headless browser', () => {
     await h.deliver({ v: 1, type: 'look', look: 'nexus' });
     assert.equal(await h.eval('Monitor3D.state.look'), 'nexus');
     await h.deliver({ v: 1, type: 'look', look: 'glasshouse' });
+    await h.eval('document.getElementById("look-name").click()');          // the look buttons are in the list that the look's name opens
     const at = await h.eval(`(() => { const r = document.querySelector('[data-look=nexus]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
     await h.click(at.x, at.y);
     await sleep(100);
@@ -452,7 +453,7 @@ describe('the live page in a headless browser', () => {
     const scene = S.scene({ agents: 4 });
     await h.deliver(scene.message);
     await sleep(500);
-    for (const selector of ['[data-look=glasshouse]', '#spread']) {
+    for (const selector of ['#look-name', '[data-look=glasshouse]', '#spread']) {
       const at = await h.eval(`(() => { const r = document.querySelector('${selector}').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
       await h.click(at.x, at.y);
       await sleep(150);

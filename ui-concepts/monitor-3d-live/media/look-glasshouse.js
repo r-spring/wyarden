@@ -19,6 +19,8 @@
     id: 'glasshouse',
     name: 'Glasshouse',
     theme: 'light',
+    // What the looks test holds this look to: five silhouettes and five colours, one for each class; one hue for each provider.
+    claims: { classes: true, providers: true },
     font: "'Segoe UI', system-ui, -apple-system, Arial, sans-serif",
     lineWidth: 1.35,
     glow: false,
