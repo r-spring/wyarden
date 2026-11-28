@@ -632,7 +632,7 @@ The owner made a card on 27 November ("I want to be able to see the thinking tha
 
 | What | Where | Result |
 |---|---|---|
-| The tests, `node --test "ui-concepts/monitor-3d-live/test/*.test.js"` | Windows 11, Node 26.7.0, headless Edge, after the merge of 0.1.6 | 451 tests: 433 pass, 0 fail, 4 skipped (the same four as before), 14 to do (the looks run's stubs, not this feature's). 87 seconds. |
+| The tests, `node --test "ui-concepts/monitor-3d-live/test/*.test.js"` | Windows 11, Node 26.7.0, headless Edge, after the merge of 0.1.6 | 451 tests: 433 pass, 0 fail, 4 skipped (the same four as before), 14 to do (the looks run's stubs, not this feature's). 87 seconds. Run again after main's later looks were merged in: 490 tests: 481 pass, 0 fail, the same 4 skipped, 5 to do. 141 seconds. |
 | The four new test files alone | The same | `thinking.test.js` 23, `thinking-watch.test.js` 16, `thinking-page.test.js` 11, `thinking-privacy.test.js` 6: 56 tests, all pass. |
 | The reader on six real transcripts, counts only | The six probe sessions above | Each count matched the independent count: two with one recorded thought (470 and 544 characters before cleaning), four with one thought that left no text. All six were short enough to be read whole. |
 | Faults made on purpose, in copies outside the repository | The reader (10), the hub path (11), the host and the page (12 by a reviewer, 3 more for the new page checks) | Every fault made a test fail, except the two page leaks named in the reviews table, which do now. |
