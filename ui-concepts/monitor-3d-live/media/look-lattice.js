@@ -4,7 +4,8 @@
  * nexus-3d/ui-concepts/nexus-lattice-29d4d1/scene.js and style.css; picture docs/monitor-3d/img/before/lattice.png.
  * Taken as they are: the type colours (scene.js line 4), the octahedron, cube and ring meshes and their radii
  * (geometry() and nodeRadius()), the ground grid with every fourth line stronger, the three rings round the
- * centre and the four zone names lying on the ground (draw()), and the page's colours and lettering (style.css).
+ * centre and the four zone names lying on the ground (draw()), each label in its node's colour, and the page's colours
+ * and lettering and the stage's glow with its dark edges (style.css).
  * Changed: the original's twelve types are given to the monitor's five classes (agent the control cyan octahedron,
  * subagent the pale-blue smaller octahedron, tool the mint cube, MCP server the amber ring of main and remote,
  * resource the violet ring of context); the second violet and the second amber colour the resource and MCP floors,
@@ -37,15 +38,16 @@
     // Neither rule: as in the original, a subagent is the agent's octahedron made smaller, and an MCP server and a
     // resource share the ring, told apart by size and colour. Every class has its own colour; no provider has one.
     claims: {},
-    // scene.js draws its labels in Consolas; style.css --mono names Cascadia Code first, but Cascadia is wider and with it a row of the
-    // page (most likely the status line) wraps at 800 px and the scene shrinks by 16 px. Consolas first, then the rest of --mono.
+    // scene.js draws its labels in Consolas (lines 63, 77 and 78), so the scene's captions are Consolas first.
     font: "Consolas, 'Cascadia Code', 'SFMono-Regular', 'Liberation Mono', monospace",
     lineWidth: 1,                                         // the original's edges: 1 px with a 3 px glow
     glow: true,
     caption: text => text.toUpperCase(),
     page: {
-      ui: "Consolas, 'Cascadia Code', 'SFMono-Regular', 'Liberation Mono', monospace",
-      headFont: "Consolas, 'Cascadia Code', 'SFMono-Regular', 'Liberation Mono', monospace",
+      // style.css --mono, in its own order: the page is Cascadia Code where that is installed. It is wider than Consolas,
+      // so at 800 x 600 the status line takes two lines of text and the scene is one line lower (LOOKS.md, the size rule).
+      ui: "'Cascadia Code', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
+      headFont: "'Cascadia Code', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
       // The masthead's NEXUS: Segoe UI 500, wide-spaced capitals in near-white (.brand).
       titleFont: "'Segoe UI', Arial, sans-serif",
       titleWeight: '500',
@@ -71,6 +73,11 @@
       // label's white; the quiet ones: its grey-blue texts (#a6ccd4, --muted, .dim).
       state: { needs: '#ffce7b', failed: '#ff647f', working: '#e2fbff', unclear: '#a6ccd4', idle: '#7697a8', done: '#638493' },
       clash: '#ff647f',
+      // style.css .stage: radial-gradient(ellipse at 50% 75%, #0b2630 0%, #06111c 45%, #030910 95%): a glow low in the
+      // middle, dark edges.
+      ground: { shape: 'round', at: [.5, .75], stops: [[0, '#0b2630'], [.45, '#06111c'], [.95, '#030910']] },
+      // scene.js line 77: a node's label is in the node's own colour (the selected one in white).
+      captionNode: true,
       // Wireframe through and through: nothing filled and nothing hidden, as the original drew it.
       // captionHalo: the original's labels had a dark shadow (#020910, blur 4) round their letters.
       fill: 0, solid: 0, floorFill: 0, floorLine: .4, post: .45, captionBack: 0, captionHalo: .8

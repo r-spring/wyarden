@@ -55,8 +55,31 @@ The two built mock-up looks, `look-nexus-mockup.js` and `look-glasshouse-mockup.
 | `solid` | 0 to 1: how much of what lies behind a shape is hidden, in the background's colour. |
 | `floorFill`, `floorLine`, `post` | 0 to 1: a floor's tint, its outline, and the posts that join a column's floors. |
 | `captionBack`, `captionHalo` | 0 to 1: a plate behind a caption; a thin outline of the background's colour round its letters. Use one of the two. |
+| `ground` (optional) | The scene's background as one still gradient, round or straight, in place of the flat `bg`. See below. |
+| `captionNode` (optional) | `true`: the first line of a caption is in its node's colour, where that can be read. See below. |
 
 A colour is any CSS colour.
+
+**A ground that is not flat (`ground`).** One gradient fills the scene where the flat `bg` did. Absent, the scene is drawn exactly as before.
+
+```js
+ground: { shape: 'round', at: [.5, .75], stops: [[0, '#0b2630'], [.45, '#06111c'], [.95, '#030910']] }
+ground: { shape: 'straight', from: [.5, 0], to: [.5, 1], stops: [[0, '#f5f7f1'], [1, '#e5ede4']] }
+```
+
+- **`round`** is an ellipse round `at` that reaches the scene's farthest corner, as CSS's `radial-gradient(ellipse at 50% 75%, …)` does. `at` is the middle when absent.
+- **`straight`** runs from `from` to `to`, as CSS's `linear-gradient(…)` does. Absent, they are the top and the bottom.
+- **A position is a fraction of the scene:** `[0, 0]` is its top left corner, `[1, 1]` its bottom right one.
+- **`stops`** are 2 to 6 of `[offset, colour]`, the offsets from 0 to 1 and never falling.
+- **Its limits:** it is the one fill that begins a frame, so it costs nothing more and nothing is drawn at rest. It does not move. The stage round the scene and the panels keep `bg` and `panel`. What a shape hides (`solid`), a mark's disc and a caption's halo keep `bg` too, so choose stops near `bg`.
+- **A ground that cannot be drawn** (a wrong shape, a colour the browser refuses) leaves the flat `bg`, and the test fails.
+
+**A caption in its node's colour (`captionNode: true`).** The first line of a caption at rest takes its node's colour: its class's, or its provider's where the palette has `provider`.
+
+- **What stays:** the selected and the pointed-at caption keep `ink`; a caption's second line keeps `muted`; the workspace names on the tiles keep `caption`. A state never colours a caption.
+- **The floor is a contrast of 4.5 to 1** (WCAG's floor for small text) against `bg` and against every stop of `ground`. A node's colour under the floor is not used: that caption keeps `caption`.
+- **Write `bg`, the ground's stops and the class and provider colours as `#rgb`, `#rrggbb` or `rgb(r, g, b)`.** The engine works the contrast out from the text; a colour written another way keeps `caption`, and the test asks for these forms.
+- **The test fails** when a look asks for it and none of its colours reaches the floor: leave the key out then.
 
 ## The meshes
 
@@ -64,6 +87,7 @@ A colour is any CSS colour.
 
 - **Build with `E.shapes`:** `box(w, h, d, y)`, `prism(sides, radius, h, y, turn)`, `pyramid(sides, radius, h, y, turn)`, `octahedron(radius, y)`, `icosahedron(radius, y)`, `dodecahedron(radius, y)`, `ring(radius, count, plane, y)` with plane `'xz'`, `'xy'` or `'zy'`, `path(vertices, closed)`, `polygon(vertices)`, `merge(...meshes)`.
 - **A mesh stays in its own slot:** it stands on y = 0, is centred on x = 0 and z = 0, reaches at most 31 from the centre (a resource 17, because it grows with use), and is at most 80 tall.
+- **Its icon shows it whole.** The legend and the inspector draw each mesh as a small icon. A mesh the usual view holds is drawn in it; a taller one is seen from farther back until all of it fits. So give a mesh the height its original has, up to 80. One exception: a mesh about 42 to 45 tall keeps the usual view and loses its tip, at most 6 % of the icon's size, because that is how the NEXUS mock-up's agent has always been drawn.
 - **A mesh is small:** at most 120 corners and 120 lines. The frame budget is measured with meshes of this size.
 - **Filled as drawn (optional `faces`):** a mesh is filled by the hull of its outline. Give it `faces: [[i, j, k, ...], ...]` and those polygons are filled instead, so a flat mark may be a cross or a star. `faces: []` fills nothing (two heavy strokes). `S.polygon(corners)` makes a flat filled shape. A merge that holds any `faces` is filled by the faces alone.
 
@@ -90,10 +114,18 @@ A colour is any CSS colour.
 | `titleCase` | `uppercase`, `none`, `lowercase` | `panelMuted` | quiet text on a panel |
 | `titleColor` | its colour | `panelLine` | borders on a panel |
 | `titleShadow` | a text shadow, for a glow | `panelAccent` | pressed and focused on a panel |
+| `labelFont` | the small spaced headings' font family; absent, they have `headFont`'s | | |
 
 - **Fonts are the system's.** Name a family list that ends in a generic one. No font file can load: the page's policy allows no network and no font source.
+- **Two fonts in the panels.** `headFont` sets the headings ("List", "Inspector", "Legend", the selected node's name). `labelFont` sets the small spaced headings under them ("CLASSES", "STATES", "CALLS"), so a look may have serif headings over small monospace labels. `labelSpacing` and `labelCase` belong to the same small headings.
 - **The panel colours are for a look whose panels and stage differ** (dark panels beside a light stage). Without them a panel uses `ink`, `caption`, `muted`, `line` and `accent`. With them, the legend's and the inspector's swatches stand on the stage's colour, so your class and state colours need only work on `bg`.
-- **The bar keeps its height,** so the scene has the same size in every look. A title above about 20px runs into the line under it.
+
+**The scene keeps its size.** Use the fonts your original used; the rule below is all a font has to keep.
+
+- **At 1280 x 720 the scene has exactly the same size in every look.**
+- **The top bar and the workspace chips keep their height at every size.** A title above about 20px runs into the line under it.
+- **Below 1280 x 720 the status line may take more lines.** It is a sentence, and it is never cut: in a wide page font it wraps sooner (Cascadia Code: two lines at 800 x 600, where Segoe UI has one). The scene then gives exactly the height of those whole lines of text, and nothing else.
+- **When the test fails on size, its message names the look and the row:** the top bar, the workspace chips or the status line.
 
 **`fromPage(read)`.** Called each time the look is applied, and again when the editor's theme changes, also after the owner chose the look. `read(name, fallback)` gives a CSS variable of the page, or the fall-back when it is absent. Write into `this.palette` (and `this.page`, `this.theme`):
 
@@ -142,7 +174,7 @@ node --test ui-concepts/monitor-3d-live/test/looks.test.js
 node ui-concepts/monitor-3d-live/tools/shoot-looks.js <id>
 ```
 
-- **The test** checks every built look: it is complete; it keeps what it claims; nothing stands elsewhere than in NEXUS; its backdrop is still and inside the limits; a real click on its button shows it with 0 frames at rest and no script error; its picture differs from every other look's; the scene keeps its size; a frame at about 200 nodes is inside the budget. It leaves a picture of the page in `ui-concepts/monitor-3d-live/.scratch/looks/<id>.png`, which git ignores.
+- **The test** checks every built look: it is complete; it keeps what it claims; nothing stands elsewhere than in NEXUS; its backdrop is still and inside the limits; its background is one fill and its ground can be drawn; a caption has its node's colour only where it reaches the floor; a real click on its button shows it with 0 frames at rest and no script error; its picture differs from every other look's; it keeps to the size rule; a frame at about 200 nodes is inside the budget. It leaves a picture of the page in `ui-concepts/monitor-3d-live/.scratch/looks/<id>.png`, which git ignores.
 - **The whole suite** is `node --test "ui-concepts/monitor-3d-live/test/*.test.js"`.
 - **The shoot tool** writes `docs/looks/img/<id>.png` for the ids you name and no other: the page at 1280 x 720 on one fixed invented scene with every class and state. With `samples` it also writes `docs/looks/img/<id>-<name>.png` for each. Commit those pictures with your look.
 - **To see it yourself,** open the picture, or run the test and open the one in `.scratch/looks/`, or use the preview below.

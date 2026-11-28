@@ -76,7 +76,9 @@
       ui: SANS,
       titleFont: SERIF, titleStyle: 'italic', titleWeight: '400', titleSize: '20px', titleSpacing: '-0.5px',
       titleCase: 'none', titleColor: C.orange,
-      headFont: MONO, labelSpacing: '1.7px', labelCase: 'uppercase', radius: '3px',
+      // Serif headings (.panel h2, .sheet-head h2, .attention-card h3: --serif) over small spaced monospaced capitals
+      // (.eyebrow, .detail-block h3: --mono, uppercase).
+      headFont: SERIF, labelFont: MONO, labelSpacing: '1.7px', labelCase: 'uppercase', radius: '3px',
       panelInk: ON_SLATE.strong, panelText: ON_SLATE.text, panelMuted: ON_SLATE.quiet, panelLine: ON_SLATE.rule,
       panelAccent: ON_SLATE.orange
     },

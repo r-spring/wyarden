@@ -18,8 +18,9 @@
  * - The original had no MCP server, URL, file or folded pile: an MCP server takes the original account's
  *   loop with a bead in it, a file and a URL the original worktree's mint diamond, a context the
  *   original's context bead, a pile three small beads.
- * - The title is 20 px, the most the bar holds (49 px in the original); the stage is one colour, the
- *   original's ground, where the original was a little lighter towards the middle (#2f103b).
+ * - The title is 20 px, the most the bar holds (49 px in the original).
+ * Kept since the contract's second round: the viewport's glow, lighter a little left of the middle
+ * (palette.ground), and each node's label in its own colour (palette.captionNode).
  *
  * A look is palette, meshes and caption style. It has no say in where a node stands. See LOOKS.md.
  */
@@ -84,6 +85,10 @@
       // (engine.js line 4, #ffd48a); "done" the trunk's violet, quieter than idle's muted.
       state: { needs: '#ffd48a', failed: O.alert, working: O.text, unclear: O.muted, idle: O.muted, done: TRUNK },
       clash: O.alert,
+      // worlds.css line 10, .synapse .viewport: radial-gradient(ellipse at 45% 50%, #2f103b, #100817 75%).
+      ground: { shape: 'round', at: [.45, .5], stops: [[0, '#2f103b'], [.75, O.bg]] },
+      // The original's engine.js line 75: a node's label is in the node's own colour (the selected one in the text colour).
+      captionNode: true,
       // Wireframe beads with a soft glow; the original's labels stood on a shadow of the ground: a halo.
       fill: .08, solid: .85, floorFill: 0, floorLine: .22, post: .16, captionBack: 0, captionHalo: .8
     },
@@ -93,7 +98,10 @@
       ui: "Consolas, 'Liberation Mono', monospace",
       titleFont: "Georgia, 'Times New Roman', serif", titleStyle: 'italic', titleWeight: '400', titleSize: '20px',
       titleSpacing: '0px', titleCase: 'none', titleColor: '#f1c9ee',
-      headFont: "Consolas, 'Liberation Mono', monospace", labelSpacing: '1px', labelCase: 'uppercase', radius: '14px'
+      // The inspector's heading: .synapse .node-title, italic 26px Georgia (a heading here takes the family, not the
+      // slant). The small labels: .panel-label, the page's --mono.
+      headFont: "Georgia, 'Times New Roman', serif", labelFont: "Consolas, 'Liberation Mono', monospace",
+      labelSpacing: '1px', labelCase: 'uppercase', radius: '14px'
     },
     /**
      * The nervous system, standing still: a root ring and roots under the lowest floor; a trunk rising behind the

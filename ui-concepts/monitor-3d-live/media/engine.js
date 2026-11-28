@@ -247,6 +247,109 @@
     return { ops, count, over };
   }
 
+  /* ---------- a look's ground: the scene's background as one still gradient ----------
+   * palette.ground is optional. Without it the scene's background is the flat palette.bg, drawn exactly as before.
+   *   { shape: 'round', at: [x, y], stops: [[offset, colour], ...] }                 an ellipse round `at`, out to the farthest corner
+   *   { shape: 'straight', from: [x, y], to: [x, y], stops: [[offset, colour], ...] }  from one point to the other
+   * A position is a fraction of the scene: [0, 0] is its top left corner and [1, 1] its bottom right one. `at` is the
+   * middle when absent; `from` and `to` are the top and the bottom. Two to GROUND.stops stops, offsets from 0 to 1.
+   * It is the one fill that begins every frame, in place of the flat one: nothing more is drawn, and nothing at rest.
+   * The stage round the scene, what a shape hides, a mark's disc and a caption's halo keep palette.bg.
+   */
+  const GROUND = { stops: 6 };
+  /** What is wrong with a ground, or '' when it can be drawn. */
+  function groundProblem(ground) {
+    if (!ground || typeof ground !== 'object') return 'ground must be an object';
+    if (ground.shape !== 'round' && ground.shape !== 'straight') return 'ground.shape must be "round" or "straight"';
+    const spot = p => Array.isArray(p) && p.length === 2 && p.every(v => Number.isFinite(v) && v >= 0 && v <= 1);
+    for (const key of ground.shape === 'round' ? ['at'] : ['from', 'to']) if (ground[key] !== undefined && !spot(ground[key])) return 'ground.' + key + ' must be [x, y], each from 0 to 1';
+    if (ground.shape === 'straight') { const a = ground.from || [.5, 0], b = ground.to || [.5, 1]; if (a[0] === b[0] && a[1] === b[1]) return 'ground.from and ground.to must differ'; }
+    const stops = ground.stops;
+    if (!Array.isArray(stops) || stops.length < 2 || stops.length > GROUND.stops) return 'ground.stops must hold 2 to ' + GROUND.stops + ' stops';
+    let last = 0;
+    for (const stop of stops) {
+      if (!Array.isArray(stop) || stop.length !== 2 || !Number.isFinite(stop[0]) || stop[0] < last || stop[0] > 1 || typeof stop[1] !== 'string' || !stop[1].trim()) return 'ground.stops: each is [offset, colour], the offsets from 0 to 1 and never falling';
+      last = stop[0];
+    }
+    return '';
+  }
+  /**
+   * Fill the scene's background: the look's ground, else the flat palette.bg. One fill. Returns '' or, when the ground
+   * could not be drawn (a wrong shape, a colour the canvas refuses), what was wrong; the flat colour is drawn then.
+   */
+  function paintGround(ctx, pal, w, h) {
+    let error = '';
+    if (pal.ground !== undefined) {
+      error = groundProblem(pal.ground);
+      if (!error) {
+        try {
+          const ground = pal.ground, round = ground.shape === 'round';
+          let fill, cx = 0, cy = 0, rx = 1, ry = 1;
+          if (round) {
+            // CSS's own default size, "farthest-corner": the ellipse through the corner farthest from its centre.
+            const at = ground.at || [.5, .5];
+            cx = at[0] * w; cy = at[1] * h; rx = Math.max(cx, w - cx) * Math.SQRT2; ry = Math.max(cy, h - cy) * Math.SQRT2;
+            fill = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+          } else {
+            const a = ground.from || [.5, 0], b = ground.to || [.5, 1];
+            fill = ctx.createLinearGradient(a[0] * w, a[1] * h, b[0] * w, b[1] * h);
+          }
+          for (const [offset, color] of ground.stops) fill.addColorStop(offset, color);
+          ctx.globalAlpha = 1; ctx.fillStyle = fill;
+          // A circle of radius 1, stretched to the ellipse: the rectangle is the scene (and a pixel more), seen from inside the stretch.
+          if (round) { ctx.save(); ctx.translate(cx, cy); ctx.scale(rx, ry); ctx.fillRect((-cx - 1) / rx, (-cy - 1) / ry, (w + 2) / rx, (h + 2) / ry); ctx.restore(); }
+          else ctx.fillRect(0, 0, w, h);
+          return '';
+        } catch (e) { error = String(e && e.message || e); }      // a look's mistake must not stop the scene
+      }
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, w, h);
+    return error;
+  }
+  /** Every colour the ground has: palette.bg, and each stop of palette.ground. A gradient is never lighter or darker than its stops. */
+  function groundColors(pal) {
+    const stops = pal.ground && !groundProblem(pal.ground) ? pal.ground.stops.map(stop => stop[1]) : [];
+    return [pal.bg].concat(stops);
+  }
+
+  /* ---------- a caption in its node's colour ----------
+   * palette.captionNode: true asks for the first line of a resting caption in its node's colour (its class's, or its
+   * provider's). The selected and the pointed-at caption keep palette.ink, and the second line keeps palette.muted.
+   * A caption must stay readable, so the colour is used only where its contrast is CAPTION_FLOOR to 1 or more against
+   * every colour of the ground (WCAG 2's ratio; 4.5 is its floor for small text). Below the floor, and for a colour
+   * that is not written as #rgb, #rrggbb or rgb(r, g, b), that caption keeps palette.caption. Never a state's colour.
+   */
+  const CAPTION_FLOOR = 4.5;
+  const lumKept = new Map();
+  /** The relative luminance of a colour written as #rgb, #rrggbb or rgb(r, g, b); null for any other text. */
+  function luminance(color) {
+    if (lumKept.has(color)) return lumKept.get(color);
+    const text = typeof color === 'string' ? color.trim().toLowerCase() : '';
+    let rgb = null, m;
+    if ((m = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(text))) rgb = [m[1] + m[1], m[2] + m[2], m[3] + m[3]].map(v => parseInt(v, 16));
+    else if ((m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/.exec(text))) rgb = [m[1], m[2], m[3]].map(v => parseInt(v, 16));
+    else if ((m = /^rgb\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*\)$/.exec(text))) rgb = [m[1], m[2], m[3]].map(Number);
+    let out = null;
+    if (rgb && rgb.every(v => v <= 255)) {
+      const [r, g, b] = rgb.map(v => { const c = v / 255; return c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); });
+      out = .2126 * r + .7152 * g + .0722 * b;
+    }
+    if (lumKept.size > 400) lumKept.clear();
+    lumKept.set(color, out);
+    return out;
+  }
+  /** The contrast of two colours, from 1 to 21; 0 when either cannot be read. */
+  function contrast(a, b) {
+    const la = luminance(a), lb = luminance(b);
+    return la === null || lb === null ? 0 : (Math.max(la, lb) + .05) / (Math.min(la, lb) + .05);
+  }
+  /** The colour of the first line of a resting caption of a node whose colour is `color`. */
+  function captionColor(pal, color) {
+    if (pal.captionNode !== true) return pal.caption;
+    for (const ground of groundColors(pal)) if (contrast(color, ground) < CAPTION_FLOOR) return pal.caption;
+    return color;
+  }
+
   /* ---------- drawing on change ---------- */
 
   /** Draws only when asked, and never more than once per display frame. Frames caused by data
@@ -306,9 +409,29 @@
     else if (shape === 'hourglass') { ctx.moveTo(x - s * .7, y - s * .9); ctx.lineTo(x + s * .7, y - s * .9); ctx.lineTo(x - s * .7, y + s * .9); ctx.lineTo(x + s * .7, y + s * .9); ctx.closePath(); ctx.stroke(); }
     else if (shape === 'dot') { ctx.arc(x, y, s * .42, 0, TAU); ctx.fill(); }
   }
+  /**
+   * The camera of an icon of `size` px. A mesh that fits the icon as it always was drawn (from 84 away, looking at 11
+   * above the floor) keeps exactly that camera, and so does one whose tip leaves the icon by no more than ICON.slack of
+   * its size: the NEXUS mock-up's agent does, by 4.7 %, and its icon stays as it was. Any other mesh (a mesh may be 80
+   * tall, and that camera shows about 45) is looked at in its middle, from as far back as it takes to show all of it a
+   * stroke's width inside the edge.
+   */
+  const ICON = { yaw: -0.5, pitch: 0.42, distance: 84, target: [0, 11, 0], slack: .06, pad: 1.5, far: 1200 };
+  function iconCamera(mesh, size) {
+    const usual = { yaw: ICON.yaw, pitch: ICON.pitch, distance: ICON.distance, target: ICON.target.slice() };
+    const fits = (camera, pad) => mesh.vertices.every(v => { const q = project(v, camera, size, size); return q && q.x >= pad && q.x <= size - pad && q.y >= pad && q.y <= size - pad; });
+    if (fits(usual, -size * ICON.slack)) return usual;
+    const low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
+    for (const v of mesh.vertices) for (let i = 0; i < 3; i++) { if (v[i] < low[i]) low[i] = v[i]; if (v[i] > high[i]) high[i] = v[i]; }
+    const camera = { yaw: ICON.yaw, pitch: ICON.pitch, distance: ICON.far, target: [0, 1, 2].map(i => (low[i] + high[i]) / 2) };
+    let near = ICON.distance, far = ICON.far;
+    for (let i = 0; i < 22; i++) { camera.distance = (near + far) / 2; if (fits(camera, ICON.pad)) far = camera.distance; else near = camera.distance; }
+    camera.distance = far;
+    return camera;
+  }
   /** One class's mesh on a small canvas, for the legend. */
   function drawIcon(ctx, look, key, color, size) {
-    const mesh = look.mesh(key), camera = { yaw: -0.5, pitch: 0.42, distance: 84, target: [0, 11, 0] };
+    const mesh = look.mesh(key), camera = iconCamera(mesh, size);
     const pts = mesh.vertices.map(v => project(v, camera, size, size));
     ctx.clearRect(0, 0, size, size);
     ctx.globalAlpha = Math.min(1, look.palette.fill * 1.6); ctx.fillStyle = color;
@@ -450,7 +573,7 @@
       const shown = col => this.isolated == null || col === this.isolated || col === L.DOCK;
 
       ctx.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
-      ctx.globalAlpha = 1; ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, w, h);
+      this.groundError = paintGround(ctx, pal, w, h);      // the flat palette.bg, or the look's ground (a still gradient)
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
       /* 1. Floors: one tile for each column on each floor it has. A tile never changes place or height. */
@@ -663,7 +786,7 @@
         const n = item.n, focus = priority < 2, s = item.c.scale;
         if (!focus && resting >= cap) { skipped++; continue; }
         // Each line: its text, its font and its colour. The first names the node; the last gives its state.
-        const lines = [{ text: this.captionOf(n, focus), font: (focus ? 'bold ' : '') + px(focus ? 11 : 10) + look.font, color: focus ? pal.ink : pal.caption }];
+        const lines = [{ text: this.captionOf(n, focus), font: (focus ? 'bold ' : '') + px(focus ? 11 : 10) + look.font, color: focus ? pal.ink : captionColor(pal, item.v.color) }];
         // The title of an agent's tab, under its name, only while the pointer is on the agent. It is shown as written.
         const title = n.id === this.hover ? this.titleOf(n) : '';
         if (title) lines.push({ text: title, font: px(10) + look.font, color: pal.ink, title: true });
@@ -833,6 +956,7 @@
     }
   }
 
-  const api = { View, Redraw, project, arch, hull, inHull, overlap, shapes, strokes, seeded, BACKDROP, backdropScene, compileBackdrop, drawBadge, drawIcon, DATA_GAP, GLOW_MS, MIN_HIT, MAX_GROWTH, CAMERA, PROVIDERS, TITLE_SHOWN };
+  const api = { View, Redraw, project, arch, hull, inHull, overlap, shapes, strokes, seeded, BACKDROP, backdropScene, compileBackdrop, drawBadge, drawIcon,
+    GROUND, groundProblem, paintGround, groundColors, CAPTION_FLOOR, luminance, contrast, captionColor, ICON, iconCamera, DATA_GAP, GLOW_MS, MIN_HIT, MAX_GROWTH, CAMERA, PROVIDERS, TITLE_SHOWN };
   if (inNode) module.exports = api; else root.MonitorEngine = api;
 })(typeof window === 'undefined' ? globalThis : window);

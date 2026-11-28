@@ -13,8 +13,10 @@
  * contexts and accounts), scaled to a slot and standing on it; colours are the picture's (lilac globes for
  * agents, peach for the rest) and never a state's; the rings and stars are centred on the floors and sized
  * from them, and they stand still: nothing orbits. Left out: the moving planets and their moons' rings, the
- * workspace star's rings (there is no star node), the viewport's radial glow (a look has one background
- * colour), and separate corner radii for panels (16 px) and buttons (pills): one radius serves both.
+ * workspace star's rings (there is no star node), and separate corner radii for panels (16 px) and buttons
+ * (pills): one radius serves both. Kept since the contract's second round: the viewport's radial glow
+ * (palette.ground), each node's label in its own colour (palette.captionNode), and the panels' small labels
+ * in the page's Consolas under Georgia headings (page.labelFont).
  *
  * A look is palette, meshes, lettering and a still backdrop. It has no say in where a node stands.
  */
@@ -78,11 +80,16 @@
       // The source's own: peach for "waiting", its alert for "blocked", its text and quiet text for the rest.
       state: { needs: C.secondary, failed: C.alert, working: C.text, unclear: C.muted, idle: C.muted, done: C.muted },
       clash: C.alert,
+      // worlds.css .orbit .viewport: radial-gradient(ellipse at center, #111e35, #02040c 75%).
+      ground: { shape: 'round', at: [.5, .5], stops: [[0, '#111e35'], [.75, '#02040c']] },
+      // The source's engine.js line 75: a node's label is in the node's own colour (the selected one in the text colour).
+      captionNode: true,
       fill: .06, solid: .55, floorFill: .02, floorLine: .3, post: .25, captionBack: 0, captionHalo: .85
     },
     page: {
       ui: "Consolas, 'Liberation Mono', monospace",
       headFont: "Georgia, 'Times New Roman', serif",
+      labelFont: "Consolas, 'Liberation Mono', monospace",   // worlds.css .panel-label: the body's --mono, 7px, spaced 1.3px
       titleFont: "Georgia, 'Times New Roman', serif", titleStyle: 'italic', titleWeight: '400', titleSize: '20px',
       titleSpacing: '-0.5px', titleCase: 'none', titleColor: C.text,
       labelSpacing: '1.3px', labelCase: 'uppercase', radius: '14px'
