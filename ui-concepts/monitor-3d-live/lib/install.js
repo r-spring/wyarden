@@ -477,10 +477,40 @@ function finish(c, doc, hooks, dirty, emptied) {
 /* ---------- the API of the contract, section 8.4 ---------- */
 
 /** The change records this module made itself. `apply` writes no other: a record is data, and data can be made by hand. */
-const PLANNED = new WeakSet();
+const PLANNED = new WeakMap();
+
+// Bind a review to the directory and file it read, even if a replacement has identical bytes.
+function identity(file, io, follow) {
+  try {
+    const st = (follow ? io.statSync : io.lstatSync)(file, { bigint: true });
+    return { key: st.dev + ':' + st.ino + ':' + (follow ? io.realpathSync(file) : ''),
+      dir: st.isDirectory(), file: st.isFile(), link: st.isSymbolicLink() };
+  } catch (error) {
+    return error.code === 'ENOENT' ? { key: '' } : null;
+  }
+}
+
+function targetOf(file, dir, provider, io = fs) {
+  const account = identity(dir, io, true);
+  const entry = identity(file, io, false);
+  if (!account?.dir || !entry || (entry.key && !entry.file && !(provider === AGENT && entry.link))) return null;
+  const folder = provider === 'grok' ? identity(path.dirname(file), io, false) : account;
+  if (!folder || (folder.key && !folder.dir)) return null;
+  const target = entry.key ? identity(file, io, true) : entry;
+  if (!target || (entry.key && !target.file)) return null;
+  return JSON.stringify([account.key, folder.key, entry.key, target.key]);
+}
+
+function remember(c, provider, file, dir, target, applyNative) {
+  PLANNED.set(c, { provider, file, dir, target, applyNative, after: c.after, before: c.before,
+    exists: c.exists, changed: c.changed, error: c.error });
+  return c;
+}
 
 /** Never throws on a file's content: anything unexpected becomes an error record. */
 function guarded(dir, fn) {
+  const file = blank(dir).file;
+  const target = targetOf(file, dir, AGENT);
   let c;
   try { c = fn(); } catch {
     c = blank(dir);
@@ -488,8 +518,43 @@ function guarded(dir, fn) {
     c.state = 'unreadable';
     try { c.before = c.after = fs.readFileSync(c.file, 'utf8'); c.exists = true; } catch { /* left empty */ }
   }
-  PLANNED.add(c);
-  return c;
+  return remember(c, AGENT, file, dir, target);
+}
+
+/** Only built-in provider planners can add a native configuration to the reviewed write path. */
+function planProvider(provider, hub, dirs, options) {
+  const plugins = require('./collectors.js');
+  const adapter = plugins.providers[provider];
+  if (!adapter || provider === AGENT) throw new TypeError('Unknown native collector');
+  const { fileIn, apply: applyNative } = adapter;
+  return Array.from(new Set(dirs)).flatMap(dir => {
+    const file = fileIn(dir);
+    const target = path.isAbsolute(dir) && targetOf(file, dir, provider);
+    if (!target) return [{ dir, file, error: 'The collector target is not a safe file in its profile.' }];
+    const planned = plugins.planConfig(provider, hub, { ...options, dirs: [dir] });
+    const c = planned?.changes?.[0];
+    if (planned?.changes?.length !== 1 || c?.file !== file || c.dir !== dir) {
+      return [{ dir, file, error: 'The collector could not plan a change for this profile.' }];
+    }
+    return [remember(c, provider, file, dir, target, applyNative)];
+  });
+}
+
+function planBridge(dir, file) {
+  const target = targetOf(file, dir, 'bridge');
+  const source = fs.readFileSync(require.resolve('./hook-bridge.js'), 'utf8').replace(/\r\n/g, '\n');
+  const c = { dir, file, exists: false, before: '', after: source, changed: false };
+  if (!target || file !== path.join(dir, 'collector-v1.js')) c.error = 'The local collector command cannot be installed safely.';
+  else {
+    try {
+      const st = fs.lstatSync(file, { throwIfNoEntry: false });
+      c.exists = !!st;
+      if (!st) c.changed = true;
+      else if (!st.isFile() || st.size > MAX_BYTES || fs.readFileSync(file, 'utf8') !== c.after) c.error = 'The existing local collector command differs from Wyarden’s copy.';
+      else c.before = c.after;
+    } catch { c.error = 'The local collector command could not be read.'; }
+  }
+  return remember(c, 'bridge', file, dir, target);
 }
 
 /** What set-up would write in each folder. Nothing is written. */
@@ -546,9 +611,10 @@ function status(dirs, hub) {
 const wait = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 /** On Windows a scanner or an editor can hold the file for a moment; a rename is tried again then. */
-function renameRetrying(io, from, to) {
+function renameRetrying(io, from, to, stillCurrent) {
   for (let attempt = 0; ; attempt++) {
-    try { io.renameSync(from, to); return; } catch (e) {
+    if (!stillCurrent()) return false;
+    try { io.renameSync(from, to); return true; } catch (e) {
       if (process.platform !== 'win32' || attempt >= 5 || !['EPERM', 'EACCES', 'EBUSY'].includes(e.code)) throw e;
       wait(40 * (attempt + 1));
     }
@@ -568,17 +634,26 @@ function applyOne(c, io) {
   if (!c || typeof c.file !== 'string' || typeof c.dir !== 'string' || typeof c.before !== 'string' || typeof c.after !== 'string') {
     return { file, written: false, reason: 'not a change made by plan' };
   }
-  // Only ever `<dir>/settings.json`, and only a record plan or planRemoval returned (the very object, not a copy of it).
-  if (!PLANNED.has(c) || c.file !== path.join(c.dir, FILE)) return { file, written: false, reason: 'not a change made by plan' };
+  const approved = PLANNED.get(c);
+  if (!approved || file !== approved.file || c.dir !== approved.dir) return { file, written: false, reason: 'not a change made by plan' };
   if (c.error) return { file, written: false, reason: c.error };
   if (!c.changed) return { file, written: false, reason: 'no change' };
-  try {
-    const body = c.after.startsWith(BOM) ? c.after.slice(1) : c.after;
-    if (tokenize(body)[0].k !== '{') throw new Error('top');
-    structure(tokenize(body));
-  } catch {
-    return { file, written: false, reason: 'the new text is not JSON' };
+  if (!approved.applyNative && approved.provider !== 'bridge') {
+    try {
+      const body = c.after.startsWith(BOM) ? c.after.slice(1) : c.after;
+      const tokens = tokenize(body);
+      if (tokens[0].k !== '{') throw new Error('top');
+      structure(tokens);
+    } catch {
+      return { file, written: false, reason: 'the new text is not JSON' };
+    }
   }
+  if (['before', 'after', 'exists', 'changed', 'error'].some(key => c[key] !== approved[key])) {
+    return { file, written: false, reason: 'the plan changed after review' };
+  }
+  const sameTarget = () => approved.target && targetOf(file, c.dir, approved.provider, io) === approved.target;
+  if (!sameTarget()) return { file, written: false, reason: 'changed since it was shown' };
+  if (approved.applyNative) return approved.applyNative([c])[0];
   let tmp = null, fd = null;
   try {
     // A settings file kept elsewhere through a link: write the real file, so the link survives.
@@ -595,12 +670,17 @@ function applyOne(c, io) {
     if (mode !== null && process.platform !== 'win32') io.fchmodSync(fd, mode);   // the umask would narrow it
     io.fsyncSync(fd);
     io.closeSync(fd); fd = null;
-    if (!unchanged(c, io)) return { file, written: false, reason: 'changed since it was shown' };
-    renameRetrying(io, tmp, target);
-    tmp = null;
+    const stillCurrent = () => sameTarget() && unchanged(c, io);
+    if (c.exists) {
+      if (!renameRetrying(io, tmp, target, stillCurrent)) return { file, written: false, reason: 'changed since it was shown' };
+      tmp = null;
+    } else {
+      if (!stillCurrent()) return { file, written: false, reason: 'changed since it was shown' };
+      io.linkSync(tmp, target);  // An unrelated file created after the check must win.
+    }
     return { file, written: true, reason: null };
   } catch (e) {
-    return { file, written: false, reason: 'it could not be written (' + (e.code || 'error') + ')' };
+    return { file, written: false, reason: e.code === 'EEXIST' ? 'changed since it was shown' : 'it could not be written (' + (e.code || 'error') + ')' };
   } finally {
     if (fd !== null) { try { io.closeSync(fd); } catch { /* already closed */ } }
     if (tmp !== null) { try { io.unlinkSync(tmp); } catch { /* never made, or already gone */ } }
@@ -617,4 +697,4 @@ function apply(changes, options = {}) {
   return Array.from(changes || [], c => applyOne(c, io));
 }
 
-module.exports = { EVENTS, AGENT, FILE, MAX_BYTES, MAX_DEPTH, entryFor, isOurs, plan, planRemoval, apply, status, detectStyle, serialize };
+module.exports = { EVENTS, AGENT, FILE, MAX_BYTES, MAX_DEPTH, entryFor, isOurs, plan, planRemoval, planProvider, planBridge, apply, status, detectStyle, serialize };

@@ -41,9 +41,9 @@ class MonitorView {
   /**
    * deps.client        the hub client of this window
    * deps.folders()     this window's folders: [{path, name}]
-   * deps.collectors()  {claude: {state, folders, installed}} for the status line
+   * deps.collectors()  provider-keyed collector states for the status line
    * deps.log(message)
-   * deps.session(id)    a live session's entry from discover.liveClaudeSessions, or null
+   * deps.session(key)   a live session's process entry by its provider-qualified key, or null
    * deps.ancestors(pid) a process and its ancestors (lib/procs.js)
    * deps.hostPid        this window's extension host
    * The last three are for a double-click on a session; without them no session is shown.

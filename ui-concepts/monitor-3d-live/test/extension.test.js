@@ -6,6 +6,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { exec } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const Module = require('node:module');
@@ -115,8 +116,19 @@ function post(port, urlPath, body) {
   });
 }
 
+function invokeHook(command, payload, shell) {
+  return new Promise((resolve, reject) => {
+    const child = exec(command, { windowsHide: true, shell, timeout: 5000 }, (error, stdout, stderr) => {
+      if (error) { reject(new Error('fixture hook command failed: ' + error.code)); return; }
+      assert.equal(stderr, '');
+      resolve(JSON.parse(stdout));
+    });
+    child.stdin.end(JSON.stringify(payload));
+  });
+}
+
 test('the floating monitor opens local and peer resources, shows a peer terminal, and manages the collector', async t => {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'wym-'));
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'wym profiles-'));
   const home = path.join(base, 'home'), monitor = path.join(base, 'monitor'), project = path.join(base, 'example-project'), tools = path.join(base, 'example-tools');
   fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
   fs.mkdirSync(path.join(project, 'src'), { recursive: true });
@@ -129,7 +141,9 @@ test('the floating monitor opens local and peer resources, shows a peer terminal
 
   // The extension, the hub's worker and discovery all read these; set before anything loads.
   const saved = {};
-  for (const [key, value] of Object.entries({ WYARDEN_MONITOR_HOME: monitor, USERPROFILE: home, HOME: home, CLAUDE_CONFIG_DIR: undefined, WYARDEN_MONITOR_E2E: undefined })) {
+  const codexDir = path.join(home, 'codex'), grokDir = path.join(home, 'grok'), antiDir = path.join(home, '.gemini', 'config');
+  for (const [key, value] of Object.entries({ WYARDEN_MONITOR_HOME: monitor, USERPROFILE: home, HOME: home, CLAUDE_CONFIG_DIR: undefined,
+    CODEX_HOME: codexDir, GROK_HOME: grokDir, PATH: path.dirname(process.execPath), WYARDEN_MONITOR_E2E: undefined })) {
     saved[key] = process.env[key];
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
@@ -308,10 +322,111 @@ test('the floating monitor opens local and peer resources, shows a peer terminal
   await vscode.commands_.get('wyardenMonitor.removeCollectors')();
   assert.equal(fs.readFileSync(settingsFile, 'utf8'), original, 'after removal the file is byte for byte what it was');
 
+  // Same production commands, with three more profiles present and existing native hooks to preserve.
+  for (const dir of [codexDir, grokDir, antiDir]) fs.mkdirSync(dir, { recursive: true });
+  const codexFile = path.join(codexDir, 'hooks.json'), antiFile = path.join(antiDir, 'hooks.json');
+  const grokFile = path.join(grokDir, 'hooks', 'wyarden-monitor.json'), bridgeFile = path.join(monitor, 'collector-v1.js');
+  const secret = 'synthetic-private-command-value';
+  const codexOriginal = { hooks: { Stop: [{ hooks: [{ type: 'command', command: secret }] }] } };
+  const antiOriginal = '{"unrelated":{"enabled":false,"value":"' + secret + '"}}\n';
+  fs.writeFileSync(codexFile, JSON.stringify(codexOriginal, null, 2) + '\n');
+  fs.writeFileSync(antiFile, antiOriginal);
+  const grokOther = path.join(grokDir, 'hooks', 'other.json');
+  fs.mkdirSync(path.dirname(grokOther));
+  fs.writeFileSync(grokOther, secret);
+  const beforeCancel = [settingsFile, codexFile, antiFile].map(file => fs.readFileSync(file, 'utf8'));
+  pressed = buttons => buttons[1]; // review all, then close the final confirmation
+  await vscode.commands_.get('wyardenMonitor.setupCollectors')();
+  assert.deepEqual([settingsFile, codexFile, antiFile].map(file => fs.readFileSync(file, 'utf8')), beforeCancel);
+  assert.equal(fs.existsSync(grokFile), false);
+  assert.equal(fs.existsSync(bridgeFile), false);
+  const diffs = vscode.calls.filter(c => c[0] === 'command' && c[1] === 'vscode.diff').slice(-5);
+  assert.equal(diffs.length, 5);
+  const contents = vscode.providers.get('wyarden-monitor-change');
+  const previews = diffs.flatMap(call => call.slice(2, 4).map(file => contents.provideTextDocumentContent(vscode.Uri.from({ scheme: 'wyarden-monitor-change', path: file }))));
+  assert.equal(previews.filter(Boolean).length, 9, 'all redacted previews plus the bridge source');
+  for (const value of [secret, 'example-notify', hub.ingest, hub.control]) assert.ok(previews.every(p => !p.includes(value)));
+  assert.ok(previews.some(p => p.includes('Token hidden') || p.includes('token hidden')));
+
+  pressed = buttons => buttons[0];
+  await vscode.commands_.get('wyardenMonitor.setupCollectors')();
+  const cfg = JSON.parse(fs.readFileSync(codexFile, 'utf8')).hooks;
+  const agy = JSON.parse(fs.readFileSync(antiFile, 'utf8'))['wyarden-monitor-antigravity'];
+  const grok = JSON.parse(fs.readFileSync(grokFile, 'utf8')).hooks;
+  assert.deepEqual(cfg.Stop[0], codexOriginal.hooks.Stop[0]);
+  assert.equal(fs.readFileSync(grokOther, 'utf8'), secret);
+  assert.ok(fs.existsSync(bridgeFile));
+  const added = [...panel.posted].reverse().find(m => m.type === 'hub');
+  assert.deepEqual(Object.fromEntries(Object.entries(added.collectors).map(([k, v]) => [k, v.state])),
+    { claude: 'installed', codex: 'approval-unknown', grok: 'installed', antigravity: 'installed' });
+  const modalCount = vscode.modals.length;
+  await vscode.commands_.get('wyardenMonitor.setupCollectors')();
+  assert.equal(vscode.modals.length, modalCount, 'repeat setup is a no-op for every provider');
+
+  const codexPayload = { session_id: session, cwd: project, transcript_path: null, model: 'fixture-model', permission_mode: 'default' };
+  assert.deepEqual(await invokeHook(cfg.SessionStart[0].hooks[0].command, { ...codexPayload, source: 'startup' }), {});
+  const codexTool = { ...codexPayload, turn_id: 'fixture-turn', tool_name: 'Bash', tool_use_id: 'fixture-call', tool_input: { command: secret } };
+  const shell = process.platform === 'win32' ? path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe') : undefined;
+  assert.deepEqual(await invokeHook(cfg.PreToolUse[0].hooks[0].command, codexTool, shell), {});
+  assert.deepEqual(await invokeHook(cfg.PostToolUse[0].hooks[0].command, { ...codexTool, hook_event_name: 'Stop' }), {}, 'mismatched event is acknowledged and dropped');
+  assert.deepEqual(await invokeHook(cfg.PostToolUse[0].hooks[0].command, { ...codexTool, tool_response: 'fixture' }), {});
+
+  const agyPayload = { conversationId: session, workspacePaths: [other], cwd: other, modelName: 'fixture-model' };
+  assert.deepEqual(await invokeHook(agy.SessionStart[0].command, agyPayload), {});
+  const agyTool = { ...agyPayload, stepIdx: 1, toolCall: { name: 'read_file', args: { Path: remoteFile } } };
+  assert.deepEqual(await invokeHook(agy.PreToolUse[0].hooks[0].command, agyTool), { decision: 'allow' });
+  assert.deepEqual(await invokeHook(agy.PostToolUse[0].hooks[0].command, agyTool), {});
+
+  const grokBase = { sessionId: session, session_id: session, cwd: other, workspaceRoot: other, timestamp: '2026-11-28T00:00:00Z' };
+  const grokTool = { ...grokBase, toolName: 'read_file', toolUseId: 'fixture-grok', toolInput: { target_file: remoteFile } };
+  const grokPost = (event, snake, payload) => post(hub.port, new URL(grok[event][0].hooks[0].url).pathname,
+    { ...payload, hook_event_name: event, hookEventName: snake });
+  assert.equal(await grokPost('SessionStart', 'session_start', { ...grokBase, source: 'new' }), 200);
+  assert.equal(await grokPost('PreToolUse', 'pre_tool_use', grokTool), 200);
+  assert.equal(await grokPost('PostToolUse', 'post_tool_use', { ...grokTool, toolResult: { status: 'success' } }), 200);
+  for (const provider of ['codex', 'grok', 'antigravity']) {
+    const start = await until(provider + ' native tool start', () => events().find(e => e.agent === provider && e.ev === 'tool.start'));
+    assert.deepEqual([start.session, start.grade, start.src], [session, 'exact', 'hook:PreToolUse']);
+    await until(provider + ' native tool end', () => events().find(e => e.agent === provider && e.ev === 'tool.end'));
+  }
+  assert.equal(events().filter(e => e.agent === 'codex' && e.ev === 'tool.end').length, 1);
+  assert.ok(!JSON.stringify(panel.posted).includes(secret));
+
+  const scopeTo = scope => panel.handlers.message({ v: 1, type: 'scope', scope });
+  async function shownKeys(scope) {
+    scopeTo(scope);
+    const snapshot = await until('snapshot for ' + scope, () => [...panel.posted].reverse().find(m => m.type === 'records' && m.scope === scope && m.records[0]?.ctl === 'snapshot'));
+    const state = JSON.parse(snapshot.records[0].state).state;
+    return state.sessions.$map.map(([key]) => key).sort();
+  }
+  assert.deepEqual(await shownKeys(own), ['claude:' + session, 'codex:' + session]);
+  assert.deepEqual(await shownKeys(C.windowKey([other])), ['antigravity:' + session, 'claude:' + remoteSession, 'grok:' + session]);
+
+  fs.writeFileSync(sessionPath, JSON.stringify({ pid: process.pid, sessionId: session, cwd: project, entrypoint: 'cli' }));
+  let lookups = 0;
+  procs.ancestors = async pid => { lookups++; return { chain: [pid, terminalPid], known: true }; };
+  for (const provider of ['antigravity', 'codex', 'grok']) {
+    const before = vscode.calls.length;
+    act('focus', 'agent', 'a:' + provider + ':' + session);
+    await until('provider-qualified focus', () => vscode.calls.length > before);
+    assert.deepEqual(vscode.calls.slice(before), [['info', noProcess]]);
+  }
+  assert.equal(lookups, 0, 'a different provider never resolves the same-ID Claude terminal');
+  fs.unlinkSync(sessionPath);
+  procs.ancestors = realAncestors;
+
+  await vscode.commands_.get('wyardenMonitor.removeCollectors')();
+  assert.equal(fs.readFileSync(settingsFile, 'utf8'), original);
+  assert.deepEqual(JSON.parse(fs.readFileSync(codexFile, 'utf8')), codexOriginal);
+  assert.equal(fs.readFileSync(antiFile, 'utf8'), antiOriginal);
+  assert.equal(fs.existsSync(grokFile), false);
+  assert.equal(fs.readFileSync(grokOther, 'utf8'), secret);
+
   // Status prints figures and no token.
   await vscode.commands_.get('wyardenMonitor.status')();
   const printed = vscode.output.join('\n');
   assert.match(printed, /Hub: up/);
+  for (const name of ['Claude Code', 'Codex', 'Grok Build', 'Antigravity']) assert.ok(printed.includes(name + ' collector: missing'));
   assert.ok(!printed.includes(hub.ingest) && !printed.includes(hub.control), 'no token in the output channel');
   // The hub client catches what its listeners throw and logs it. Up to 0.1.3 the first state arrived before the
   // status bar item was made, so every start-up logged "onState failed: ReferenceError".

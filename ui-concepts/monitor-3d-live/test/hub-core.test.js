@@ -290,6 +290,28 @@ test('setLiveSessions, known with no hook: a status change gives turn and wait e
   assert.deepEqual(step('busy'), ['f turn.start']);
 });
 
+test('Codex discovery preserves its source, coexists with Claude, and ages only its own successful misses', () => {
+  const h = harness();
+  h.win('A', [P], contract.ALL);
+  const claude = [{ agent: 'claude', session: 'shared', cwd: P, pid: 42 }];
+  const codex = [{ agent: 'codex', session: 'shared', cwd: P, status: 'waiting', waitingFor: 'permission' }];
+  h.core.setLiveSessions(claude, h.clock.now(), 'claude');
+  h.core.setLiveSessions(codex, h.clock.now(), 'codex');
+  assert.ok(h.records('A').some(e => e.agent === 'codex' && e.ev === 'wait.start' && e.src === 'codex:app-server' && e.grade === 'derived'));
+  assert.equal(h.core.status().sources.codexAppServer, 1);
+  h.core.setLiveSessions(null, h.clock.now(), 'codex');
+  for (let i = 0; i < 2; i++) h.core.setLiveSessions(claude, h.clock.now(), 'claude');
+  assert.equal(h.core.status().sessions.shown, 2);
+  for (let i = 0; i < 2; i++) h.core.setLiveSessions([], h.clock.now(), 'codex');
+  assert.equal(h.core.status().sessions.shown, 1);
+  assert.ok(h.records('A').some(e => e.agent === 'codex' && e.ev === 'session.end'));
+  h.core.setLiveSessions(codex, h.clock.now(), 'codex');
+  assert.equal(h.core.status().sessions.shown, 2, 'a rediscovered session reappears during linger');
+  h.core.ingest({ agent: 'codex', session: 'shared', cwd: P, events: [{ ev: 'turn.start' }] });
+  for (let i = 0; i < 2; i++) h.core.setLiveSessions([], h.clock.now(), 'codex');
+  assert.equal(h.core.status().sessions.shown, 2, 'live hooks remain authoritative');
+});
+
 test('setLiveSessions: a hook-first session gains its pid from the list, then ends (hub:gone) when it leaves the list', () => {
   const h = harness();
   h.win('A', [P], 'all');

@@ -148,13 +148,14 @@ function inspectCodexHooks(dir, { executable, env = process.env } = {}) {
   return appServer(['app-server'], { executable, env: { ...env, CODEX_HOME: dir } }, request => request('hooks/list', {}));
 }
 
-async function liveCodexSessions({ executable, env = process.env, run = appServer } = {}) {
+async function liveCodexSessions({ executable, env = process.env, run = appServer, retainOnFailure = false } = {}) {
   const rows = await run(['app-server', 'proxy'], { executable, env }, async request => {
     const list = await request('thread/loaded/list', { limit: MAX_THREADS });
-    if (!Array.isArray(list?.data)) return [];
+    if (!Array.isArray(list?.data)) return null;
     // This samples up to 64 currently loaded threads on the existing shared daemon.
     const ids = [...new Set(list.data.filter(isSessionId))].slice(0, MAX_THREADS);
     const threads = await Promise.all(ids.map(threadId => request('thread/read', { threadId, includeTurns: false })));
+    if (retainOnFailure && threads.some(reply => !reply)) return null;
     return threads.flatMap((reply, index) => {
       const thread = reply?.thread;
       if (thread?.id !== ids[index] || typeof thread.cwd !== 'string' || thread.cwd.length > MAX_PATH ||
@@ -169,7 +170,7 @@ async function liveCodexSessions({ executable, env = process.env, run = appServe
         ...(permission && { waitingFor: 'permission' }) }];
     });
   });
-  return rows ?? [];
+  return rows ?? (retainOnFailure ? null : []);
 }
 
 module.exports = { inspectCodexHooks, liveCodexSessions };
