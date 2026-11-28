@@ -23,7 +23,9 @@ Written 27 November 2026.
 
 **In a browser, with nothing installed:** run `node ui-concepts/monitor-3d-live/tools/preview.js` from the repository's top folder and open the address it prints. It is the same page on invented data. Add `?look=<id>` to open on one look, for example `?look=synapse`.
 
-**All 18 at a glance:** the pictures are in [img/](img/), one for each id below, all of the same invented scene.
+**All 18 at a glance:** [the contact sheet](img/contact-sheet.png). Each look's own picture is in [img/](img/), one for each id below, all of the same invented scene.
+
+**How they were built and checked:** [run.md](run.md).
 
 ## What a look carries
 
