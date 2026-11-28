@@ -103,7 +103,7 @@ function createAdapter(options = {}) {
         fields.reason = 'other';
         sessions.delete(key);
       } else if (event === 'Stop' || event === 'Interrupt') {
-        endWait('unknown');
+        if (s.wait?.turn === turn) endWait('unknown');
         fields.outcome = event === 'Stop' ? 'done' : 'interrupted';
       } else if (event === 'UserPromptSubmit' && !by) {
         endWait('unknown');
