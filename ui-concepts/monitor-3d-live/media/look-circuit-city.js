@@ -6,7 +6,8 @@
  * Kept: the palette's hex values; the tower with a line at every floor and a mast; the plain block; the
  * braced panel; the cube with a skirt; the blueprint street grid with a line every fourth street brighter,
  * the twin ring road and the district outlines with their labels, and the low skyline at the back, in the
- * source's own colours and strengths (the minor streets .16, not .11, to show at this scale); Consolas captions in capitals; a light, wide-spaced capital title.
+ * source's own colours; its strengths too, except the minor streets (.16, not .11), the skyline (.2, not
+ * .11 to .16) and the lines' width (.6 to .8, not .55 to .7), stronger to show at this scale; Consolas captions in capitals; a light, wide-spaced capital title.
  * Changed: the five classes take the nearest type's shape (agent a tall tower, subagent a short one, tool a
  * block, MCP server the braced "upstream" panel, resource the small blocks of tasks and accounts), scaled to
  * a slot; colours are the picture's (cyan for agents and resources, amber for the rest) and never a state's;
@@ -48,7 +49,10 @@
     palette: {
       bg: C.bg, panel: C.panel, line: LINE, ink: C.text, caption: C.text, muted: C.muted, accent: C.primary,
       // Agents are the cyan towers and the accounts and small boxes cyan; subagents, tasks, worktrees and the
-      // upstream panel are amber in the picture.
+      // upstream panel are amber in the picture. A resource is cyan, after the accounts and small cyan boxes,
+      // though its file and context shapes come from the task and the context, which the source draws amber.
+      // The tool takes amber (the source's tool is cyan) and the MCP server amber (the source's "remote" is
+      // cyan; the picture shows it amber because it is waiting): each after the picture's small blocks.
       cls: { agent: C.primary, subagent: C.secondary, tool: C.secondary, mcp: C.secondary, resource: C.primary },
       // The source's own: amber for "waiting", its alert for "blocked", its text and quiet text for the rest.
       state: { needs: C.secondary, failed: C.alert, working: C.text, unclear: C.muted, idle: C.muted, done: C.muted },

@@ -5,7 +5,8 @@
  * sphere() and inclinedOrbit()) and worlds.css (:root and the .orbit rules); picture docs/monitor-3d/img/before/orbit.png.
  * Kept: the palette's hex values; the latticed globe (rings of latitude joined along meridians), the small
  * drum, the double ring and the three-sided pyramid; the tilted orbit rings in the source's colours and
- * strengths and its golden-angle star field; Consolas captions in capitals; an italic Georgia title, serif
+ * strengths (.8 wide, not .65) and its golden-angle star field (180 dots at .35 and .7, not 62 dashes at
+ * .22 and .5: stronger, to show at this scale); Consolas captions in capitals; an italic Georgia title, serif
  * headings, round corners and pill buttons.
  * Changed: the five classes take the nearest type's shape (agent a large globe, subagent the orchestrator's
  * small globe, tool the pyramid, MCP server the ring of "main" and "remote", resource the drums of tasks,
@@ -72,6 +73,7 @@
     palette: {
       bg: C.bg, panel: C.panel, line: LINE, ink: C.text, caption: C.text, muted: C.muted, accent: C.primary,
       // Lilac globes for agents; peach for the subagents' small globes, the pyramids, the rings and the drums.
+      // The source gives a tool its lilac primary; the tool takes peach after the picture's outer-belt pyramids.
       cls: { agent: C.primary, subagent: C.secondary, tool: C.secondary, mcp: C.secondary, resource: C.secondary },
       // The source's own: peach for "waiting", its alert for "blocked", its text and quiet text for the rest.
       state: { needs: C.secondary, failed: C.alert, working: C.text, unclear: C.muted, idle: C.muted, done: C.muted },
