@@ -30,9 +30,9 @@ Live editor work uses one lane. Card `1ce761` owns the monitor window and cross-
 | `1018a5` | Step 3, Grok Build sessions and tools | Done. Integrated `aa186df` at `cc1bd2e`. 6 focused tests passed. Native CLI 1.0.92 with a disposable local model delivered the same call through two routes. The real hub counted it once. |
 | `68479f` | Step 4, Antigravity sessions and tools | Done. Integrated `a61df48` at `251ad00`. 8 focused tests passed. Signed-in CLI 1.5.19 sent a real failed read to the hub and continued when the hub closed. |
 | `432088` | Step 5, editor activation and reviewed collector setup | Done. Integrated `4e06abe` at `bc6a7ad`. Windows suite 476 passed, 4 skipped, 5 TODO from looks, 0 failed. Four providers, two workspace scopes, cancellation and repeat setup exercised through the production host. |
-| `56e6ee` | Step 6, live packaged editor evidence | Committed `d76a52a`. In VS Code 1.148.0 all three signed-in providers completed a read. All open showed 3, Alpha 2, Beta 1, All open 3 again. The original package also exposed a stale Codex shell call when Windows denied process launch. Board acceptance pending. |
+| `56e6ee` | Step 6, live packaged editor evidence | Committed `d76a52a`. In VS Code 1.148.0 all three signed-in providers completed a read. All open showed 3, Alpha 2, Beta 1, All open 3 again. The original package also exposed a stale Codex shell call when Windows denied process launch. Board suite passed 476, skipped 4, TODO 5, failed 0. Integrated at `70ea194`. |
 | `2b5fe8` | Repair call tracking after live acceptance findings | Done. Integrated `1d97cb2` at `ec164c6`. A matching Codex stop closes missing results as unknown. Antigravity links survive equal step indices in separate sessions. Windows suite 481 passed, 4 skipped, 5 TODO, 0 failed. |
-| `cbe1fe` | Final installed editor acceptance on the repaired package | Queued after `56e6ee` and `2b5fe8`. Root-built package SHA-256 `E91A937164DC996F32502AB21443E8E258FF12CE3DB33F373563BAE2E63457B1`, 56 entries. |
+| `cbe1fe` | Final installed editor acceptance on the repaired package | Launch confirmed after `56e6ee` and `2b5fe8`. Root-built package SHA-256 `E91A937164DC996F32502AB21443E8E258FF12CE3DB33F373563BAE2E63457B1`, 56 entries. |
 
 ---
 
