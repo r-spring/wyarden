@@ -20,7 +20,7 @@
  *   ?seed=<integer>        the simulator's seed, 7 by default
  *   ?agents=1|4|12         sessions at once, 4 by default
  *   ?load=quiet|busy       busy by default
- *   ?warm=<seconds>        stream run before the first snapshot, 0 to 600, 60 by default
+ *   ?warm=<seconds>        stream run before the first snapshot, 0 to 600, 90 by default
  */
 (function () {
   'use strict';
@@ -36,7 +36,7 @@
     seed: seedText && Number.isInteger(Number(seedText)) ? Number(seedText) : 7,
     agents: oneOf(Number(params.get('agents')), F.PRESETS.agents, 4),
     load: oneOf(params.get('load'), F.PRESETS.load, 'busy'),
-    warm: warmText !== null && Number.isFinite(Number(warmText)) ? Math.max(0, Math.min(600, Number(warmText))) : 60,
+    warm: warmText !== null && Number.isFinite(Number(warmText)) ? Math.max(0, Math.min(600, Number(warmText))) : 90,
     look: params.get('look') || ''
   };
   /** The look named in the address, when the registry has it. Asked when the page reads its state, after looks.js has loaded. */
@@ -155,7 +155,7 @@
     toPage({ type: 'hub', state: 'up', role: 'hub', collectors: COLLECTORS });
     feed = F.create({ seed: options.seed, agents: options.agents, load: options.load });
     feed.subscribe(onEvent);
-    if (options.warm) feed.warm(options.warm * 1000);      // the first snapshot already holds a minute of work
+    if (options.warm) feed.warm(options.warm * 1000);      // the first snapshot already holds 90 s of work: at seed 7 a wait, a failure, a subagent and an address
     sendChips(true); sendSnapshot();
     live = true;
     feed.start();

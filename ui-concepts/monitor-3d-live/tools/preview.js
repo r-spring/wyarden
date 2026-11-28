@@ -93,7 +93,7 @@ async function main(argv, out = console) {
   const looks = require('../media/looks.js').ids();
   out.log('3D Monitor preview, the live tab\'s page on invented data: ' + p.url);
   out.log('  on another look:   ' + p.url + '?look=' + (looks.find(id => id !== 'nexus') || 'nexus'));
-  out.log('  other choices:     ?seed=7  ?agents=1|4|12  ?load=quiet|busy  ?warm=60');
+  out.log('  other choices:     ?seed=7  ?agents=1|4|12  ?load=quiet|busy  ?warm=90');
   out.log('  looks:             ' + looks.join(', '));
   out.log('Ctrl+C stops it.');
   let stopping = false;

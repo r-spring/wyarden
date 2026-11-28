@@ -166,7 +166,7 @@ node ui-concepts/monitor-3d-live/tools/preview.js [port]
 | `?seed=<integer>` | The simulator's seed. The same seed gives the same stream. | 7 |
 | `?agents=1\|4\|12` | Sessions at once. | 4 |
 | `?load=quiet\|busy` | How busy they are. | busy |
-| `?warm=<seconds>` | How long the stream has run before the first picture, 0 to 600. | 60 |
+| `?warm=<seconds>` | How long the stream has run before the first picture, 0 to 600. | 90 |
 
 Example: `http://127.0.0.1:51122/?look=glasshouse-mockup&agents=12`.
 

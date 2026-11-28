@@ -207,6 +207,8 @@ describe('the preview in a headless browser', () => {
     assert.ok(seen.waits > 0, 'a wait for the owner');
     assert.ok(seen.failed > 0, 'a failure');
     assert.ok(seen.touches.file > 0, 'files');
+    assert.ok(seen.touches.url > 0, 'addresses');
+    assert.ok(s.classes.includes('subagent') || seen.ev['subagent.stop'] > 0, 'a subagent, in the scene or gone');
     assert.deepEqual(s.chips.map(c => c.name), ['All open', 'demo-shop', 'notes-app'], 'two invented windows and "All open"');
     assert.equal(s.scope, 'all');
     assert.match(s.status, /^Hub: running in this window\. Showing 4 sessions\./);
