@@ -6,11 +6,11 @@ const path = require('node:path');
 const { isDeepStrictEqual } = require('node:util');
 const { detectStyle, serialize, MAX_BYTES } = require('../install.js');
 const { inspectCodexHooks } = require('./codex-app-server.js');
+const { EVENTS: COMMAND_EVENTS } = require('../hook-bridge.js');
 
 const FILE = 'hooks.json';
 const MARKER = 'Wyarden 3D Monitor';
-const EVENTS = Object.freeze(['SessionStart', 'SessionEnd', 'UserPromptSubmit', 'Stop', 'Interrupt',
-  'PreToolUse', 'PostToolUse', 'PermissionRequest', 'SubagentStart', 'SubagentStop']);
+const EVENTS = COMMAND_EVENTS.codex;
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const marked = hook => hook?.type === 'command' && hook.statusMessage === MARKER;
 const nativeEvent = ev => ev[0].toLowerCase() + ev.slice(1);
@@ -25,7 +25,7 @@ function configDirs({ home = os.homedir(), env = process.env } = {}) {
 const jsonTokens = text => text.replace(/"(?:[^"\\]|\\.)*"|[ \t\r\n]+/g, token =>
   token[0] === '"' ? JSON.stringify(JSON.parse(token)) : '');
 
-function readConfig(dir) {
+function readConfig(dir, commandFor) {
   const c = { dir, file: path.join(dir, FILE), exists: false, before: '', after: '', changed: false,
     state: 'missing', error: null, reformatted: false, added: 0, replaced: 0, collapsed: 0, removed: 0 };
   try {
@@ -51,6 +51,14 @@ function readConfig(dir) {
       groups.forEach((group, index) => {
         if (!group.hooks.some(marked)) return;
         if (group.hooks.length !== 1) throw new Error('mixed Wyarden hook group');
+        if (commandFor) {
+          const hook = group.hooks[0], command = commandFor('codex', event);
+          if (!command || hook.command !== command || (Object.hasOwn(hook, 'commandWindows') && hook.commandWindows !== command) ||
+              Object.keys(group).some(key => key !== 'hooks') ||
+              Object.keys(hook).some(key => !['type', 'command', 'commandWindows', 'timeout', 'statusMessage'].includes(key))) {
+            throw new Error('the reserved Wyarden marker is in an unrelated group');
+          }
+        }
         indices.push(index);
       });
       if (indices.length) own.set(event, indices);
@@ -66,7 +74,7 @@ function readConfig(dir) {
 }
 
 function editConfig(dir, mode, commandFor) {
-  const { c, doc, hooks, own } = readConfig(dir);
+  const { c, doc, hooks, own } = readConfig(dir, commandFor);
   if (c.error) return c;
   const configured = new Map();
   if (mode === 'add') {
@@ -77,7 +85,7 @@ function editConfig(dir, mode, commandFor) {
         return c;
       }
       // Synchronous delivery preserves event order. The transport must return promptly.
-      configured.set(event, { hooks: [{ type: 'command', command, timeout: 1, statusMessage: MARKER }] });
+      configured.set(event, { hooks: [{ type: 'command', command, timeout: 5, statusMessage: MARKER }] });
     }
   }
 
@@ -116,9 +124,9 @@ function planConfig(_hub, { dirs = configDirs(), mode = 'add', commandFor } = {}
   return dirs.filter(dir => typeof dir === 'string' && path.isAbsolute(dir)).map(dir => editConfig(dir, mode, commandFor));
 }
 
-async function status(dirs, _hub, { executable, inspectHooks = inspectCodexHooks } = {}) {
+async function status(dirs, _hub, { executable, commandFor, inspectHooks = inspectCodexHooks } = {}) {
   return Promise.all(dirs.map(async dir => {
-    const { c, hooks, own } = readConfig(dir);
+    const { c, hooks, own } = readConfig(dir, commandFor);
     const result = { dir, file: c.file, state: c.state, error: c.error, approval: 'unavailable' };
     if (!own?.size) return result;
     let data;

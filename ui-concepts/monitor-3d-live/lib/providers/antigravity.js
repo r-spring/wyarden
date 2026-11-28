@@ -6,11 +6,12 @@ const path = require('node:path');
 const { isDeepStrictEqual } = require('node:util');
 const contract = require('../contract.js');
 const { MAX_BYTES, detectStyle, serialize } = require('../install.js');
+const { EVENTS: COMMAND_EVENTS, tagHookPayload, hookAcknowledgement } = require('../hook-bridge.js');
 
 const provider = 'antigravity';
 const FILE = 'hooks.json';
 const GROUP = 'wyarden-monitor-antigravity';
-const EVENTS = Object.freeze(['SessionStart', 'PreInvocation', 'PostInvocation', 'PreToolUse', 'PostToolUse', 'Stop']);
+const EVENTS = COMMAND_EVENTS.antigravity;
 const TOOL_EVENTS = new Set(['PreToolUse', 'PostToolUse']);
 const TOOL_CLASSES = new Map([['call_mcp_tool', 'mcp'], ['run_command', 'execute'], ['read_url_content', 'fetch']]);
 const TARGETS = new Map([
@@ -29,19 +30,6 @@ const index = value => Number.isSafeInteger(value) && value >= 0;
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const validPath = value => contract.isAbsolute(value) && value === contract.cleanText(value, contract.MAX_PATH);
 const eagerMcp = name => name.startsWith('mcp_');
-
-// The fixed command's event also covers versions that omit hookEventName from stdin.
-function tagHookPayload(event, payload) {
-  if (!EVENTS.includes(event) || !isObject(payload) ||
-      (Object.hasOwn(payload, 'hookEventName') && payload.hookEventName !== event)) return null;
-  return { ...payload, hookEventName: event };
-}
-
-function hookAcknowledgement(event) {
-  if (event === 'PreToolUse') return { decision: 'allow' };
-  if (event === 'Stop') return { decision: 'stop' };
-  return {};
-}
 
 function workspaceOf(payload) {
   const roots = payload.workspacePaths.filter(validPath);

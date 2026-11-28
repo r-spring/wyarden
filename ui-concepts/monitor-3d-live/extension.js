@@ -6,7 +6,7 @@
  *      If no hub is running, this window starts it (a worker thread; no new process).
  *   2. It offers a floating monitor ("Wyarden 3D Monitor: Open", or the item in the status bar). A double-click on
  *      a session checks this machine's process list to find the terminal or chat panel in its editor.
- *   3. It offers set-up and removal of Claude Code's collector. Nothing is installed on activation.
+ *   3. It offers reviewed set-up and removal of provider collectors.
  *
  * It reads no workspace setting and runs nothing from a workspace, so it also works in a
  * restricted (untrusted) window. Only stable `vscode` API is used: VS Code, VSCodium and Code - OSS
@@ -21,6 +21,7 @@ const C = require('./lib/contract.js');
 const { createHubClient } = require('./lib/hub-client.js');
 const discover = require('./lib/discover.js');
 const install = require('./lib/install.js');
+const collectors = require('./lib/collectors.js');
 const procs = require('./lib/procs.js');
 const { MonitorView, VIEW_TYPE, LEGACY_VIEW_TYPE } = require('./lib/view.js');
 
@@ -52,16 +53,24 @@ function activate(context) {
     window: { id: crypto.randomBytes(6).toString('hex'), app: vscode.env.appName, name: windowName(), pid: process.pid, folders: folders() },
     log
   });
-  let collectorsNow = { claude: { state: 'missing', folders: 0, installed: 0 } };
-  const refreshCollectors = () => {
-    try { const s = install.status(discover.claudeConfigDirs(), hub); collectorsNow = { claude: { state: s.state, folders: s.folders, installed: s.installed } }; }
-    catch (error) { log('collectors: ' + error.message); }
-    return collectorsNow;
-  };
+  const bridge = collectors.bridgeFor(C.monitorHome());
+  const providerIds = Object.keys(collectors.providers);
+  let collectorsNow = {};
+  let collectorProbe;
+  function refreshCollectors() {
+    collectorProbe ??= Promise.all(providerIds.map(async provider => {
+      const current = await collectors.status(provider, hub, bridge).catch(() => ({ state: 'unavailable' }));
+      const previous = collectorsNow[provider];
+      if (previous?.state === current.state && previous.folders === current.folders && previous.installed === current.installed) return;
+      collectorsNow = { ...collectorsNow, [provider]: current };
+      view.sendHub();
+    })).then(() => collectorsNow).finally(() => { collectorProbe = undefined; });
+    return collectorProbe;
+  }
   const view = new MonitorView(vscode, context, {
     client, folders, collectors: () => collectorsNow, log: message => log('view', message),
     // For a double-click on a session: its own file, then its process's ancestors, read only then.
-    session: id => discover.liveClaudeSessions(discover.claudeConfigDirs()).find(s => s.session === id) || null,
+    session: key => key.startsWith('claude:') ? discover.liveClaudeSessions(discover.claudeConfigDirs()).find(s => s.key === key) || null : null,
     ancestors: pid => procs.ancestors(pid),
     hostPid: process.pid,
     focusWindow: async () => {
@@ -95,13 +104,16 @@ function activate(context) {
   // sets the status bar item: started before the item was made, every start-up logged a ReferenceError.
   client.start();
   context.subscriptions.push({ dispose: () => client.stop() });
+  const collectorTimer = setInterval(() => { if (view.ready) void refreshCollectors(); }, 8000);
+  collectorTimer.unref();
+  context.subscriptions.push({ dispose: () => clearInterval(collectorTimer) });
 
   /* ---------- the monitor ---------- */
 
-  const open = () => { refreshCollectors(); return view.show(); };
+  const open = () => { void refreshCollectors(); return view.show(); };
   context.subscriptions.push(vscode.commands.registerCommand('wyardenMonitor.open', open));
   context.subscriptions.push(vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
-    async deserializeWebviewPanel(panel) { refreshCollectors(); view.restore(panel); }
+    async deserializeWebviewPanel(panel) { void refreshCollectors(); view.restore(panel); }
   }));
   context.subscriptions.push(vscode.window.registerWebviewPanelSerializer(LEGACY_VIEW_TYPE, {
     async deserializeWebviewPanel(panel) { panel.dispose(); }
@@ -126,59 +138,101 @@ function activate(context) {
   const shown = new Map();      // a change's text, for the diff editor
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(DIFF_SCHEME, { provideTextDocumentContent: uri => shown.get(uri.toString()) || '' }));
   /** Show one planned change as a diff, before anything is written. */
-  async function showChange(change, index, title) {
-    const left = vscode.Uri.from({ scheme: DIFF_SCHEME, path: '/' + index + '/now/settings.json' });
-    const right = vscode.Uri.from({ scheme: DIFF_SCHEME, path: '/' + index + '/after/settings.json' });
-    shown.set(left.toString(), change.before); shown.set(right.toString(), change.after);
+  async function showChange({ provider, change }, index, title, mode, reviewId) {
+    const name = path.basename(change.file);
+    const prefix = '/' + reviewId + '/' + index;
+    const left = vscode.Uri.from({ scheme: DIFF_SCHEME, path: prefix + '/now/' + name });
+    const right = vscode.Uri.from({ scheme: DIFF_SCHEME, path: prefix + '/after/' + name });
+    const preview = collectors.preview(provider, change, mode, bridge);
+    shown.set(left.toString(), preview.before); shown.set(right.toString(), preview.after);
     await vscode.commands.executeCommand('vscode.diff', left, right, title + ': ' + change.file, { preview: index === 0 });
   }
   async function changeCollectors(kind) {
-    const dirs = discover.claudeConfigDirs();
-    if (!dirs.length) { void vscode.window.showInformationMessage('Wyarden 3D Monitor: no Claude Code folder was found on this machine.'); return; }
-    const plan = kind === 'add' ? install.plan(dirs, hub) : install.planRemoval(dirs);
-    const refused = plan.filter(c => c.error), todo = plan.filter(c => c.changed && !c.error);
-    for (const c of refused) log('collectors', c.error);
+    const plan = [], refused = [];
+    for (const provider of providerIds) {
+      const spec = collectors.providers[provider];
+      try {
+        const dirs = collectors.dirsFor(provider);
+        plan.push(...collectors.plan(provider, dirs, hub, bridge, kind).map(change => ({ provider, change })));
+      } catch { refused.push(spec.label + ' — the collector could not be planned.'); }
+    }
+    if (kind === 'add' && plan.some(({ provider, change }) => collectors.providers[provider].command && !change.error)) {
+      const change = install.planBridge(bridge.dir, bridge.file);
+      if (change.error) {
+        refused.push(change.error);
+        for (const item of plan) if (collectors.providers[item.provider].command && !item.change.error) item.blocked = true;
+      } else if (change.changed) plan.push({ provider: 'bridge', change });
+    }
+    const todo = plan.filter(({ change, blocked }) => change.changed && !change.error && !blocked);
+    for (const { provider, change } of plan) {
+      if (change.error) refused.push(collectors.providers[provider].label + ' — ' + change.file + ' — ' + change.error);
+    }
     if (!todo.length) {
-      void vscode.window.showInformationMessage('Wyarden 3D Monitor: ' + (kind === 'add' ? 'the collector is already in every Claude Code settings file.' : 'no settings file holds the collector.') +
-        (refused.length ? ' ' + refused.length + ' file(s) could not be read; see the output channel.' : ''));
-      refreshCollectors(); view.sendHub();
+      const message = plan.length ? 'No collector changes are needed.' : 'No supported provider profile was found. Start the provider once, then try again.';
+      if (refused.length) void vscode.window.showWarningMessage('Wyarden 3D Monitor: ' + refused.join('\n'));
+      else void vscode.window.showInformationMessage('Wyarden 3D Monitor: ' + message);
+      void refreshCollectors();
       return;
     }
-    const title = kind === 'add' ? 'Add the 3D monitor\'s collector' : 'Remove the 3D monitor\'s collector';
+    const title = kind === 'add' ? 'Add Wyarden collectors' : 'Remove Wyarden collectors';
     shown.clear();
-    await showChange(todo[0], 0, title);
-    const n = todo.length, files = n === 1 ? '1 settings file' : n + ' settings files';
+    const reviewId = crypto.randomBytes(8).toString('hex');
+    await showChange(todo[0], 0, title, kind, reviewId);
+    const n = todo.length, files = n === 1 ? '1 file' : n + ' files';
     const yes = kind === 'add' ? 'Add to ' + files : 'Remove from ' + files, all = 'Show every change';
-    const detail = (kind === 'add'
-      ? 'Each file gets ' + install.EVENTS.length + ' hook entries that post Claude Code\'s events to the monitor on this machine (127.0.0.1). Nothing else in the file changes, and "Remove Collectors" takes them out again. A session that is already running may report only after it restarts.' +
-        '\n\nNot on a machine that other people log in to: while no editor is open, another program there could listen on the monitor\'s port and receive what the hooks post.'
-      : 'Only the monitor\'s own entries are taken out. Nothing else in the file changes.') +
-      '\n\n' + todo.map(c => c.file).join('\n') + (refused.length ? '\n\nNot changed, because it could not be read:\n' + refused.map(c => c.file).join('\n') : '');
-    let answer = await vscode.window.showWarningMessage(title + ' ' + (kind === 'add' ? 'to' : 'from') + ' ' + files + '?', { modal: true, detail }, yes, ...(n > 1 ? [all] : []));
+    const selected = [...new Set(todo.map(item => item.provider).filter(provider => provider !== 'bridge'))];
+    const steps = kind === 'add' ? selected.map(provider => collectors.providers[provider].restart).join('\n') :
+      'Restart affected provider sessions to unload hooks that were already running.';
+    const detail = 'The preview lists Wyarden entries and hides private settings and tokens.' +
+      (kind === 'add' ? ' These hooks send events to 127.0.0.1. Use collectors on a single-user machine with the editor open.' : '') +
+      '\n\n' + todo.map(({ provider, change }) => (collectors.providers[provider]?.label || 'Local command') + ' — ' + change.file).join('\n') +
+      '\n\n' + steps + (refused.length ? '\n\nSkipped:\n' + refused.join('\n') : '');
+    let answer = await vscode.window.showWarningMessage(title + '?', { modal: true, detail }, yes, ...(n > 1 ? [all] : []));
     if (answer === all) {
-      for (let i = 1; i < todo.length; i++) await showChange(todo[i], i, title);
-      answer = await vscode.window.showWarningMessage(title + ' ' + (kind === 'add' ? 'to' : 'from') + ' ' + files + '?', { modal: true, detail }, yes);
+      for (let i = 1; i < todo.length; i++) await showChange(todo[i], i, title, kind, reviewId);
+      answer = await vscode.window.showWarningMessage(title + '?', { modal: true, detail }, yes);
     }
     if (answer !== yes) return;
-    const results = install.apply(todo), failed = results.filter(r => !r.written);
+    const bridgeEdit = todo.find(item => item.provider === 'bridge');
+    const prepared = bridgeEdit && install.apply([bridgeEdit.change])[0];
+    const results = todo.map(({ provider, change }) => {
+      if (provider === 'bridge') return prepared;
+      if (kind === 'add' && collectors.providers[provider].command &&
+          (prepared ? !prepared.written : install.planBridge(bridge.dir, bridge.file).error || !fs.existsSync(bridge.file))) {
+        return { file: change.file, written: false, reason: 'the local collector command is unavailable' };
+      }
+      return install.apply([change])[0];
+    });
+    const failed = results.filter(r => !r.written);
     for (const r of failed) log('collectors', r.file + ': ' + r.reason);
-    refreshCollectors(); view.sendHub();
     const done = results.length - failed.length;
-    void vscode.window[failed.length ? 'showWarningMessage' : 'showInformationMessage']('Wyarden 3D Monitor: ' +
-      (kind === 'add' ? 'collector added to ' : 'collector removed from ') + done + ' of ' + results.length + ' settings file(s).' +
-      (failed.length ? ' ' + failed.map(r => r.reason).join('; ') + '.' : ''));
+    void vscode.window[failed.length || refused.length ? 'showWarningMessage' : 'showInformationMessage']('Wyarden 3D Monitor: ' +
+      'Updated ' + done + ' of ' + results.length + ' files.' + (done && steps ? ' ' + steps.replaceAll('\n', ' ') : '') +
+      (failed.length ? ' Open Status for write details.' : ''));
+    await collectorProbe;
+    await refreshCollectors();
   }
-  context.subscriptions.push(vscode.commands.registerCommand('wyardenMonitor.setupCollectors', () => changeCollectors('add').catch(error => vscode.window.showErrorMessage('Wyarden 3D Monitor: ' + error.message))));
-  context.subscriptions.push(vscode.commands.registerCommand('wyardenMonitor.removeCollectors', () => changeCollectors('remove').catch(error => vscode.window.showErrorMessage('Wyarden 3D Monitor: ' + error.message))));
+  let changing;
+  const reviewCollectors = mode => {
+    changing ??= changeCollectors(mode).catch(() => vscode.window.showErrorMessage('Wyarden 3D Monitor: collector setup or removal could not be completed.'))
+      .finally(() => { changing = undefined; });
+    return changing;
+  };
+  context.subscriptions.push(vscode.commands.registerCommand('wyardenMonitor.setupCollectors', () => reviewCollectors('add')));
+  context.subscriptions.push(vscode.commands.registerCommand('wyardenMonitor.removeCollectors', () => reviewCollectors('remove')));
 
   /* ---------- status: the figures, for the owner ---------- */
 
   context.subscriptions.push(vscode.commands.registerCommand('wyardenMonitor.status', async () => {
-    const c = refreshCollectors().claude;
+    const states = await refreshCollectors();
     out.appendLine('');
     out.appendLine('Editor: ' + vscode.env.appName + ' ' + vscode.version + ' on ' + process.platform + (vscode.env.remoteName ? ' (remote: ' + vscode.env.remoteName + ')' : ''));
     out.appendLine('Hub: ' + view.hubState + (client.role ? ', this window is the ' + client.role : '') + ', port ' + hub.port);
-    out.appendLine('Claude Code collector: ' + c.state + ' (' + c.installed + ' of ' + c.folders + ' account folders)');
+    for (const provider of providerIds) {
+      const c = states[provider];
+      out.appendLine(collectors.providers[provider].label + ' collector: ' + c.state +
+        (c.folders === undefined ? '' : ' (' + c.installed + ' of ' + c.folders + ' profiles)'));
+    }
     out.appendLine('This window: ' + windowName() + ' (folders: ' + (folders().map(f => f.name).join(', ') || 'none') + ')');
     try { out.appendLine('Hub figures: ' + JSON.stringify(await client.status(), null, 2)); }
     catch (error) { out.appendLine('Hub figures: not available (' + error.message + ')'); }

@@ -21,7 +21,7 @@ const MAX_SESSIONS = 500;           // sessions remembered; the least recently a
 const MAX_DUPES = 500;              // duplicate keys remembered per session
 const MAX_TAILS = 24;
 const MAX_FOLDERS = 64;             // folders one window may name
-const RANK = { 'sessions-file': 1, transcript: 2, hook: 3 };
+const RANK = { 'sessions-file': 1, 'codex:app-server': 1, transcript: 2, hook: 3 };
 const COUNTING = /^(session|turn|wait)\./;       // the events that can change a chip's counts
 const STATUSES = new Set(['busy', 'idle', 'waiting']);
 const TITLE_MAX = 120;              // a session's tab title, as the list gives it
@@ -276,14 +276,15 @@ function createHubCore(options = {}) {
 
   /* ---------- the CLI's own list of live sessions ---------- */
 
-  core.setLiveSessions = function setLiveSessions(list, time) {
+  core.setLiveSessions = function setLiveSessions(list, time, provider) {
     if (!Array.isArray(list)) return;
     const t = Number.isFinite(time) ? time : now();
+    const source = provider === 'codex' ? 'codex:app-server' : 'sessions-file';
     const named = new Set();
     for (const item of list) {
       if (!item || typeof item !== 'object' || !contract.isSessionId(item.session)) continue;
       const agent = typeof item.agent === 'string' ? item.agent : 'claude';
-      if (!Model.AGENT_KINDS.includes(agent)) continue;
+      if (!Model.AGENT_KINDS.includes(agent) || (provider && agent !== provider)) continue;
       const key = agent + ':' + item.session;
       named.add(key);
       const status = STATUSES.has(item.status) ? item.status : undefined;   // a new file has no status yet
@@ -298,30 +299,33 @@ function createHubCore(options = {}) {
       if (keptCwd(item.transcript)) s.transcript = item.transcript;
       if (keptCwd(item.configDir)) s.configDir = item.configDir;
       s.misses = 0;
-      better(s, 'sessions-file');
+      better(s, source);
       const before = s.status;
       s.waitingFor = typeof item.waitingFor === 'string' ? item.waitingFor.slice(0, 200) : undefined;
-      if (fresh) {
+      const discovered = provider === 'codex' && !s.hookSeen;
+      if (discovered) s.lastAt = t;
+      if (fresh || (discovered && s.ended)) {
         s.status = status; s.title = title;
         s.owners = ownersOf(s);
         if (s.owners.length) {
-          hubEvent(s, t, 'session.start', 'sessions-file', startFields(s));
-          for (const e of statusEvents(s, t, 'sessions-file', undefined, status)) onEvent(s, e, t);
+          hubEvent(s, t, 'session.start', source, startFields(s));
+          for (const e of statusEvents(s, t, source, undefined, status)) onEvent(s, e, t);
         }
         continue;
       }
       // A new title, whatever source reports the session: one event. A title that goes away is "".
       if (title !== s.title) {
         s.title = title;
-        hubEvent(s, t, 'session.info', 'sessions-file', { title: title === undefined ? '' : title });
+        hubEvent(s, t, 'session.info', source, { title: title === undefined ? '' : title });
       }
       if (status === undefined) continue;
       s.status = status;
       if (s.hookSeen || s.ended || status === before) continue;      // a collector's word is better than the file's
-      for (const e of statusEvents(s, t, 'sessions-file', before, status)) onEvent(s, e, t);
+      for (const e of statusEvents(s, t, source, before, status)) onEvent(s, e, t);
     }
     for (const s of [...sessions.values()]) {
-      if (s.pid == null || s.ended || named.has(s.key)) continue;
+      if ((provider && s.agent !== provider) || s.ended || named.has(s.key)) continue;
+      if (s.pid == null && !(provider === 'codex' && s.best === source && !s.hookSeen)) continue;
       if (++s.misses < goneAfter) continue;
       hubEvent(s, t, 'session.end', 'hub:gone', { reason: 'gone' });
     }
@@ -628,6 +632,7 @@ function createHubCore(options = {}) {
     for (const s of sessions.values()) {
       if (!s.ended) { if (s.owners.length) shown++; else hidden++; }
       if (s.best === 'hook') sources.hook++; else if (s.best === 'transcript') sources.transcript++; else if (s.best === 'sessions-file') sources.sessionsFile++;
+      else if (s.best === 'codex:app-server') sources.codexAppServer = (sources.codexAppServer || 0) + 1;
     }
     return {
       epoch, upMs: now() - started, role: info.role, windows: windows.size, workspaces: workspaces.size,
