@@ -3,6 +3,7 @@
  * One webview panel per window. This file builds its HTML from media/page.html, sets the content
  * security policy, and carries messages both ways: records, workspaces and hub state to the page;
  * the chosen scope, a selection and a request to open something, or to show a session, from the page.
+ * The selected session's thinking goes to this page only (lib/thinking-watch.js).
  *
  * A hidden tab has no page (VS Code destroys it), so while the tab is hidden the window asks the
  * hub for no scope and receives no records. When the page loads again it says "ready" and gets a
@@ -16,6 +17,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const C = require('./contract.js');
 const actions = require('./actions.js');
+const thinking = require('./thinking.js');
+const { checkThinking, createWatch } = require('./thinking-watch.js');
 
 const LEGACY_VIEW_TYPE = 'wyardenMonitor.view';
 const VIEW_TYPE = 'wyardenMonitor.window';
@@ -47,12 +50,18 @@ class MonitorView {
    * deps.ancestors(pid) a process and its ancestors (lib/procs.js)
    * deps.hostPid        this window's extension host
    * The last three are for a double-click on a session; without them no session is shown.
+   * deps.session also gives the transcript of a selected session's thinking; deps.schedule(fn, ms), optional, is that watch's timer.
    */
   constructor(vscode, context, deps) {
     this.vscode = vscode; this.context = context; this.deps = deps;
     this.panel = undefined; this.ready = false;
     this.workspaces = undefined;          // the hub's last "workspaces" message
     this.hubState = 'connecting';
+    this.thinking = createWatch({
+      resolve: target => this.deps.client.resolve(target),
+      session: id => deps.session?.('claude:' + id),
+      read: thinking.readThinking, post: m => this.post(m), schedule: deps.schedule
+    });
   }
 
   /* ---------- the panel ---------- */
@@ -120,6 +129,7 @@ class MonitorView {
   }
   /** No page is there to draw: ask the hub for nothing. */
   pause() {
+    this.thinking.stop();                 // a hidden or closed tab has no page to show it to
     if (!this.ready) return;
     this.ready = false;
     this.deps.client.update({ scope: null });
@@ -148,11 +158,17 @@ class MonitorView {
   fromPage(message) {
     if (!message || typeof message !== 'object' || message.v !== C.VERSION) return;
     if (message.type === 'ready') {
+      this.thinking.stop();               // a page that loaded again asks again for what it selects
       this.ready = true;
       this.sendLook(); this.sendHub(); this.sendWorkspaces();
       this.deps.client.update({ scope: this.wanted(), snapshot: true });
     } else if (message.type === 'scope') {
       this.setScope(message.scope);
+    } else if (message.type === 'thinking') {
+      // The page names a node, never a path; the answer goes to this page only. checkThinking and the watch never throw.
+      const request = checkThinking(message);
+      if (!request) return;
+      if (request.target && this.ready) this.thinking.watch(request.target.id); else this.thinking.stop();
     } else if (message.type === 'act') {
       const request = actions.checkAct(message);
       if (!request) return;
@@ -172,7 +188,7 @@ class MonitorView {
         void this.vscode.window.showWarningMessage('3D Monitor: that could not be opened (' + error.message + ').');
       });
     }
-    // "select" needs nothing from the host yet: the selection lives in the page.
+    // "select" itself needs nothing from the host: the selection lives in the page. A Claude Code session's agent also sends "thinking", above.
   }
 
   actionDeps() {

@@ -12,6 +12,7 @@
  *     feed.onWorkspaces = message => {};              // {type: "workspaces"}
  *     feed.onHub = message => {};                     // {type: "hub"}
  *     feed.onLook = look => {};                       // {type: "look"}
+ *     feed.onThinking = message => {};                // {type: "thinking"}: the selected session's; page.js checks its shape
  *     feed.post({type: "scope", scope});              // v: 1 is added
  *     feed.start();                                   // sends {v: 1, type: "ready"} once
  *
@@ -30,7 +31,7 @@
     let started = false, listening = false;
 
     const feed = {
-      onSnapshot: null, onDrop: null, onWorkspaces: null, onHub: null, onLook: null,
+      onSnapshot: null, onDrop: null, onWorkspaces: null, onHub: null, onLook: null, onThinking: null,
       errors: 0, lastError: '', received: 0, ignored: 0,
       subscribe(onEvent) { listeners.add(onEvent); return () => listeners.delete(onEvent); },
       post(message) { api.postMessage(Object.assign({}, message, { v: VERSION })); },
@@ -78,6 +79,8 @@
         call(feed.onHub, [m]);
       } else if (m.type === 'look') {
         if (typeof m.look === 'string') call(feed.onLook, [m.look]); else feed.ignored++;
+      } else if (m.type === 'thinking') {
+        call(feed.onThinking, [m]);
       } else feed.ignored++;
     }
     function onMessage(e) {

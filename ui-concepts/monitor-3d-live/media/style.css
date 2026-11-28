@@ -124,6 +124,17 @@ canvas#scene:focus-visible { outline-offset: -3px; }
 .actions b { display: block; font-weight: 600; color: var(--ink); }
 .actions span { font-size: 11px; color: var(--muted); }
 .empty { color: var(--muted); }
+/* Thinking: a selected session's own, as text. Its height is bounded and it scrolls on its own, so a long list
+   never pushes the legend off the panel or squeezes the inspector shut. A thought keeps its line breaks. */
+#thinking { flex: none; max-height: 34%; overflow: auto; border-top: 1px solid var(--line); padding: 7px 12px 10px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+#thinking summary { cursor: pointer; font: 600 12px/1.3 var(--ui); color: var(--ink); }
+#thinking .hint { margin-top: 4px; }
+.thoughts { margin: 0; padding: 0; list-style: none; }
+.thoughts li { margin-top: 7px; padding-left: 8px; border-left: 2px solid var(--line); }
+.thoughts time { display: block; font: 10px/1.4 var(--font); color: var(--muted); }
+.thought-text { font-size: 11px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* While thinking is shown the legend gives way: in a real editor's small window (1024 x 679) the three together left the inspector only a few rows. */
+#thinking:not([hidden]) ~ #legend { max-height: 30%; }
 
 #legend { flex: none; max-height: 46%; overflow: auto; border-top: 1px solid var(--line); padding: 7px 12px 10px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 #legend h3 { margin-top: 7px; }
