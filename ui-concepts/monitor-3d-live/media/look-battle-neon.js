@@ -12,11 +12,11 @@
  * title in orange with the button's blue text-shadow, 3 px corners; a glow under every edge (the cards' box-shadow).
  * Changed: a flat page gives no shapes, so the shapes are NEXUS's wireframes, drawn thick (the cards' 2 to 4 px neon
  * borders). The other classes take the popup's colours, but not a neon itself, so that a provider's colour stays its own:
- * a tool the popup's lighter orange (the danger button's hover, #ff8a33), a resource the darker blue of the Codex neon's
+ * a tool the popup's lighter orange (the danger button's hover, #ff8a33, line 336), a resource the darker blue of the Codex neon's
  * light-theme shade (#0069a8, line 31), an MCP server the red the popup's border falls back to (#f14c4c). The battle
  * look had no state colours: the marks take the board's status colours (lines 17 to 21, the dark fall-backs) and, for
  * idle and unclear, a pale grey of this look's own. The backdrop is the popup's border redrawn round the floors, flat
- * under them: a 3 px orange line with its orange and blue glow (line 333's box-shadow), standing still.
+ * under them: a 3 px orange line with its orange and blue glow (the box-shadow of lines 330 to 331), standing still.
  * Not possible here: the slant. A caption in the scene is drawn in the look's font family only, so it is heavy capitals
  * but upright; the title above the scene is slanted.
  * For now: the page's running text starts the face's list at its second font (see TEXT below), because with Impact the
@@ -40,8 +40,8 @@
     id: 'battle-neon',
     name: 'Battle neon',
     theme: 'dark',
-    // Five silhouettes in five colours; one neon for each provider.
-    claims: { classes: true, providers: true },
+    // One neon for each provider. Not the classes rule: a tool's lighter orange cannot be told from Claude's neon at a glance.
+    claims: { providers: true },
     font: FACE,
     lineWidth: 2.4,
     glow: true,

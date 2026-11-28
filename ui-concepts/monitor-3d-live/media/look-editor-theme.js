@@ -13,7 +13,7 @@
  * light-theme shades (lines 22 and 29); 4 px corners (--radius); no glow; thin lines.
  * Changed: a flat page gives no shapes, so the shapes are NEXUS's wireframes. The board coloured cards by status: here
  * the status colours are the marks' colours (running blue for working, needs input orange for needs, queued's quiet
- * text for idle and unclear, done's disabled text for done), and the classes take the other --vscode-charts-* colours: agent blue, subagent purple,
+ * text for unclear, done's disabled text for idle, review green for done), and the classes take the other --vscode-charts-* colours: agent blue, subagent purple,
  * tool yellow, MCP server orange, resource the quiet text colour (as the board's queued cards and chips). Agents and
  * subagents take their provider's colour, as a card's 2 px top edge does. Light or dark is worked out from the editor's
  * background, because a look reads variables only, not the body's vscode-light class. The lines' last fall-back is a
@@ -78,10 +78,10 @@
         provider: Object.assign({}, PROVIDER[kind]),
         // The floor agents stand on: the text colour, so that no provider's colour runs into it.
         floor: { agent: fg },
-        // board.css lines 17 to 21: running blue, needs input orange, queued the quiet text, done the disabled text.
+        // board.css lines 17 to 21: running blue, needs input orange, queued the quiet text, done the disabled text, review green.
         state: {
-          needs: chart('orange'), failed: read('--vscode-errorForeground', f.error), working: chart('blue'),
-          unclear: muted, idle: muted, done: read('--vscode-disabledForeground', f.disabled)
+          needs: chart('orange'), failed: chart('red'), working: chart('blue'),
+          unclear: muted, idle: read('--vscode-disabledForeground', f.disabled), done: chart('green')
         },
         clash: read('--vscode-errorForeground', f.error),
         fill: .06, solid: .9, floorFill: 0, floorLine: .5, post: .4, captionBack: 0, captionHalo: .85
