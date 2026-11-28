@@ -19,6 +19,7 @@
 (function () {
   'use strict';
   const L = window.MonitorLayout, M = window.MonitorModel, E = window.MonitorEngine, N = window.MonitorNav, LOOKS = window.MonitorLooks, H = window.MonitorHostFeed;
+  const K = window.MonitorLookRegistry;      // looks.js: the list of looks, what a look may set on the page, the switcher
   const $ = id => document.getElementById(id);
   const el = (tag, cls, text) => { const node = document.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
   const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
@@ -96,7 +97,9 @@
   }
   feed.onWorkspaces = message => { state.workspaces = message; renderChips(); renderStatus(); renderEmpty(); };
   feed.onHub = message => { state.hub = message; renderStatus(); };
-  feed.onLook = look => { if (!state.lookChosen && isLook(look) && look !== state.look) { state.look = look; applyLook(); save(); } };
+  // The host says this when the page loads and when the editor's theme changes. Until the owner chooses a look the theme
+  // picks one; after that the look stays, and one that reads its colours from the page reads them again (refreshLook).
+  feed.onLook = look => { if (!state.lookChosen && isLook(look) && look !== state.look) { state.look = look; applyLook(); save(); } else refreshLook(); };
 
   /* ---------- selection ---------- */
 
@@ -156,14 +159,20 @@
     const ctx = c.getContext('2d'); ctx.scale(2, 2);
     E.drawIcon(ctx, LOOKS[state.look], key, color, size);
     c.setAttribute('aria-hidden', 'true');
+    return backed(c);
+  }
+  /** A swatch on a panel. Where the look's panels have their own ink, it stands on the stage's colour (looks.js, swatchBack). */
+  function backed(c) {
+    const back = K.swatchBack(LOOKS[state.look]);
+    if (back) { c.style.background = back; c.style.borderRadius = '3px'; }
     return c;
   }
   function badge(status, size) {
     const c = el('canvas'), look = LOOKS[state.look]; c.width = c.height = size * 2; c.style.width = c.style.height = size + 'px';
     const ctx = c.getContext('2d'); ctx.scale(2, 2);
-    E.drawBadge(ctx, M.STATES[status].shape, size / 2, size / 2, size * .3, look.palette.state[status], look.palette.panel);
+    E.drawBadge(ctx, M.STATES[status].shape, size / 2, size / 2, size * .3, look.palette.state[status], K.swatchBack(look) || look.palette.panel);
     c.setAttribute('aria-hidden', 'true');
-    return c;
+    return backed(c);
   }
   function renderInspector() {
     const box = $('inspector'), n = model.nodes.get(state.selected);
@@ -253,7 +262,7 @@
   function sample(draw) {
     const c = el('canvas'); c.width = 68; c.height = 28; c.style.width = '34px'; c.style.height = '14px'; c.setAttribute('aria-hidden', 'true');
     const ctx = c.getContext('2d'); ctx.scale(2, 2); ctx.lineCap = 'round'; draw(ctx);
-    return c;
+    return backed(c);
   }
   function buildLegend() {
     const look = LOOKS[state.look], pal = look.palette, body = $('legend-body');
@@ -261,15 +270,18 @@
     const line = (color, dash, extra) => sample(ctx => { ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(2, 7); ctx.lineTo(32, 7); ctx.stroke(); ctx.setLineDash([]); if (extra) extra(ctx); });
     // An agent's and a subagent's colour is its provider's, so their shapes are shown here in a neutral colour,
     // and the providers get a group of their own. A look with no provider colours still draws a legend.
-    const neutral = pal.muted || pal.caption, classes = el('div', 'legend-grid'), agentMark = icon('agent', neutral, 22);
-    agentMark.dataset.color = neutral;            // the colour each swatch was drawn in, for the tests
+    // A look that gives no provider a colour of its own (palette.provider is absent) shows the two in their class's colour,
+    // and has no group of providers.
+    const byProvider = !!pal.provider, neutral = pal.muted || pal.caption, agentColor = byProvider ? neutral : pal.cls.agent;
+    const classes = el('div', 'legend-grid'), agentMark = icon('agent', agentColor, 22);
+    agentMark.dataset.color = agentColor;         // the colour each swatch was drawn in, for the tests
     classes.append(
-      item(agentMark, 'Agent', 'agent'), item(icon('subagent', neutral, 22), 'Subagent', 'subagent'),
+      item(agentMark, 'Agent', 'agent'), item(icon('subagent', byProvider ? neutral : pal.cls.subagent, 22), 'Subagent', 'subagent'),
       item(icon('tool', pal.cls.tool, 22), 'Tool', 'tool'), item(icon('mcp', pal.cls.mcp, 22), 'MCP server', 'mcp'),
       item(icon('resource.file', pal.cls.resource, 22), 'Files', 'file'), item(icon('resource.url', pal.cls.resource, 22), 'URLs', 'url'),
-      item(icon('resource.context', pal.cls.resource, 22), 'Context', 'context'), item(icon('stack', pal.muted, 22), '+N idle, folded'));
+      item(icon('resource.context', pal.cls.resource, 22), 'Context', 'context'), item(icon('stack', neutral, 22), '+N idle, folded'));
     const providers = el('div', 'legend-grid');
-    for (const kind of Object.keys(E.PROVIDERS || {})) {
+    for (const kind of byProvider ? Object.keys(E.PROVIDERS || {}) : []) {
       const color = pal.provider && Object.prototype.hasOwnProperty.call(pal.provider, kind) ? pal.provider[kind] : pal.cls.agent;
       const mark = icon('agent', color, 22);
       mark.dataset.color = color;
@@ -281,13 +293,13 @@
     calls.append(
       item(line(pal.cls.tool, []), 'Tool call, while it is open'),
       item(line(pal.cls.mcp, [], ctx => { ctx.beginPath(); ctx.arc(31, 7, 2.5, 0, 7); ctx.fill(); }), 'MCP call, to the tool’s port on the server'),
-      item(line(pal.cls.resource, [5, 4], ctx => { ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(4, 7, 2.6, 0, 7); ctx.fillStyle = pal.panel; ctx.fill(); ctx.stroke(); }), 'Read (dashed); a ring marks a resource that was read'),
+      item(line(pal.cls.resource, [5, 4], ctx => { ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(4, 7, 2.6, 0, 7); ctx.fillStyle = K.swatchBack(look) || pal.panel; ctx.fill(); ctx.stroke(); }), 'Read (dashed); a ring marks a resource that was read'),
       item(line(pal.cls.resource, [], ctx => { ctx.beginPath(); ctx.moveTo(33, 7); ctx.lineTo(26, 3.5); ctx.lineTo(26, 10.5); ctx.closePath(); ctx.fill(); ctx.fillRect(1.4, 4.4, 5.2, 5.2); }), 'Write (solid, with a head); a square marks a resource that was written'),
       item(line(pal.cls.resource, [1, 4]), 'Search (dotted)'),
       item(line(pal.cls.tool, [2, 6]), 'A call that has just ended; a cross if it failed'),
       item(line(pal.clash, [6, 4], ctx => { ctx.font = 'bold 9px sans-serif'; ctx.fillText('!', 15, 6); }), 'Two agents wrote the same file'));
     body.replaceChildren(el('h3', '', 'Classes (files, URLs and context are resources)'), classes,
-      el('h3', '', 'Providers (the colour of an agent and its subagents)'), providers,
+      ...(byProvider ? [el('h3', '', 'Providers (the colour of an agent and its subagents)'), providers] : []),
       el('h3', '', 'States (a mark beside the shape)'), states, el('h3', '', 'Calls'), calls,
       el('p', 'hint', 'A resource grows with the number of times it was touched. A dashed agent is a session that has ended; it leaves 20 seconds later. "exact" came from a hook; "derived" was read from a transcript or a session file.'));
     countLegend();
@@ -484,12 +496,29 @@
 
   function press(selector, test) { for (const b of document.querySelectorAll(selector)) b.setAttribute('aria-pressed', String(test(b))); }
   function applyLook() {
-    const look = LOOKS[state.look], pal = look.palette, root = document.documentElement.style;
+    const look = K.refresh(LOOKS[state.look], document), pal = look.palette, root = document.documentElement.style;      // refresh: look.fromPage, when it has one
     for (const [name, value] of [['--bg', pal.bg], ['--panel', pal.panel], ['--line', pal.line], ['--ink', pal.ink], ['--text', pal.caption], ['--muted', pal.muted], ['--accent', pal.accent], ['--needs', pal.state.needs], ['--font', look.font]]) root.setProperty(name, value);
+    K.applyPage(look, root);                // the look's lettering and panel variables; those it does not set are cleared
     document.documentElement.style.colorScheme = look.theme;
     document.documentElement.dataset.look = state.look;
     press('[data-look]', b => b.dataset.look === state.look);
+    switcher.show(state.look);
+    state.lookSignature = K.signature(look);
     view.setLook(look); buildLegend(); renderInspector();
+  }
+  /** The owner chose a look: a button of the list, or "previous" or "next". From then on the editor's theme no longer picks one. */
+  function chooseLook(id) {
+    if (!isLook(id)) return;
+    state.look = id; state.lookChosen = true;
+    applyLook(); save();
+    $('live').textContent = 'Look: ' + (K.entry(id) || LOOKS[id]).name + (LOOKS[id].stub ? ', not built yet' : '') + '.';
+  }
+  /** The editor's theme changed under the page: a look that takes its colours from the page takes them again. Any other
+      look, and one whose colours come out the same, is left alone: nothing is applied and no frame is drawn. */
+  function refreshLook() {
+    const look = LOOKS[state.look];
+    if (typeof look.fromPage !== 'function') return;
+    if (K.signature(K.refresh(look, document)) !== state.lookSignature) applyLook();
   }
   function setIsolated(on) {
     const n = model.nodes.get(state.selected);
@@ -513,7 +542,7 @@
     document.documentElement.style.setProperty('--bar-height', document.querySelector('.scopes').getBoundingClientRect().bottom + 'px');
   }
 
-  for (const b of document.querySelectorAll('[data-look]')) b.addEventListener('click', () => { if (!isLook(b.dataset.look)) return; state.look = b.dataset.look; state.lookChosen = true; applyLook(); save(); });
+  const switcher = K.switcher(document, { looks: LOOKS, current: () => state.look, choose: chooseLook });      // one button for each look, built from the list
   $('motion').addEventListener('click', () => { setMotion(!view.motion); save(); });
   if (reducedMotion) { $('motion').disabled = true; $('motion').textContent = 'Motion off (system setting)'; }
   $('frame').addEventListener('click', () => { if (view.isolated == null) frameAll(false); else view.frame([view.isolated]); });
@@ -584,7 +613,8 @@
   keepClear();
   new ResizeObserver(() => { view.resize(); keepClear(); }).observe(canvas.parentElement);
   new ResizeObserver(keepClear).observe(document.querySelector('.scopes'));
+  K.watchTheme(document, refreshLook);
   feed.start();
 
-  window.Monitor3D = { view, feed, state, select, get model() { return model; } };      // for the measuring script and the tests
+  window.Monitor3D = { view, feed, state, select, chooseLook, get model() { return model; } };      // for the measuring script and the tests
 })();

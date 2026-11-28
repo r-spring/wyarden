@@ -19,14 +19,16 @@
 <a class="skip" href="#twin">Skip to the list of everything in the scene</a>
 
 <header class="bar">
-  <div class="brand"><strong>MONITOR 3D</strong><span>Working mock-up. Live Claude Code sessions in the open workspaces. A click selects; nothing here edits.</span></div>
+  <div class="brand"><strong>Monitor 3D</strong><span>Working mock-up. Live Claude Code sessions in the open workspaces. A click selects; nothing here edits.</span></div>
   <div class="group" role="group" aria-label="Look">
     <span class="group-name">Look</span>
-    <span class="seg">
-      <button type="button" data-look="nexus">NEXUS</button><button type="button" data-look="glasshouse">Glasshouse</button>
+    <!-- The look switcher: buttons only. looks.js fills the name and the list, one button for each look. -->
+    <span class="seg look-switch">
+      <button type="button" id="look-prev" aria-label="Previous look" title="Previous look">‹</button><button type="button" id="look-name" aria-expanded="false" aria-controls="look-panel"></button><button type="button" id="look-next" aria-label="Next look" title="Next look">›</button>
     </span>
     <button type="button" id="motion" aria-pressed="false">Motion off</button>
   </div>
+  <div id="look-panel" class="look-panel" role="group" aria-label="All looks" hidden></div>
 </header>
 
 <div class="scopes">
@@ -74,8 +76,25 @@
 <script nonce="{{nonce}}" src="{{base}}/layout.js"></script>
 <script nonce="{{nonce}}" src="{{base}}/model.js"></script>
 <script nonce="{{nonce}}" src="{{base}}/engine.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/looks.js"></script>
 <script nonce="{{nonce}}" src="{{base}}/look-nexus.js"></script>
 <script nonce="{{nonce}}" src="{{base}}/look-glasshouse.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-nexus-mockup.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-glasshouse-mockup.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-lattice.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-circuit-city.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-orbital.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-glasshouse-original.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-synapse.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-event-horizon.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-signal-terrain.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-editor-theme.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-battle-neon.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-paper.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-paper-dark.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-skyline.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-control-room.js"></script>
+<script nonce="{{nonce}}" src="{{base}}/look-signal-house.js"></script>
 <script nonce="{{nonce}}" src="{{base}}/nav.js"></script>
 <script nonce="{{nonce}}" src="{{base}}/host-feed.js"></script>
 <script nonce="{{nonce}}" src="{{base}}/page.js"></script>

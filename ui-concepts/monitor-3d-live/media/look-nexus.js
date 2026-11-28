@@ -17,6 +17,8 @@
     id: 'nexus',
     name: 'NEXUS lattice',
     theme: 'dark',
+    // What the looks test holds this look to: five silhouettes and five colours, one for each class; one hue for each provider.
+    claims: { classes: true, providers: true },
     font: "Consolas, 'Cascadia Code', 'SFMono-Regular', 'Liberation Mono', monospace",
     lineWidth: 1.15,
     glow: true,

@@ -1,5 +1,7 @@
 /* Wyarden 3D monitor, working mock-up: the page around the canvas. Every colour is a variable that
    the look sets (page.js copies the look's palette here), so this file has no look of its own.
+   A look may also set the lettering and panel variables listed in looks.js (PAGE): each is used here
+   with a fall-back, which is what the page had before there were such variables.
    Copied from ui-concepts/monitor-3d/style.css. Added for the live page: the workspace chips under
    the top bar, the sentence over an empty scene, and the status line under the scene. They are rows
    of the page, not overlays, so they can never cover the canvas. */
@@ -11,6 +13,14 @@
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body { margin: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--text); font: 12px/1.45 var(--ui); }
+/* A panel may have its own ink (dark panels beside a light stage): --panel-ink and its four relatives.
+   The stage's values are kept under other names on <body>, because a variable cannot fall back on itself. */
+body { --stage-ink: var(--ink); --stage-text: var(--text); --stage-muted: var(--muted); --stage-line: var(--line); --stage-accent: var(--accent); }
+.bar, .scopes, .twin-panel, .side, .status-bar, .view-buttons, .hud, .empty-scene {
+  --ink: var(--panel-ink, var(--stage-ink)); --text: var(--panel-text, var(--stage-text)); --muted: var(--panel-muted, var(--stage-muted));
+  --line: var(--panel-line, var(--stage-line)); --accent: var(--panel-accent, var(--stage-accent));
+  color: var(--text);
+}
 h2, h3, p, dl, dd, ul { margin: 0; padding: 0; }
 ul { list-style: none; }
 [hidden] { display: none !important; }
@@ -18,22 +28,41 @@ ul { list-style: none; }
 .skip { position: absolute; left: 8px; top: -60px; z-index: 30; padding: 6px 10px; background: var(--accent); color: var(--bg); }
 .skip:focus { top: 6px; }
 
-button { font: inherit; color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: 3px; min-height: 26px; padding: 2px 9px; cursor: pointer; }
+button { font: inherit; color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: var(--radius, 3px); min-height: 26px; padding: 2px 9px; cursor: pointer; }
 button:hover { border-color: var(--accent); color: var(--ink); }
 button[aria-pressed="true"], button.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
 button:disabled { opacity: .5; cursor: default; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
-.brand { display: flex; flex-direction: column; margin-right: auto; min-width: 0; }
-.brand strong { font: 600 14px/1.2 var(--ui); letter-spacing: 3px; color: var(--ink); }
+/* One row, whatever the look: the bar never wraps and its lines have fixed heights, so a look's lettering
+   cannot change the bar's height, and with it the size of the scene. The title gives way first. */
+.bar { position: relative; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px 18px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { display: flex; flex-direction: column; flex: 1 1 0; margin-right: auto; min-width: 0; overflow-x: clip; }
+.brand strong { font: var(--title-style, normal) var(--title-weight, 600) var(--title-size, 14px)/16.8px var(--title-font, var(--ui)); letter-spacing: var(--title-spacing, 3px);
+  color: var(--title-color, var(--ink)); text-transform: var(--title-case, uppercase); text-shadow: var(--title-shadow, none); white-space: nowrap; }
 .brand span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.group { display: flex; align-items: center; gap: 6px; }
+.group { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .group-name { font-size: 11px; color: var(--muted); }
 .seg { display: inline-flex; }
 .seg button { border-radius: 0; margin-left: -1px; }
-.seg button:first-child { border-radius: 3px 0 0 3px; margin-left: 0; }
-.seg button:last-child { border-radius: 0 3px 3px 0; }
+.seg button:first-child { border-radius: var(--radius, 3px) 0 0 var(--radius, 3px); margin-left: 0; }
+.seg button:last-child { border-radius: 0 var(--radius, 3px) var(--radius, 3px) 0; }
+
+/* The look switcher: previous, the current look's name (it opens the list), next. Fixed widths, so a
+   long name or another font never moves the buttons beside it. */
+.look-switch { min-width: 0; }
+#look-prev, #look-next { flex: none; width: 26px; padding: 2px 0; }
+#look-name { flex: 0 1 210px; width: 210px; min-width: 0; display: inline-flex; align-items: center; gap: 6px; text-align: left; white-space: nowrap; }
+.look-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.look-tag { flex: none; padding: 0 5px; border: 1px dashed var(--muted); border-radius: 8px; font-size: 10px; line-height: 14px; color: var(--muted); white-space: nowrap; }
+.look-caret { flex: none; color: var(--muted); }
+/* The list of looks lies over the page under the bar, so opening it never changes the size of the scene. */
+.look-panel { position: absolute; z-index: 25; top: 100%; right: 8px; width: min(600px, calc(100% - 16px)); max-height: min(72vh, 440px); overflow: auto; display: flex; flex-direction: column; gap: 8px;
+  padding: 8px 10px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius, 3px); box-shadow: 0 8px 22px #0006; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.look-group { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.look-group .group-name { flex: 0 0 100%; }
+.look-panel button { display: inline-flex; align-items: center; gap: 6px; }
+.look-panel button[data-stub], .look-panel button[data-missing] { border-style: dashed; color: var(--muted); }
 
 /* The workspace chips: a filter on what is shown. Many workspaces wrap to a second row and then scroll. */
 .scopes { flex: none; display: flex; align-items: center; gap: 4px 10px; padding: 3px 12px; border-bottom: 1px solid var(--line); background: var(--panel); min-width: 0; }
@@ -50,7 +79,7 @@ button:disabled { opacity: .5; cursor: default; }
 .work { flex: 1; min-height: 0; display: grid; grid-template-columns: 224px minmax(0, 1fr) 276px; }
 .twin-panel, .side { background: var(--panel); min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .twin-panel { border-right: 1px solid var(--line); padding: 10px 0 0; display: flex; flex-direction: column; }
-.twin-panel h2, .side h2 { font: 600 12px/1.3 var(--ui); color: var(--ink); }
+.twin-panel h2, .side h2 { font: 600 12px/1.3 var(--head-font, var(--ui)); color: var(--ink); }
 .twin-panel h2, .twin-panel .hint { padding: 0 12px; }
 .hint { font-size: 11px; color: var(--muted); }
 #twin { flex: 1; min-height: 0; overflow: auto; margin-top: 8px; padding-bottom: 12px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
@@ -66,11 +95,11 @@ canvas#scene.dragging { cursor: grabbing; }
 canvas#scene:focus-visible { outline-offset: -3px; }
 .view-buttons { position: absolute; top: 8px; right: 8px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: calc(100% - 16px); }
 .view-buttons button { background: color-mix(in srgb, var(--panel) 88%, transparent); font-size: 11px; min-height: 24px; padding: 1px 7px; }
-.hud { position: absolute; left: 8px; bottom: 8px; display: flex; flex-wrap: wrap; gap: 2px 10px; max-width: calc(100% - 16px); padding: 3px 8px; border: 1px solid var(--line); border-radius: 3px;
+.hud { position: absolute; left: 8px; bottom: 8px; display: flex; flex-wrap: wrap; gap: 2px 10px; max-width: calc(100% - 16px); padding: 3px 8px; border: 1px solid var(--line); border-radius: var(--radius, 3px);
   background: color-mix(in srgb, var(--panel) 88%, transparent); font: 11px/1.5 var(--font); color: var(--muted); pointer-events: none; }
 .hud b { font-weight: 600; color: var(--ink); }
 /* One sentence over the empty floors when nothing is live. It never takes a click. */
-.empty-scene { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); max-width: calc(100% - 32px); padding: 8px 14px; border: 1px solid var(--line); border-radius: 3px;
+.empty-scene { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); max-width: calc(100% - 32px); padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--radius, 3px);
   background: color-mix(in srgb, var(--panel) 90%, transparent); color: var(--ink); font-size: 13px; text-align: center; pointer-events: none; }
 
 /* The status line: hub, counts and collector, as text. */
@@ -88,7 +117,7 @@ canvas#scene:focus-visible { outline-offset: -3px; }
 .facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 10px; margin-top: 8px; }
 .facts dt { color: var(--muted); }
 .facts dd { color: var(--ink); overflow-wrap: anywhere; }
-.side h3 { margin: 12px 0 4px; font: 600 11px/1.3 var(--ui); color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+.side h3 { margin: 12px 0 4px; font: 600 11px/1.3 var(--head-font, var(--ui)); color: var(--muted); text-transform: var(--label-case, uppercase); letter-spacing: var(--label-spacing, .6px); }
 .plain li { font: 11px/1.5 var(--font); overflow-wrap: anywhere; }
 /* The "In VS Code" list is a list of labels. It is styled not to look like buttons. */
 .actions li { margin-top: 5px; padding-left: 10px; border-left: 2px dotted var(--line); }
@@ -98,7 +127,7 @@ canvas#scene:focus-visible { outline-offset: -3px; }
 
 #legend { flex: none; max-height: 46%; overflow: auto; border-top: 1px solid var(--line); padding: 7px 12px 10px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 #legend h3 { margin-top: 7px; }
-#legend summary { cursor: pointer; font: 600 12px/1.3 var(--ui); color: var(--ink); }
+#legend summary { cursor: pointer; font: 600 12px/1.3 var(--head-font, var(--ui)); color: var(--ink); }
 .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; }
 .legend-item { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; }
 .legend-item canvas { flex: none; }
