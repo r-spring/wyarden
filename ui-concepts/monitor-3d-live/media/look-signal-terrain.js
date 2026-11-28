@@ -3,14 +3,18 @@
  * Adapted from Entridir (the Entridir repository, GPL v3), commit 63197c31,
  * nexus-3d/ui-concepts/nexus-worlds-29d4d1/modes-horizon-terrain.js, world.js and worlds.css;
  * picture docs/monitor-3d/img/before/terrain.png.
- * Taken as they are: the palette (modes-horizon-terrain.js line 45), the one beacon mesh for every node at its two heights
- * (beacon(), line 41), which type takes the primary olive and which the secondary gold (world.js line 16), the height field
+ * Taken as they are: the panel, text, muted, primary, secondary and alert colours (modes-horizon-terrain.js line 45), the
+ * one beacon mesh for every node (beacon(), line 41), which type takes the primary olive and which the secondary gold (world.js line 16), the height field
  * (height(), line 37) drawn as a wire grid every 45 in its three height colours, its contour lines at -25, 0, 25, 50 and 75,
  * the three region names and the north arrow (environment(), lines 53 to 64), and the page's colours and lettering
  * (worlds.css, the .terrain rules and the base rules).
  * Changed: the original's twelve types are given to the monitor's five classes (agent the tall olive beacon, as its
- * workspace, orchestrator and agent; subagent a short gold beacon; tool a short olive beacon; MCP server a short olive
- * beacon, as its remote; resource a short gold beacon, as its context). The landscape stands still and is worked out once:
+ * workspace, orchestrator and agent; subagent a short gold beacon; tool a short olive beacon; MCP server a short gold
+ * beacon, as its main branch, so the floors go olive, gold, olive, gold; resource a short gold beacon, as its context).
+ * The beacon's head is drawn a quarter larger, and the agent's stem is 30 where the original's was 42, so that its head
+ * stays inside the legend's icon. The background is #0d2a26, the middle of the stage's gradient (#133c32 to #07191a),
+ * which the contract cannot draw. CONTEXT RESERVE and the north arrow are moved in from the field's corner so they stay
+ * on the monitor's stage. The landscape stands still and is worked out once:
  * the original moved it a little with the clock and worked it out again in every frame. It lies under the lowest floor and
  * grows with the floors; nodes do not stand on it. The red rings round blocked nodes are left out: a look is never told a
  * state, and a state is only a mark. The original coloured blocked and waiting nodes red and gold: here those are only
@@ -69,8 +73,9 @@
       // bg: the stage's ground, the middle of its gradient (worlds.css .terrain .viewport, #133c32 to #07191a); line 45 gives
       // panel, text, muted and primary. Borders: the panels' #344b38 (worlds.css .terrain .directory).
       bg: '#0d2a26', panel: '#0b2423', line: '#344b38', ink: '#e7dbb8', caption: '#e7dbb8', muted: '#94a58b', accent: '#bacf88',
-      // world.js line 16: agent and tool primary, subagent and context secondary; MCP server as the remote, primary.
-      cls: { agent: '#bacf88', subagent: '#e0b96e', tool: '#bacf88', resource: '#e0b96e', mcp: '#bacf88' },
+      // world.js line 16: agent and tool primary, subagent and context secondary; MCP server as the main branch, secondary,
+      // so the four floors go olive, gold, olive, gold from the top.
+      cls: { agent: '#bacf88', subagent: '#e0b96e', tool: '#bacf88', resource: '#e0b96e', mcp: '#e0b96e' },
       // The marks only. failed: alert; needs: secondary; working: text; unclear: the region names' green (#a3bc89);
       // idle: muted; done: the pressed lens button's border (.terrain .lens-row, #6b7b4d).
       state: { needs: '#e0b96e', failed: '#ff785e', working: '#e7dbb8', unclear: '#a3bc89', idle: '#94a58b', done: '#6b7b4d' },

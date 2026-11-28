@@ -14,7 +14,7 @@
  * edge-on so it reads as the tall diamond at the original's centre, which there came from the workspace's turning.
  * The tunnel stands still: the original scrolled it with the clock. Its axis runs along the monitor's first view instead of
  * along z, so that its rings stand inside each other as in the picture. "PRESENT / 034s" is only PRESENT: a look is never
- * told a time. The original coloured blocked and waiting nodes red and cyan: here those are only the colours of the marks.
+ * told a time, and it stands just inside the ring's top, as above it the stage ends. The original coloured blocked and waiting nodes red and cyan: here those are only the colours of the marks.
  * Ring counts and segments are cut to keep the backdrop inside the contract's limits.
  *
  * A look is palette, meshes, caption style and a still backdrop. It has no say in where a node stands. See LOOKS.md.
@@ -106,7 +106,7 @@
       const k = Math.max(1, half / 300);
       const at = (t, a, r) => [0, 1, 2].map(i => c[i] + (Math.cos(a) * u[i] + Math.sin(a) * v[i]) * r * k + d[i] * t * k);
       const ring = (t, r, n) => { const out = []; for (let i = 0; i <= n; i++) out.push(at(t, i / n * Math.PI * 2, r)); return out; };
-      // The source's rings stand every 120 in z, from 750 in front of the present to 1,170 behind it (present at z 150).
+      // The source's rings stand every 120 in z; here from 750 in front of the present to 1,050 behind it.
       const near = [], mid = [], far = [], grey = [], long = [], streaks = [];
       for (let i = -5; i <= 10; i++) {
         const z = i * 120 - 150, off = Math.abs(z);
@@ -124,7 +124,7 @@
         { lines: streaks, color: '#9de2e9', alpha: .3, width: .5 },
         { lines: [ring(0, 299, 72)], color: '#9de2e9', alpha: .8, width: .8 },
         { lines: [ring(0, 307, 72)], color: '#9de2e9', alpha: .16, width: .8 },
-        { text: 'PRESENT', at: at(0, Math.PI / 2, 330), color: '#9de2e9', alpha: .8, size: 11, align: 'center' },
+        { text: 'PRESENT', at: at(0, Math.PI / 2, 280), color: '#9de2e9', alpha: .8, size: 11, align: 'center' },
         { text: 'PAST ←', at: at(0, Math.PI, 325), color: '#f6bf77', alpha: .7, size: 10, align: 'right' },
         { text: '→ CONSEQUENCE', at: at(0, 0, 325), color: '#f6bf77', alpha: .7, size: 10, align: 'left' }
       ];
