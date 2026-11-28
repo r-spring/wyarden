@@ -1,5 +1,9 @@
 # Wyarden 0.2.0 signed-in provider acceptance
 
+Card `cbe1fe` repeated the signed-in acceptance on the delivery VSIX with SHA-256 `BDF7E4711A4A2BFD291C6C4F22D488FA4EF7CF03FCBD829BD08BAF142058A616`. See `FINAL.md` and the files prefixed `final-` in this directory.
+
+## Initial candidate retained for comparison
+
 Card `56e6ee` tested source `bc6a7ad2a514ee61b5fc1e072110971b19a14679`, which includes host integration `4e06abe311f28516e0526a98549246008c0bbf86`. On 2026-11-28, `node ui-concepts/monitor-3d-live/tools/pack.js` reproduced the parent card's 55-entry, 248,451-byte VSIX. Both archives had SHA-256 `83359B3E86F9579457DDFDC69E79B684E2C45A60E7A66A1409D1CEB80D99413C`.
 
 VS Code 1.148.0 x64 (`661626d0e72f97806550790a98fb87116c9db825`) installed that VSIX and listed `r-spring.wyarden-monitor-3d@0.2.0`. Of the 53 installed payload files, 52 matched byte for byte. The installed manifest matched after removing VS Code's added `__metadata` field. Both fixture windows used disposable editor data, extensions, and `WYARDEN_MONITOR_HOME` directories. The captures came from the installed extension's floating monitor webview. Node.js was `v26.7.0`.
@@ -32,4 +36,4 @@ The first Codex turn tried to read the same fixture through its Windows shell. A
 - The first full monitor run reported 485 tests, 476 passed, zero failed, four skipped and five marked todo.
 - A concurrent repeat hit four test-case failures across the floating-window, browser looks and browser preview checks. The reporter also listed two enclosing suite failures. The first runs and the live packaged captures record their own coverage above.
 
-The isolated editor and fixture registrations remain available for parent card `80cf35` to retest the repair. The parent owns their teardown and any installation in the normal local editor.
+The board removed this candidate's disposable editor and fixture directory on integration. Card `cbe1fe` rebuilt the lane for the delivery VSIX. Parent card `80cf35` owns normal-profile installation.

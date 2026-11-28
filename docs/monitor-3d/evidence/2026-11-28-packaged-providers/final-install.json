@@ -1,0 +1,14 @@
+{
+  "sha256": "BDF7E4711A4A2BFD291C6C4F22D488FA4EF7CF03FCBD829BD08BAF142058A616",
+  "sourceRevision": "afe5c20d8a6e5ec5adeab4d640b592ac67322c5f",
+  "archiveBytes": 277384,
+  "archiveEntries": 56,
+  "extension": "r-spring.wyarden-monitor-3d@0.2.0",
+  "editor": "VS Code 1.148.0 x64 (661626d0e72f97806550790a98fb87116c9db825)",
+  "payloadFiles": 54,
+  "exactBytes": 53,
+  "manifest": "JSON equal after excluding editor-added __metadata",
+  "vsixManifest": "Editor-copied .vsixmanifest is byte-identical to archive extension.vsixmanifest",
+  "unexpectedFiles": 0,
+  "missingFiles": 0
+}
