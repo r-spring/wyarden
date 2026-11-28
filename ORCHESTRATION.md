@@ -26,10 +26,11 @@ Live editor work uses one lane. Card `1ce761` owns the monitor window and cross-
 | --- | --- | --- |
 | `80cf35` | All three real providers visible in Wyarden | Robert approved at 02:04 on 28 November |
 | `5a6fd9` | Step 1, route events through the shared hub | Done. Integrated `364bcc0` at `8077f3c`. The real loopback test kept Claude and Grok separate with the same session id. Full suite 364 passed, 4 skipped, 0 failed. |
-| `bb64b7` | Step 2, Codex sessions and tools | Launch confirmed after `5a6fd9`. |
-| `1018a5` | Step 3, Grok Build sessions and tools | Launch confirmed after `5a6fd9`. |
-| `68479f` | Step 4, Antigravity sessions and tools | Launch confirmed after `5a6fd9`. |
-| Steps 5–6 | Editor integration and live evidence | Awaiting the provider adapters |
+| `bb64b7` | Step 2, Codex sessions and tools | Done. Integrated `ab8c74d` at `b8d5e35`. 10 focused tests passed. Native 0.172.0 reported the new hooks pending user trust. The loopback model test passed. |
+| `1018a5` | Step 3, Grok Build sessions and tools | Done. Integrated `aa186df` at `cc1bd2e`. 6 focused tests passed. Native CLI 1.0.92 with a disposable local model delivered the same call through two routes. The real hub counted it once. |
+| `68479f` | Step 4, Antigravity sessions and tools | Done. Integrated `a61df48` at `251ad00`. 8 focused tests passed. Signed-in CLI 1.5.19 sent a real failed read to the hub and continued when the hub closed. |
+| `432088` | Step 5, editor activation and reviewed collector setup | Launch confirmed after all four dependencies. Version 0.2.0 proposed locally. |
+| Step 6 | Live packaged editor evidence | Awaiting editor integration |
 
 ---
 
