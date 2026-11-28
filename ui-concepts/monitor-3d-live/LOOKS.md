@@ -55,8 +55,31 @@ The two built mock-up looks, `look-nexus-mockup.js` and `look-glasshouse-mockup.
 | `solid` | 0 to 1: how much of what lies behind a shape is hidden, in the background's colour. |
 | `floorFill`, `floorLine`, `post` | 0 to 1: a floor's tint, its outline, and the posts that join a column's floors. |
 | `captionBack`, `captionHalo` | 0 to 1: a plate behind a caption; a thin outline of the background's colour round its letters. Use one of the two. |
+| `ground` (optional) | The scene's background as one still gradient, round or straight, in place of the flat `bg`. See below. |
+| `captionNode` (optional) | `true`: the first line of a caption is in its node's colour, where that can be read. See below. |
 
 A colour is any CSS colour.
+
+**A ground that is not flat (`ground`).** One gradient fills the scene where the flat `bg` did. Absent, the scene is drawn exactly as before.
+
+```js
+ground: { shape: 'round', at: [.5, .75], stops: [[0, '#0b2630'], [.45, '#06111c'], [.95, '#030910']] }
+ground: { shape: 'straight', from: [.5, 0], to: [.5, 1], stops: [[0, '#f5f7f1'], [1, '#e5ede4']] }
+```
+
+- **`round`** is an ellipse round `at` that reaches the scene's farthest corner, as CSS's `radial-gradient(ellipse at 50% 75%, …)` does. `at` is the middle when absent.
+- **`straight`** runs from `from` to `to`, as CSS's `linear-gradient(…)` does. Absent, they are the top and the bottom.
+- **A position is a fraction of the scene:** `[0, 0]` is its top left corner, `[1, 1]` its bottom right one.
+- **`stops`** are 2 to 6 of `[offset, colour]`, the offsets from 0 to 1 and never falling.
+- **Its limits:** it is the one fill that begins a frame, so it costs nothing more and nothing is drawn at rest. It does not move. The stage round the scene and the panels keep `bg` and `panel`. What a shape hides (`solid`), a mark's disc and a caption's halo keep `bg` too, so choose stops near `bg`.
+- **A ground that cannot be drawn** (a wrong shape, a colour the browser refuses) leaves the flat `bg`, and the test fails.
+
+**A caption in its node's colour (`captionNode: true`).** The first line of a caption at rest takes its node's colour: its class's, or its provider's where the palette has `provider`.
+
+- **What stays:** the selected and the pointed-at caption keep `ink`; a caption's second line keeps `muted`; the workspace names on the tiles keep `caption`. A state never colours a caption.
+- **The floor is a contrast of 4.5 to 1** (WCAG's floor for small text) against `bg` and against every stop of `ground`. A node's colour under the floor is not used: that caption keeps `caption`.
+- **Write `bg`, the ground's stops and the class and provider colours as `#rgb`, `#rrggbb` or `rgb(r, g, b)`.** The engine works the contrast out from the text; a colour written another way keeps `caption`, and the test asks for these forms.
+- **The test fails** when a look asks for it and none of its colours reaches the floor: leave the key out then.
 
 ## The meshes
 
@@ -150,7 +173,7 @@ node --test ui-concepts/monitor-3d-live/test/looks.test.js
 node ui-concepts/monitor-3d-live/tools/shoot-looks.js <id>
 ```
 
-- **The test** checks every built look: it is complete; it keeps what it claims; nothing stands elsewhere than in NEXUS; its backdrop is still and inside the limits; a real click on its button shows it with 0 frames at rest and no script error; its picture differs from every other look's; it keeps to the size rule; a frame at about 200 nodes is inside the budget. It leaves a picture of the page in `ui-concepts/monitor-3d-live/.scratch/looks/<id>.png`, which git ignores.
+- **The test** checks every built look: it is complete; it keeps what it claims; nothing stands elsewhere than in NEXUS; its backdrop is still and inside the limits; its background is one fill and its ground can be drawn; a caption has its node's colour only where it reaches the floor; a real click on its button shows it with 0 frames at rest and no script error; its picture differs from every other look's; it keeps to the size rule; a frame at about 200 nodes is inside the budget. It leaves a picture of the page in `ui-concepts/monitor-3d-live/.scratch/looks/<id>.png`, which git ignores.
 - **The whole suite** is `node --test "ui-concepts/monitor-3d-live/test/*.test.js"`.
 - **The shoot tool** writes `docs/looks/img/<id>.png` for the ids you name and no other: the page at 1280 x 720 on one fixed invented scene with every class and state. With `samples` it also writes `docs/looks/img/<id>-<name>.png` for each. Commit those pictures with your look.
 - **To see it yourself,** open the picture, or run the test and open the one in `.scratch/looks/`, or use the preview below.

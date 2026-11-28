@@ -25,6 +25,10 @@
       state: { needs: '#b45309', failed: '#be123c', working: '#1b1b1b', unclear: '#5c5c5c', idle: '#5c5c5c', done: '#8a8f98' },
       clash: '#be123c',
       outline: '#101418',                          // every edge in one dark ink, over a fill in the class's colour
+      // A ground that is not flat: lighter in the middle, the background's own colour from 70 % outwards (so the corners are bg).
+      ground: { shape: 'round', at: [.5, .5], stops: [[0, '#fffaf0'], [.7, FALLBACK.bg]] },
+      // The first line of a caption in its node's colour. The tool's amber is under the floor on this ground (4.4 to 1), so a tool's caption keeps `caption`.
+      captionNode: true,
       fill: .85, solid: 1, floorFill: .05, floorLine: .5, post: .4, captionBack: 0, captionHalo: .9
     },
     page: {
@@ -40,6 +44,8 @@
     fromPage(read) {
       this.palette.bg = read('--vscode-editor-background', FALLBACK.bg);
       this.palette.ink = read('--vscode-editor-foreground', FALLBACK.ink);
+      // The ground runs out into the background that was read. A new object each time: a palette copied for a test shares none of it.
+      this.palette.ground = { shape: 'round', at: [.5, .5], stops: [[0, '#fffaf0'], [.7, this.palette.bg]] };
     },
     /** Exactly the limits: B.segments segments in B.styles - 2 paths (half of them dashed), B.dots dots in 2, B.texts texts. */
     backdrop(scene) {

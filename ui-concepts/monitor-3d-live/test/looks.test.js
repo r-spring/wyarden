@@ -44,9 +44,9 @@ const MESH_KEYS = ['agent', 'subagent', 'tool', 'mcp', 'resource.file', 'resourc
 
 /** A canvas that draws nothing and writes down every stroke, fill and text with the style in force. */
 function fakeCanvas() {
-  const drawn = { strokes: [], fills: [], texts: [], rects: [] };
+  const drawn = { strokes: [], fills: [], texts: [], rects: [], gradients: [] };
   const state = { globalAlpha: 1, fillStyle: '', strokeStyle: '', font: '', lineWidth: 1, dash: [] };
-  let moves = 0, lines = 0, arcs = 0;
+  let moves = 0, lines = 0, arcs = 0, under = null;      // under: the translate and scale in force between save() and restore()
   const ctx = new Proxy(state, {
     get(target, key) {
       if (key in target) return target[key];
@@ -59,7 +59,17 @@ function fakeCanvas() {
       if (key === 'stroke') return () => { drawn.strokes.push({ color: target.strokeStyle, alpha: target.globalAlpha, width: target.lineWidth, dash: target.dash.slice(), moves, lines }); };
       if (key === 'fill') return () => { drawn.fills.push({ color: target.fillStyle, alpha: target.globalAlpha, moves, lines, arcs }); };
       if (key === 'fillText') return (text, x, y) => { drawn.texts.push({ text, x, y, color: target.fillStyle, font: target.font, alpha: target.globalAlpha }); };
-      if (key === 'fillRect') return (x, y, w, h) => { drawn.rects.push({ x, y, w, h, color: target.fillStyle }); };
+      if (key === 'fillRect') return (x, y, w, h) => { drawn.rects.push({ x, y, w, h, color: target.fillStyle, alpha: target.globalAlpha, under: under && Object.assign({}, under) }); };
+      // A gradient is written down with its kind, its geometry and its stops; a rectangle filled with it has it as its colour.
+      if (key === 'createRadialGradient' || key === 'createLinearGradient') return (...args) => {
+        const gradient = { kind: key === 'createRadialGradient' ? 'round' : 'straight', args, stops: [], addColorStop(offset, color) { this.stops.push([offset, color]); } };
+        drawn.gradients.push(gradient);
+        return gradient;
+      };
+      if (key === 'save') return () => { under = { x: 0, y: 0, sx: 1, sy: 1 }; };
+      if (key === 'restore') return () => { under = null; };
+      if (key === 'translate') return (x, y) => { if (under) { under.x = x; under.y = y; } };
+      if (key === 'scale') return (sx, sy) => { if (under) { under.sx = sx; under.sy = sy; } };
       return () => {};
     },
     set(target, key, value) { target[key] = value; return true; }
@@ -186,6 +196,15 @@ function problems(look) {
   if (pal.outline !== undefined && !isColor(pal.outline)) bad('palette.outline');
   if (pal.floor !== undefined) for (const floor of Object.keys(pal.floor)) if (!L.FLOORS.includes(floor) || !isColor(pal.floor[floor])) bad('palette.floor.' + floor);
   if (pal.provider !== undefined) for (const kind of M.AGENT_KINDS) if (!isColor(pal.provider[kind])) bad('palette.provider.' + kind);
+  // A ground that is not flat: round or straight, 2 to 6 stops. The engine's own check, so the two can never disagree.
+  if (pal.ground !== undefined) { const wrong = E.groundProblem(pal.ground); if (wrong) bad('palette.' + wrong); else if (!pal.ground.stops.every(stop => isColor(stop[1]))) bad('palette.ground.stops: a colour'); }
+  // A caption in its node's colour: the contrast is worked out from the colours as written, so they must be ones the engine reads.
+  if (pal.captionNode !== undefined && typeof pal.captionNode !== 'boolean') bad('palette.captionNode must be true or false');
+  if (pal.captionNode === true) {
+    const named = [['bg', pal.bg], ...((pal.ground && Array.isArray(pal.ground.stops) ? pal.ground.stops : []).map((stop, i) => ['ground.stops[' + i + ']', stop && stop[1]])),
+      ...Object.entries(pal.cls || {}).map(([k, v]) => ['cls.' + k, v]), ...Object.entries(pal.provider || {}).map(([k, v]) => ['provider.' + k, v])];
+    for (const [name, color] of named) if (E.luminance(color) === null) bad('palette.' + name + ' must be written as #rgb, #rrggbb or rgb(r, g, b) in a look with captionNode: "' + color + '"');
+  }
   if (look.page !== undefined) {
     if (!look.page || typeof look.page !== 'object') bad('page must be an object');
     else for (const [key, value] of Object.entries(look.page)) {
@@ -293,6 +312,54 @@ for (const id of BUILT) {
     }
     const { view } = sceneIn(look);
     assert.equal(view.backdropInfo.error, '', 'the backdrop throws');
+  });
+
+  test('look ' + id + ': its background is one fill, flat or its ground; a caption has its node\'s colour only where the look asks and it can be read', () => {
+    const look = LOOKS[id], pal = look.palette, { view, drawn, model, frame } = sceneIn(look);
+    // The background: the first thing drawn, and the only fill of the whole scene.
+    const first = drawn.rects[0];
+    assert.equal(drawn.rects.filter(r => r.w * (r.under ? r.under.sx : 1) >= 1280).length, 1, 'one fill of the whole scene in a frame');
+    assert.equal(view.groundError, '', id + ': its ground cannot be drawn');
+    if (pal.ground === undefined) {
+      // A look without a ground draws what it drew before there was one: the flat background, and no gradient is made.
+      assert.deepEqual([first.x, first.y, first.w, first.h, first.color, first.alpha, first.under], [0, 0, 1280, 720, pal.bg, 1, null]);
+      assert.equal(drawn.gradients.length, 0);
+    } else {
+      assert.equal(drawn.gradients.length, 1, 'one gradient');
+      assert.equal(first.color, drawn.gradients[0], 'the scene is filled with it');
+      assert.deepEqual([drawn.gradients[0].kind, drawn.gradients[0].stops, first.alpha], [pal.ground.shape, pal.ground.stops, 1]);
+      assert.ok(covers(first, 1280, 720), 'the fill covers the scene: ' + JSON.stringify(first));
+    }
+    // The captions, with the agent that needs its owner selected.
+    view.setSelected(FIXED.SELECTED); frame();
+    const lines = firstLines(look, view, drawn);
+    assert.ok(lines.length > 4 && lines.every(line => typeof line.color === 'string'), 'every caption\'s first line was found: ' + JSON.stringify(lines.filter(line => !line.color)));
+    assert.equal(lines.find(line => line.id === FIXED.SELECTED).color, pal.ink, 'the selected caption keeps the ink');
+    let own = 0;
+    for (const line of lines) {
+      if (line.id === FIXED.SELECTED) continue;
+      const n = model.nodes.get(line.id), color = view.visual(n).color;
+      if (pal.captionNode !== true) { assert.equal(line.color, pal.caption, id + ': ' + line.id + ' has a caption in another colour than palette.caption'); continue; }
+      // In its node's colour where that reaches the floor against every colour of the ground; else in palette.caption. Whatever its state.
+      const least = Math.min(...E.groundColors(pal).map(ground => E.contrast(color, ground)));
+      assert.equal(line.color, least >= E.CAPTION_FLOOR ? color : pal.caption, id + ': ' + line.id + ' (' + n.status + '), whose colour ' + color + ' has ' + least.toFixed(2) + ' to 1 on the ground');
+      if (line.color === color) own++;
+    }
+    if (pal.captionNode === true) assert.ok(own > 0, id + ' asks for captions in the nodes\' colours, and none of its colours reaches ' + E.CAPTION_FLOOR + ' to 1 on its ground: leave captionNode out');
+  });
+}
+
+/** Whether a filled rectangle, under the translate and scale it was drawn with, covers a scene of w x h. */
+function covers(rect, w, h) {
+  const u = rect.under || { x: 0, y: 0, sx: 1, sy: 1 }, left = u.x + rect.x * u.sx, top = u.y + rect.y * u.sy;
+  return left <= 1e-6 && top <= 1e-6 && left + rect.w * u.sx >= w - 1e-6 && top + rect.h * u.sy >= h - 1e-6;
+}
+/** The first line of every caption in a frame: [{ id, color }]. It is drawn in the middle of its box, 11 px (times the look's caption scale) under the box's top. */
+function firstLines(look, view, drawn) {
+  const k = Math.max(1, Math.min(2, (Number(look.captionSize) || 10) / 10));
+  return view.labels.map(box => {
+    const text = drawn.texts.find(t => t.text === box.lines[0] && Math.abs(t.x - (box.x + box.w / 2)) < .01 && Math.abs(t.y - (box.y + 11 * k)) < .01);
+    return { id: box.id, color: text ? text.color : null };
   });
 }
 
@@ -424,6 +491,126 @@ test('the contract: an outline colour apart from the fill, faces, and a caption 
   assert.deepEqual(mixed.lines.slice(-3), [[8, 9], [9, 10], [10, 8]]);
 });
 
+test('the contract: a ground that is not flat is one still gradient, round or straight, in place of the flat fill; a look without one draws as before', () => {
+  const pal = (ground, more) => Object.assign({}, LOOKS.nexus.palette, ground === undefined ? {} : { ground }, more);
+  const paint = (palette, w = 1280, h = 720) => { const { canvas, drawn } = fakeCanvas(), ctx = canvas.getContext('2d'); return { error: E.paintGround(ctx, palette, w, h), drawn, ctx }; };
+  // No ground: the flat background, exactly the three steps the engine took before, and nothing else.
+  const flat = paint(pal());
+  assert.deepEqual([flat.error, flat.drawn.gradients.length, flat.drawn.rects], ['', 0, [{ x: 0, y: 0, w: 1280, h: 720, color: LOOKS.nexus.palette.bg, alpha: 1, under: null }]]);
+  assert.equal(flat.ctx.fillStyle, LOOKS.nexus.palette.bg);
+  // Round: a circle of radius 1 stretched to the ellipse through the farthest corner (CSS's own default), round `at`.
+  const stops = [[0, '#0b2630'], [.45, '#06111c'], [.95, '#030910']];
+  const round = paint(pal({ shape: 'round', at: [.5, .75], stops }));
+  assert.equal(round.error, '');
+  assert.deepEqual([round.drawn.gradients.length, round.drawn.gradients[0].kind, round.drawn.gradients[0].args, round.drawn.gradients[0].stops], [1, 'round', [0, 0, 0, 0, 0, 1], stops]);
+  assert.equal(round.drawn.rects.length, 1, 'one fill');
+  const fill = round.drawn.rects[0];
+  assert.equal(fill.color, round.drawn.gradients[0]);
+  assert.deepEqual([fill.under.x, fill.under.y], [640, 540], 'centred at 50 % and 75 % of the scene');
+  assert.ok(Math.abs(fill.under.sx - 640 * Math.SQRT2) < 1e-9 && Math.abs(fill.under.sy - 540 * Math.SQRT2) < 1e-9, 'out to the farthest corner: ' + JSON.stringify(fill.under));
+  assert.ok(covers(fill, 1280, 720), 'the fill covers the scene');
+  // The farthest corner (the top left one here) lies on the ellipse's rim, where the last stop is.
+  assert.ok(Math.abs(Math.hypot((0 - 640) / fill.under.sx, (0 - 540) / fill.under.sy) - 1) < 1e-9);
+  // `at` absent: the middle.
+  assert.deepEqual((u => [u.x, u.y])(paint(pal({ shape: 'round', stops })).drawn.rects[0].under), [640, 360]);
+  // Straight: from the top to the bottom unless told otherwise; no stretch.
+  const down = paint(pal({ shape: 'straight', stops: [[0, '#f5f7f1'], [1, '#e5ede4']] }));
+  assert.deepEqual([down.error, down.drawn.gradients[0].kind, down.drawn.gradients[0].args, down.drawn.rects[0].under], ['', 'straight', [640, 0, 640, 720], null]);
+  assert.deepEqual(paint(pal({ shape: 'straight', from: [0, 0], to: [1, .5], stops })).drawn.gradients[0].args, [0, 0, 1280, 360]);
+  // What is not a ground: the flat background is drawn, and the reason is given.
+  const o = (extra) => Object.assign({ shape: 'round', stops }, extra);
+  for (const [ground, reason] of [[7, /must be an object/], [null, /must be an object/], [o({ shape: 'spiral' }), /"round" or "straight"/], [o({ at: [.5] }), /ground\.at must be \[x, y\]/], [o({ at: [.5, 1.2] }), /ground\.at/],
+    [o({ shape: 'straight', from: [.2, .2], to: [.2, .2] }), /must differ/], [o({ shape: 'straight', to: 'down' }), /ground\.to/], [o({ stops: [[0, '#000']] }), /2 to 6 stops/],
+    [o({ stops: new Array(7).fill([.5, '#000']) }), /2 to 6 stops/], [o({ stops: [[.6, '#000'], [.2, '#111']] }), /never falling/], [o({ stops: [[0, '#000'], [1.5, '#111']] }), /from 0 to 1/], [o({ stops: [[0, '#000'], [1, 7]] }), /\[offset, colour\]/]]) {
+    assert.match(E.groundProblem(ground), reason, JSON.stringify(ground));
+    const bad = paint(pal(ground));
+    assert.match(bad.error, reason);
+    assert.deepEqual([bad.drawn.gradients.length, bad.drawn.rects.map(r => r.color)], [0, [LOOKS.nexus.palette.bg]], 'the flat background instead');
+  }
+  assert.equal(E.groundProblem({ shape: 'round', stops }), '');
+  assert.equal(E.GROUND.stops, 6);
+  // A canvas that refuses a colour (a real one throws), and one that makes no gradient (another test's stand-in): flat, with the reason, and no throw.
+  const refusing = { createRadialGradient: () => ({ addColorStop() { throw new Error('not a colour'); } }), calls: [], set fillStyle(v) { this.calls.push(v); }, fillRect(...a) { this.calls.push(a); } };
+  assert.equal(E.paintGround(refusing, pal({ shape: 'round', stops }), 100, 50), 'not a colour');
+  assert.deepEqual(refusing.calls, [LOOKS.nexus.palette.bg, [0, 0, 100, 50]]);
+  const none = { createRadialGradient: () => undefined, calls: [], set fillStyle(v) { this.calls.push(v); }, fillRect(...a) { this.calls.push(a); } };
+  assert.ok(E.paintGround(none, pal({ shape: 'round', stops }), 100, 50).length > 0);
+  assert.deepEqual(none.calls, [LOOKS.nexus.palette.bg, [0, 0, 100, 50]]);
+  // In a view: the ground is the first thing drawn in every frame, one fill, and a look whose ground is wrong is still drawn.
+  const { view, drawn, frame } = sceneIn(KNOBS);
+  assert.deepEqual([view.groundError, drawn.gradients.length, drawn.rects[0].color === drawn.gradients[0], drawn.gradients[0].stops], ['', 1, true, KNOBS.palette.ground.stops]);
+  view.orbit(.2, .1); frame(); view.setSelected(FIXED.SELECTED); frame();
+  assert.deepEqual([drawn.gradients.length, drawn.rects.filter(r => r.color === drawn.gradients[0]).length], [1, 1], 'one gradient and one fill in a frame, whatever caused it');
+  const broken = sceneIn(Object.assign({}, LOOKS.nexus, { palette: pal({ shape: 'round', stops: [] }) }));
+  assert.match(broken.view.groundError, /2 to 6 stops/);
+  assert.ok(broken.view.stats.nodes > 20 && broken.drawn.rects[0].color === LOOKS.nexus.palette.bg, 'the scene is drawn on the flat background');
+  // Every colour of a ground: the background and each stop. A gradient is never lighter or darker than its stops.
+  assert.deepEqual(E.groundColors(pal({ shape: 'round', stops })), [LOOKS.nexus.palette.bg, '#0b2630', '#06111c', '#030910']);
+  assert.deepEqual(E.groundColors(pal()), [LOOKS.nexus.palette.bg]);
+  assert.deepEqual(E.groundColors(pal('no')), [LOOKS.nexus.palette.bg]);
+  // The look's signature covers both additions, so a look that changes them is applied again.
+  const plain = Object.assign({}, KNOBS, { palette: Object.assign({}, KNOBS.palette) }), before = R.signature(plain);
+  plain.palette.ground = { shape: 'straight', stops };
+  const other = R.signature(plain);
+  assert.notEqual(other, before);
+  plain.palette.captionNode = false;
+  assert.notEqual(R.signature(plain), other);
+});
+
+test('the contract: a caption in its node\'s colour: the first line at rest, never a state\'s colour, and only where it has 4.5 to 1 against the whole ground', () => {
+  // The contrast is WCAG 2's ratio, from the colours as written.
+  assert.equal(E.CAPTION_FLOOR, 4.5);
+  const about = (a, b) => Math.abs(a - b) < .005;
+  assert.ok(about(E.contrast('#000000', '#ffffff'), 21) && about(E.contrast('#fff', 'rgb(0, 0, 0)'), 21), 'black on white is 21 to 1, however it is written');
+  assert.ok(about(E.contrast('#777777', '#FFFFFF'), 4.48) && about(E.contrast('#767676', '#ffffff'), 4.54), 'the two greys either side of 4.5 on white');
+  assert.ok(about(E.luminance('rgb(255 255 255)'), 1) && E.luminance(' #000 ') === 0);
+  for (const unread of ['teal', 'rgba(0, 0, 0, .5)', '#12345', 'rgb(300, 0, 0)', 'color-mix(in srgb, red, blue)', '', null, 7]) assert.equal(E.luminance(unread), null, String(unread));
+  assert.equal(E.contrast('teal', '#ffffff'), 0, 'a colour that cannot be read has no contrast');
+  // captionColor: palette.caption unless the look asks; then the node's colour where it reaches the floor on every colour of the ground.
+  const dark = { bg: '#050913', caption: '#d6f5fa', captionNode: true };
+  assert.equal(E.captionColor(Object.assign({}, dark, { captionNode: undefined }), '#58e6ff'), '#d6f5fa', 'not asked for');
+  assert.equal(E.captionColor(Object.assign({}, dark, { captionNode: 'yes' }), '#58e6ff'), '#d6f5fa', 'only true asks for it');
+  assert.equal(E.captionColor(dark, '#58e6ff'), '#58e6ff');
+  assert.equal(E.captionColor(dark, '#3a4a5a'), '#d6f5fa', 'under the floor on the background');
+  assert.equal(E.captionColor(dark, 'cyan'), '#d6f5fa', 'a colour the engine cannot read');
+  // A ground counts with every stop: a colour that passes on the background and fails on the lightest stop is not used.
+  const grey = '#8a8a8a', lit = Object.assign({}, dark, { ground: { shape: 'round', stops: [[0, '#4a4a4a'], [1, '#050913']] } });
+  assert.ok(E.contrast(grey, dark.bg) >= 4.5 && E.contrast(grey, '#4a4a4a') < 4.5);
+  assert.deepEqual([E.captionColor(dark, grey), E.captionColor(lit, grey), E.captionColor(lit, '#58e6ff')], [grey, '#d6f5fa', '#58e6ff']);
+  // In a scene. The test look asks for it; its tool amber is under the floor on its ground, its other colours are over it.
+  const pal = KNOBS.palette, { view, drawn, model, frame } = sceneIn(KNOBS);
+  const least = color => Math.min(...E.groundColors(pal).map(ground => E.contrast(color, ground)));
+  assert.ok(least(pal.cls.tool) < 4.5 && least(pal.cls.agent) >= 4.5 && least(pal.cls.resource) >= 4.5 && least(pal.cls.mcp) >= 4.5, M.CLASSES.map(cls => cls + ' ' + least(pal.cls[cls]).toFixed(2)).join(', '));
+  view.setSelected(FIXED.SELECTED); frame();
+  const lines = firstLines(KNOBS, view, drawn), by = {};
+  for (const line of lines) {
+    const n = model.nodes.get(line.id), cls = n.cls === 'stack' ? n.of : n.cls;
+    if (line.id === FIXED.SELECTED) { assert.equal(line.color, pal.ink, 'the selected caption keeps the ink'); continue; }
+    (by[cls] = by[cls] || { colors: new Set(), states: new Set() }).colors.add(line.color);
+    by[cls].states.add(n.status);
+  }
+  assert.deepEqual([...by.agent.colors], [pal.cls.agent], 'an agent\'s caption is in its colour');
+  assert.ok(by.agent.states.size >= 2, 'agents in ' + by.agent.states.size + ' states have the one colour: a state never colours a caption');
+  assert.deepEqual([...by.tool.colors], [pal.caption], 'a tool\'s amber is under the floor: its caption keeps palette.caption');
+  assert.deepEqual([...by.mcp.colors], [pal.cls.mcp]);
+  if (by.resource) assert.deepEqual([...by.resource.colors], [pal.cls.resource]);
+  // The second line (the state's word) keeps palette.muted, and the workspace names on the tiles keep palette.caption.
+  assert.ok(drawn.texts.some(t => t.color === pal.muted), 'a second line in palette.muted');
+  for (const tile of view.tileLabels) assert.equal(drawn.texts.find(t => t.text === tile.text && Math.abs(t.x - (tile.x + 2)) < .01).color, pal.caption, 'a tile\'s name');
+  // Pointed at, a caption has the ink, as the selected one has.
+  const other = lines.find(line => line.id !== FIXED.SELECTED && line.color === pal.cls.agent);
+  view.hover = other.id; frame();
+  assert.equal(firstLines(KNOBS, view, drawn).find(line => line.id === other.id).color, pal.ink, 'the pointed-at caption keeps the ink');
+  // With providers' colours, an agent's caption has its provider's.
+  const provided = Object.assign({}, LOOKS.nexus, { palette: Object.assign({}, LOOKS.nexus.palette, { captionNode: true }) }), p = sceneIn(provided);
+  const agents = firstLines(provided, p.view, p.drawn).filter(line => p.model.nodes.get(line.id).cls === 'agent');
+  assert.ok(agents.length >= 3);
+  for (const line of agents) assert.equal(line.color, provided.palette.provider[p.view.providerOf(p.model.nodes.get(line.id))], line.id);
+  // And NEXUS itself, which does not ask: every caption at rest in palette.caption.
+  const n = sceneIn(LOOKS.nexus);
+  assert.deepEqual([...new Set(firstLines(LOOKS.nexus, n.view, n.drawn).map(line => line.color))], [LOOKS.nexus.palette.caption]);
+});
+
 test('the contract: a backdrop at the limits is one path for each item, is kept between frames, and is behind everything', () => {
   let asked = 0;
   const look = Object.assign({}, KNOBS, { backdrop: scene => { asked++; return KNOBS.backdrop(scene); } });
@@ -528,16 +715,31 @@ if (skip) console.log(skip);
 const T = { timeout: 120000, skip };
 const measured = {};
 
-/** The scene canvas's pixels as one number, how much of it is not the background, and the size the view has. */
+/** The scene canvas's pixels as one number, how much of it is not the background, and the size the view has.
+    The background is the engine's own fill on a second canvas of the same size: the flat colour, or the look's ground. A pixel of
+    a ground counts as background when it is within 2 of it in every channel: a browser may rasterise a gradient a shade apart
+    on a canvas that was read back. A flat background is compared exactly, as it always was. */
 const PICTURE = `(() => {
-  const v = Monitor3D.view, c = v.canvas, ctx = c.getContext('2d'), d = new Uint32Array(ctx.getImageData(0, 0, c.width, c.height).data.buffer);
-  const probe = document.createElement('canvas'); probe.width = probe.height = 1;
-  const p = probe.getContext('2d'); p.fillStyle = v.look.palette.bg; p.fillRect(0, 0, 1, 1);
-  const bg = new Uint32Array(p.getImageData(0, 0, 1, 1).data.buffer)[0];
+  const v = Monitor3D.view, c = v.canvas, ctx = c.getContext('2d'), bytes = ctx.getImageData(0, 0, c.width, c.height).data, d = new Uint32Array(bytes.buffer);
+  const probe = document.createElement('canvas'); probe.width = c.width; probe.height = c.height;
+  const p = probe.getContext('2d'); p.setTransform(v.ratio, 0, 0, v.ratio, 0, 0);
+  const groundError = MonitorEngine.paintGround(p, v.look.palette, v.width, v.height);
+  const g = p.getImageData(0, 0, c.width, c.height).data, slack = v.look.palette.ground === undefined ? 0 : 2;
   let h = 2166136261, other = 0;
-  for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); if (d[i] !== bg) other++; }
-  return { hash: (h >>> 0).toString(16), drawn: other / d.length, width: v.width, height: v.height, nodes: v.stats.nodes, captions: v.labels.length, backdrop: v.backdropInfo };
+  for (let i = 0; i < d.length; i++) {
+    h ^= d[i]; h = Math.imul(h, 16777619);
+    const at = i * 4;
+    if (Math.abs(bytes[at] - g[at]) > slack || Math.abs(bytes[at + 1] - g[at + 1]) > slack || Math.abs(bytes[at + 2] - g[at + 2]) > slack || bytes[at + 3] !== g[at + 3]) other++;
+  }
+  return { hash: (h >>> 0).toString(16), drawn: other / d.length, width: v.width, height: v.height, nodes: v.stats.nodes, captions: v.labels.length, backdrop: v.backdropInfo, ground: [v.groundError, groundError] };
 })()`;
+/* A ground on a real canvas of 400 x 200: the pixel at each named place, as [r, g, b]. */
+const GROUND_PIXELS = `(palette => {
+  const c = document.createElement('canvas'); c.width = 400; c.height = 200;
+  const ctx = c.getContext('2d', { willReadFrequently: true }), error = MonitorEngine.paintGround(ctx, palette, 400, 200);
+  const at = (x, y) => [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3);
+  return { error, middle: at(200, 100), corner: at(0, 0), far: at(399, 199), top: at(200, 0), bottom: at(200, 199), left: at(0, 100), halfRight: at(300, 100), halfDown: at(200, 150), alpha: ctx.globalAlpha };
+})`;
 /* One frame as a number made of everything it asks the canvas to draw, with the style in force; then the same frame a minute
    later by the page's clocks, with Math.random forbidden. Pixels are not compared here: a browser may rasterise the same
    commands differently after the canvas has been read back, and what must not differ is what the look asks for. */
@@ -653,7 +855,10 @@ describe('the looks in a headless browser', () => {
       assert.equal(b[2] - a[2], 0, 'strokes at rest');
       const picture = await h.eval(PICTURE);
       assert.equal(picture.nodes, [...FIXED.model().nodes.values()].filter(n => !n.folded).length, 'every standing node is drawn');
-      assert.ok(picture.drawn > .02, 'more than the background is drawn: ' + (picture.drawn * 100).toFixed(1) + ' % of the canvas');
+      assert.deepEqual(picture.ground, ['', ''], 'the background is drawn without an error');
+      // More than the background is drawn, and the background is still most of the picture (a ground that was not the one drawn would count as all of it).
+      assert.ok(picture.drawn > .02 && picture.drawn < .6, 'what is drawn over the background: ' + (picture.drawn * 100).toFixed(1) + ' % of the canvas');
+      (measured.drawn = measured.drawn || {})[id] = +(picture.drawn * 100).toFixed(1);
       assert.ok(picture.captions >= 6, 'captions: ' + picture.captions);
       if (picture.backdrop) assert.deepEqual([picture.backdrop.over, picture.backdrop.error], [{}, ''], 'the backdrop is inside its limits');
       // Drawn again a minute later with nothing changed, it is the same drawing: nothing in a look depends on when it is drawn.
@@ -879,6 +1084,40 @@ describe('the looks in a headless browser', () => {
     after = await h.counters();
     assert.deepEqual([after[0] - before[0], after[1] - before[1], (await h.eval(LOOK_STATE)).look], [0, 0, 'nexus']);
     await noErrors('colours from the page');
+  });
+
+  it('a ground on a real canvas: round to the farthest corner, straight from top to bottom, and a colour the canvas refuses leaves the flat background', T, async () => {
+    await h.open();
+    const shade = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 2);
+    const paint = palette => h.eval(GROUND_PIXELS + '(' + JSON.stringify(palette) + ')');
+    // Round, from red in the middle to blue at the rim: the rim runs through the corners, as CSS's "farthest-corner" does.
+    const round = await paint({ bg: '#00ff00', ground: { shape: 'round', stops: [[0, '#ff0000'], [1, '#0000ff']] } });
+    assert.equal(round.error, '');
+    assert.ok(shade(round.middle, [255, 0, 0]) && shade(round.corner, [0, 0, 255]) && shade(round.far, [0, 0, 255]), JSON.stringify(round));
+    // An ellipse and not a circle: half way to the right edge and half way to the bottom edge are the same shade, though one is 100 px out and the other 50.
+    assert.ok(shade(round.halfRight, round.halfDown) && round.halfRight[0] > 100 && round.halfRight[2] > 60, JSON.stringify([round.halfRight, round.halfDown]));
+    assert.ok(shade(round.top, round.left), 'the middle of each side is as far along: ' + JSON.stringify([round.top, round.left]));
+    // Off centre: the ellipse still reaches the farthest corner (here the top ones), and is redder near its centre.
+    const low = await paint({ bg: '#00ff00', ground: { shape: 'round', at: [.5, .75], stops: [[0, '#ff0000'], [1, '#0000ff']] } });
+    assert.ok(shade(low.corner, [0, 0, 255]) && low.bottom[0] > low.top[0] + 60 && low.halfDown[0] > 240, JSON.stringify(low));
+    // Straight: top to bottom unless told otherwise; the same along a row.
+    const down = await paint({ bg: '#00ff00', ground: { shape: 'straight', stops: [[0, '#ffffff'], [1, '#000000']] } });
+    assert.ok(down.error === '' && down.top[0] > 250 && down.bottom[0] < 5 && shade(down.left, down.halfRight) && Math.abs(down.middle[0] - 127) < 4, JSON.stringify(down));
+    const across = await paint({ bg: '#00ff00', ground: { shape: 'straight', from: [0, .5], to: [1, .5], stops: [[0, '#ffffff'], [1, '#000000']] } });
+    assert.ok(across.left[0] > 250 && shade(across.top, across.bottom) && across.halfRight[0] < 70, JSON.stringify(across));
+    // A colour the canvas refuses: the flat background everywhere, the reason given, and no throw.
+    const refused = await paint({ bg: '#00ff00', ground: { shape: 'round', stops: [[0, 'not-a-colour'], [1, '#0000ff']] } });
+    assert.ok(refused.error.length > 0, 'the canvas\'s own reason');
+    assert.deepEqual([refused.middle, refused.corner, refused.far], [[0, 255, 0], [0, 255, 0], [0, 255, 0]]);
+    // No ground: the flat background, exactly.
+    const flat = await paint({ bg: '#123456' });
+    assert.deepEqual([flat.error, flat.middle, flat.corner, flat.far, flat.alpha], ['', [0x12, 0x34, 0x56], [0x12, 0x34, 0x56], [0x12, 0x34, 0x56], 1]);
+    // The test look's ground in the page: lighter in the middle of the scene's background than at its corner, which is the background's own colour.
+    await h.eval(KNOBS_SOURCE);
+    const knobs = await h.eval(GROUND_PIXELS + '(MonitorLooks["every-knob"].palette)');
+    assert.deepEqual([knobs.error, knobs.corner], ['', [0xf4, 0xef, 0xe6]]);
+    assert.ok(shade(knobs.middle, [0xff, 0xfa, 0xf0]), 'the middle: ' + JSON.stringify(knobs.middle));
+    await noErrors('a ground on a real canvas');
   });
 
   it('the shoot tool writes one picture for the look named and no other, where it is told to', T, async () => {
